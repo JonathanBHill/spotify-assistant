@@ -36,7 +36,6 @@ pub trait Api {
             }
             None => {
                 let env_file = ProjectFiles::DotEnv.path();
-                let exist = env_file.exists();
                 if !env_file.exists() {
                     error!(
                         name: "credentials",

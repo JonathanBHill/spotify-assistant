@@ -2,9 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use rspotify::{AuthCodeSpotify, scopes};
 use rspotify::clients::OAuthClient;
-use rspotify::clients::pagination::paginate;
-use rspotify::model::{FullTrack, Id, PlayHistory, PrivateUser, SubscriptionLevel, TimeRange};
-use rspotify::model::context::Context;
+use rspotify::model::{FullTrack, Id, PrivateUser, SubscriptionLevel, TimeRange};
 use tracing::{event, info, Level};
 
 use crate::core::models::traits::Api;
@@ -116,7 +114,7 @@ impl UserData {
                 None
             ).await {
             Ok(top_track) => top_track.total,
-            Err(error) => panic!("Could not get top tracks: {error}")
+            Err(error) => panic!("Could not get top tracks: {:?}", error)
         };
         let mut top_vec = Vec::with_capacity(total_top_tracks as usize);
         let page_size = 50;
@@ -153,40 +151,7 @@ impl UserData {
         }
         top_vec
     }
-    pub fn threads(&self, pages: i32) {
-        // let (sender, receiver) = std::sync::mpsc::channel();
-        let cap = pages * 50;
-        let mut top_tracks: Vec<FullTrack> = Vec::with_capacity(cap as usize);
-        let mut page_hashmap: HashMap<i32, Vec<FullTrack>> = HashMap::new();
-        let pages_per_thread = pages / 2;
-        let first_half_of_pages = pages_per_thread;
-        let second_half_of_pages = pages_per_thread * 2;
-        let thread1 = std::thread::spawn(move || {
-            for i in 0..first_half_of_pages {
-                println!("Hi, number {i} from the first spawned thread!");
-                std::thread::sleep(std::time::Duration::from_millis(1));
-            }
-        });
-        let thread2 = std::thread::spawn(move || {
-            for i in second_half_of_pages / 2..second_half_of_pages {
-                println!("Hi, number {i} from the second spawned thread!");
-                std::thread::sleep(std::time::Duration::from_millis(1));
-            }
-        });
-        let remainder = pages - pages_per_thread * 2;
-        println!("Rem1: {remainder} | rem2 {}", pages % 2);
-        if pages_per_thread * 2 < pages {
-            
-            println!("Must execute main thread for remainder: {remainder}");
-            for i in pages_per_thread * 2..pages {
-                println!("Hi, number {i} from the main thread! (remainder)");
-                std::thread::sleep(std::time::Duration::from_millis(1));
-            }
-        }
-        thread1.join().unwrap();
-        thread2.join().unwrap();
-    }
-    
+
     pub async fn playlists(&self) {
         let span = tracing::span!(Level::INFO, "UserData.playlists");
         let _enter = span.enter();
@@ -195,46 +160,11 @@ impl UserData {
                 Some(1), None
             ).await {
             Ok(playlists) => playlists,
-            Err(error) => panic!("Could not get playlists: {error}")
+            Err(error) => panic!("Could not get playlists: {:?}", error)
         };
         playlists.items.iter().for_each(|playlist| {
             info!("{:?}", playlist.name);
         });
         info!("Total playlists: {}", playlists.total);
-        // let playlists = paginate(
-        //     |limit, offset| self.client.current_user_playlists(Some(limit), Some(offset)),
-        //     50,
-        // ).await;
-        // let playlist_ids = playlists
-        //     .iter()
-        //     .map(|playlist| {
-        //         playlist.id.clone()
-        //     })
-        //     .collect::<Vec<Id>>();
-        // let playlist_tracks = paginate(
-        //     |limit, offset| self.client.playlist_tracks(playlist_ids[0].clone(), Some(limit), Some(offset)),
-        //     50,
-        // ).await;
-        // let track_ids = playlist_tracks
-        //     .iter()
-        //     .map(|track| {
-        //         track.track.id.clone()
-        //     })
-        //     .collect::<Vec<Id>>();
-        // let track_features = self.client.audio_features(track_ids).await;
-        // let track_features = track_features.expect("Could not get track features");
-        // let track_features = track_features
-        //     .iter()
-        //     .map(|track| {
-        //         track.unwrap()
-        //     })
-        //     .collect::<Vec<FullTrack>>();
-        // let track_features = track_features
-        //     .iter()
-        //     .map(|track| {
-        //         track.name.clone()
-        //     })
-        //     .collect::<Vec<String>>();
-        // println!("{:?}", track_features);
     }
 }

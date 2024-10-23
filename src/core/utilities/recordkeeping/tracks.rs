@@ -14,19 +14,14 @@ impl ETrackIO {
     pub fn file_location(&self) -> PathBuf {
         let proj_fs = ProjectFileSystem::new();
         let data_dir = proj_fs.data_directory.path();
-        let location = match self {
+        match self {
             ETrackIO::TopTracks => {
                 let tm = chrono::Local::now(); //.format("%M-%D-%Y");
                 let formatted = format!("{}", tm.format("%m-%d-%y"));
                 let join_path = format!("TopTracks/{formatted}.yaml");
                 data_dir.join(join_path)
             }
-            _ => {
-                panic!("Not yet implemented")
-            }
-        };
-        location
-
+        }
     }
 }
 
@@ -49,7 +44,7 @@ impl TracksIO {
     pub fn serialize(&self, tracks: &Vec<FullTrack>) {
         let yaml_string = match serde_yaml::to_string(tracks) {
             Ok(stringed) => stringed,
-            Err(error) => panic!("Could not serialize: {error}")
+            Err(error) => panic!("Could not serialize: {:?}", error)
         };
         println!("File location: {:?}", self.write_type.file_location());
         fs::write(self.write_type.file_location(), yaml_string).expect("Could not serialize");
