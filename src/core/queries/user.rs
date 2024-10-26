@@ -42,6 +42,13 @@ impl UserData {
     pub fn product(&self) -> SubscriptionLevel {
         self.user.product.unwrap_or(SubscriptionLevel::Free)
     }
+    pub fn product_as_string(&self) -> String {
+        let product = self.user.product.unwrap_or(SubscriptionLevel::Free);
+        match product {
+            SubscriptionLevel::Premium => { "Premium".to_string() },
+            SubscriptionLevel::Free => { "Free".to_string() },
+        }
+    }
     pub fn urls(&self) -> HashMap<String, String> {
         let mut urls = HashMap::new();
         for (key, value) in self.user.external_urls.iter() {
@@ -50,8 +57,15 @@ impl UserData {
         urls.insert("href".to_string(), self.user.href.clone());
         urls
     }
-    pub fn followers(&self) -> String {
+    pub fn image(&self) -> String {
+        let images = self.user.images.clone().expect("Could not get the user's images");
+        images[0].url.clone()
+    }
+    pub fn followers_as_string(&self) -> String {
         self.user.followers.clone().unwrap_or_default().total.to_string()
+    }
+    pub fn followers(&self) -> u32 {
+        self.user.followers.clone().unwrap_or_default().total
     }
     pub fn user_id(&self, id_type: Option<String>) -> String {
         match id_type {
