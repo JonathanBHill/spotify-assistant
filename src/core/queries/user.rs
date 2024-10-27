@@ -20,7 +20,8 @@ impl Api for UserData {
             "user-read-private",
             "user-read-email",
             "user-read-recently-played",
-            "user-top-read"
+            "user-top-read",
+            "user-follow-read"
         )
     }
 }
@@ -180,5 +181,43 @@ impl UserData {
             info!("{:?}", playlist.name);
         });
         info!("Total playlists: {}", playlists.total);
+    }
+    pub async fn artists(&self) {
+        let span = tracing::span!(Level::INFO, "UserData.artists");
+        let _enter = span.enter();
+
+        let limit = 50;
+        let artists = self.client.current_user_followed_artists(None, Some(1)).await;
+        match artists {
+            Ok(artists) => {
+                let total = artists.total.unwrap_or(limit);
+                let mut last_artist_id = artists.items.last().unwrap().id.clone();
+                let repetitions = total / limit;
+                let remainder = total % limit;
+                let pages = if remainder > 0 {
+                    repetitions + 1
+                } else {
+                    repetitions
+                };
+                info!("Total pages: {:?}", pages);
+                info!("Total artists: {:?}", total);
+                for page in 0..pages {
+                    info!("Page: {:?} of {}", page + 1, pages);
+                    let artists = self.client.current_user_followed_artists(Some(last_artist_id.id()), Some(limit)).await;
+                    match artists {
+                        Ok(artists) => {
+                            last_artist_id = artists.items.last().unwrap().id.clone();
+                            artists.items.iter().enumerate().for_each(|(index, artist)| {
+                                let true_index = index as u32 + (page * limit);
+                                info!("{}: {:?}", true_index, artist.name);
+                            });
+                        },
+                        Err(error) => panic!("Could not get artists: {:?}", error),
+                    }
+                }
+                info!("Total artists: {:?}", artists.total);
+            },
+            Err(error) => panic!("Could not get artists: {:?}", error),
+        }
     }
 }
