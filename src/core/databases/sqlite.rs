@@ -1,18 +1,18 @@
-use std::collections::HashMap;
-use std::path::PathBuf;
-
+#[cfg(feature = "rusqlite")]
 use rusqlite::{Connection, Error, params};
-use tracing::{debug, event, info, Level};
 
+#[cfg(feature = "rusqlite")]
 use crate::core::databases::querying::UserDB;
+#[cfg(feature = "rusqlite")]
 use crate::core::enums::db::{InitTables, Insert, SQLiteStatements};
-use crate::core::utilities::filesystem::initialization::ProjectFileSystem;
 
-#[cfg(feature = "sqlite")]
+#[cfg(feature = "rusqlite")]
 pub struct Sqweel {
     pub conn: rusqlite::Connection,
     pub data_dir: PathBuf,
 }
+
+#[cfg(feature = "rusqlite")]
 impl Sqweel {
     pub fn new() -> Result<Self, Error> {
         let span = tracing::span!(Level::INFO, "Sqweel.new");

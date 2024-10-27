@@ -1,11 +1,10 @@
-use std::collections::HashMap;
-
-#[cfg(feature = "sqlite")]
+#[cfg(feature = "rusqlite")]
 pub enum SQLiteStatements {
     InitTables(InitTables),
     Insert(Insert)
 }
-#[cfg(feature = "sqlite")]
+
+#[cfg(feature = "rusqlite")]
 impl SQLiteStatements {
     pub fn string(&self) -> String {
         match self {
@@ -46,13 +45,15 @@ impl SQLiteStatements {
     }
 }
 
-#[cfg(feature = "sqlite")]
+#[cfg(feature = "rusqlite")]
 pub enum TableColumns {
     User,
     Playlists,
     Tracks,
     Artists,
 }
+
+#[cfg(feature = "rusqlite")]
 impl TableColumns {
     pub fn with_properties(&self) -> HashMap<&str, &str> {
         let mut table_columns: HashMap<&str, &str> = HashMap::new();
@@ -149,7 +150,8 @@ impl TableColumns {
         table_names
     }
 }
-#[cfg(feature = "sqlite")]
+
+#[cfg(feature = "rusqlite")]
 pub enum InitTables {
     User,
     Playlists,
@@ -158,6 +160,8 @@ pub enum InitTables {
     FollowedArtists,
     LikedTracks,
 }
+
+#[cfg(feature = "rusqlite")]
 impl InitTables {
     pub fn new_table(&self, table_columns: HashMap<&str, &str>) -> String {
         let return_data = match self {
@@ -204,7 +208,7 @@ impl InitTables {
     }
 }
 
-#[cfg(feature = "sqlite")]
+#[cfg(feature = "rusqlite")]
 pub enum Insert {
     User,
     Playlists,
@@ -213,6 +217,8 @@ pub enum Insert {
     FollowedArtists,
     LikedTracks,
 }
+
+#[cfg(feature = "rusqlite")]
 impl Insert {
     pub async fn string(&self) -> String {
         match self {

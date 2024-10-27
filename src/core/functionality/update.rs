@@ -79,7 +79,6 @@ impl ReleaseRadar {
             .collect();
         rr_track_album_ids
     }
-
     fn append_uniques<'a>(existing: &Vec<TrackId<'a>>, new: &[TrackId<'a>]) -> Vec<TrackId<'a>> {
         let mut extended = existing.to_owned();
         let intersection: Vec<TrackId> = existing
@@ -178,7 +177,6 @@ impl ReleaseRadar {
             }
         }
     }
-
     fn print_all_album_track_ids(album_track_ids: &[Vec<TrackId>]) {
         album_track_ids
             .iter()

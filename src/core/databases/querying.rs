@@ -1,8 +1,4 @@
-use tracing::{info, Level};
-
-use crate::core::queries::user::UserData;
-
-#[cfg(any(feature = "sqlite", feature = "alldb"))]
+#[cfg(any(feature = "rusqlite", feature = "alldb"))]
 pub struct UserDB {
     pub id: String,
     pub name: String,
@@ -16,6 +12,8 @@ pub struct UserDB {
     pub explicit_filter_locked: bool,
     pub last_updated: chrono::NaiveDateTime,
 }
+
+#[cfg(feature = "rusqlite")]
 impl UserDB {
     pub async fn new() -> Self {
         let span = tracing::span!(Level::INFO, "UserDB.new");
