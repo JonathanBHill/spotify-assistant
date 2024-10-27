@@ -2,7 +2,8 @@ use std::collections::HashSet;
 use std::env;
 
 use rspotify::{AuthCodeSpotify, Config, Credentials, OAuth};
-use rspotify::model::Market;
+use rspotify::model::{Id, Market, TrackId};
+use rspotify::model::{ArtistId, PlaylistId};
 use rspotify::prelude::OAuthClient;
 use tracing::{error, event, Level, span, trace};
 
@@ -97,12 +98,22 @@ pub trait Api {
         spotify_client.prompt_for_token(&url).await.unwrap();
         spotify_client
     }
-}
-
-pub trait Querying {
     fn market() -> Market {
         Market::Country(rspotify::model::Country::UnitedStates)
     }
-    
+    fn clean_duplicates_hashset<T: Clone + Eq + Id + std::hash::Hash>(data: Vec<T>) -> Vec<T> {
+        let mut cleaned_vec = Vec::new();
+        let mut seen = HashSet::new();
+        data.into_iter().for_each(|item| {
+            if seen.insert(item.clone()) {
+                cleaned_vec.push(item);
+            }
+        });
+        cleaned_vec
+    }
+}
+
+pub trait Querying {
+
     async fn new() -> Self;
 }
