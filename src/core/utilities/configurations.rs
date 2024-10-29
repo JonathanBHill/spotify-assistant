@@ -1,6 +1,8 @@
 use ansi_term::Color;
 use tracing::Level;
-use tracing_subscriber::fmt::{FmtContext, format::Writer, FormatEvent, FormatFields, FormattedFields};
+use tracing_subscriber::fmt::{
+    FmtContext, format::Writer, FormatEvent, FormatFields, FormattedFields,
+};
 use tracing_subscriber::fmt::time::{ChronoLocal, FormatTime};
 use tracing_subscriber::registry::LookupSpan;
 
