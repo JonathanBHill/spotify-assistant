@@ -1,2 +1,2 @@
-pub mod exploration;
 pub mod update;
+pub mod exploration;

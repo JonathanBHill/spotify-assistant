@@ -1,11 +1,11 @@
 use std::collections::HashSet;
 
+use rspotify::{AuthCodeSpotify, scopes};
 use rspotify::clients::{BaseClient, OAuthClient};
 use rspotify::model::{AlbumId, FullPlaylist, Id, PlayableId, PlayableItem, PlaylistId, TrackId};
-use rspotify::{scopes, AuthCodeSpotify};
 use tracing::{error, info, Level};
 
-use crate::core::models::enums::PlaylistType;
+use crate::core::enums::pl::PlaylistType;
 use crate::core::models::traits::{Api, Querying};
 use crate::core::utilities::miscellaneous::print_separator;
 

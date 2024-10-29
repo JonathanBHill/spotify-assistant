@@ -1,23 +1,23 @@
 use std::collections::HashSet;
 
+use rspotify::{AuthCodeSpotify, scopes};
 use rspotify::clients::BaseClient;
 use rspotify::model::{
     AlbumId, ArtistId, FullPlaylist, FullTrack, PlayableItem, PlaylistId, SimplifiedAlbum,
     SimplifiedArtist, TrackId,
 };
-use rspotify::{scopes, AuthCodeSpotify};
 use tracing::{event, Level};
 
 use crate::core::models::traits::Api;
 
-pub struct ExplorePlaylist {
+pub struct PlaylistXplr {
     pub client: AuthCodeSpotify,
     pub playlist_id: PlaylistId<'static>,
     pub full_playlist: FullPlaylist,
     duplicates: bool,
 }
 
-impl Api for ExplorePlaylist {
+impl Api for PlaylistXplr {
     fn select_scopes() -> HashSet<String> {
         scopes!(
             "playlist-read-private",
@@ -28,7 +28,7 @@ impl Api for ExplorePlaylist {
     }
 }
 
-impl ExplorePlaylist {
+impl PlaylistXplr {
     pub async fn new(playlist_id: PlaylistId<'static>, duplicates: bool) -> Self {
         let span = tracing::span!(Level::INFO, "ExplorePlaylist.new");
         let _enter = span.enter();
@@ -40,7 +40,7 @@ impl ExplorePlaylist {
             .await
             .expect("Could not retrieve playlist");
         event!(Level::DEBUG, "Playlist data has been retrieved.");
-        ExplorePlaylist {
+        PlaylistXplr {
             client,
             playlist_id,
             full_playlist,

@@ -52,7 +52,7 @@ mod tests {
     use rspotify::prelude::Id;
 
     use crate::core::enums::fs::ProjectDirectories;
-    use crate::core::models::enums::*;
+    use crate::core::enums::pl::*;
 
     #[test]
     fn test_path() {
