@@ -1,7 +1,7 @@
 #[cfg(feature = "rusqlite")]
 pub enum SQLiteStatements {
     InitTables(InitTables),
-    Insert(Insert)
+    Insert(Insert),
 }
 
 #[cfg(feature = "rusqlite")]
@@ -32,15 +32,13 @@ impl SQLiteStatements {
                 }
                 init.new_table(table_columns)
             }
-            _ => "".to_string()
+            _ => "".to_string(),
         }
     }
     pub async fn async_string(&self) -> String {
         match self {
-            SQLiteStatements::Insert(insert) => {
-                insert.string().await
-            }
-            _ => "".to_string()
+            SQLiteStatements::Insert(insert) => insert.string().await,
+            _ => "".to_string(),
         }
     }
 }
@@ -61,7 +59,7 @@ impl TableColumns {
         table_columns.insert("name", "varchar(60) not null");
         table_columns.insert("spotify_url", "varchar(60)");
         table_columns.insert("href", "varchar(60)");
-        table_columns.insert("image", "varchar(60)");  // Image URL
+        table_columns.insert("image", "varchar(60)"); // Image URL
         match self {
             TableColumns::User => {
                 table_columns.insert("user_id", "varchar(45) not null");
@@ -80,7 +78,7 @@ impl TableColumns {
                 table_columns.insert("owner", "varchar(60)");
                 table_columns.insert("public", "boolean");
                 table_columns.insert("snapshot_id", "varchar(60)");
-                table_columns.insert("tracks", "integer");  // Track totals
+                table_columns.insert("tracks", "integer"); // Track totals
                 table_columns
             }
             TableColumns::Tracks => {
@@ -117,27 +115,51 @@ impl TableColumns {
         let mut table_names = match self {
             TableColumns::User => {
                 vec![
-                    "user_id", "name", "email", "plan",
-                    "followers", "explicit_filter_enabled",
-                    "explicit_filter_locked", "spotify_url",
-                    "href", "image", "last_updated"
+                    "user_id",
+                    "name",
+                    "email",
+                    "plan",
+                    "followers",
+                    "explicit_filter_enabled",
+                    "explicit_filter_locked",
+                    "spotify_url",
+                    "href",
+                    "image",
+                    "last_updated",
                 ]
             }
             TableColumns::Playlists => {
                 vec![
-                    "collaborative", "description", "followers",
-                    "owner", "public", "snapshot_id", "tracks"
+                    "collaborative",
+                    "description",
+                    "followers",
+                    "owner",
+                    "public",
+                    "snapshot_id",
+                    "tracks",
                 ]
             }
             TableColumns::Tracks => {
                 vec![
-                    "album", "artist", "artist_id",
-                    "additional_artists", "additional_artist_ids",
-                    "disc_number", "duration", "explicit",
-                    "external_id", "stored_local", "playable",
-                    "linked_from", "restrictions", "popularity",
-                    "track_number", "preview_url", "playlist_id",
-                    "added_at", "added_by"
+                    "album",
+                    "artist",
+                    "artist_id",
+                    "additional_artists",
+                    "additional_artist_ids",
+                    "disc_number",
+                    "duration",
+                    "explicit",
+                    "external_id",
+                    "stored_local",
+                    "playable",
+                    "linked_from",
+                    "restrictions",
+                    "popularity",
+                    "track_number",
+                    "preview_url",
+                    "playlist_id",
+                    "added_at",
+                    "added_by",
                 ]
             }
             TableColumns::Artists => {
@@ -167,44 +189,79 @@ impl InitTables {
         let return_data = match self {
             InitTables::User => {
                 let ordered_columns = TableColumns::User.names(true);
-                ("user", ordered_columns.iter().map(|key|
-                    format!("{} {}", key, table_columns.get(key).unwrap())
-                ).collect::<Vec<String>>().join(",\n"))
+                (
+                    "user",
+                    ordered_columns
+                        .iter()
+                        .map(|key| format!("{} {}", key, table_columns.get(key).unwrap()))
+                        .collect::<Vec<String>>()
+                        .join(",\n"),
+                )
             }
             InitTables::Playlists => {
                 let ordered_columns = TableColumns::Playlists.names(true);
-                ("playlists", ordered_columns.iter().map(|key|
-                    format!("{} {}", key, table_columns.get(key).unwrap())
-                ).collect::<Vec<String>>().join(",\n"))
+                (
+                    "playlists",
+                    ordered_columns
+                        .iter()
+                        .map(|key| format!("{} {}", key, table_columns.get(key).unwrap()))
+                        .collect::<Vec<String>>()
+                        .join(",\n"),
+                )
             }
             InitTables::PlaylistTracks => {
                 let ordered_columns = TableColumns::Tracks.names(true);
-                ("playlist_tracks", format!("{},\n{}",
-                    ordered_columns.iter().map(|key|
-                        format!("{} {}", key, table_columns.get(key).unwrap())
-                    ).collect::<Vec<String>>().join(",\n"),
-                    "foreign key (playlist_id) references playlists(id)"))
+                (
+                    "playlist_tracks",
+                    format!(
+                        "{},\n{}",
+                        ordered_columns
+                            .iter()
+                            .map(|key| format!("{} {}", key, table_columns.get(key).unwrap()))
+                            .collect::<Vec<String>>()
+                            .join(",\n"),
+                        "foreign key (playlist_id) references playlists(id)"
+                    ),
+                )
             }
             InitTables::LikedTracks => {
                 let ordered_columns = TableColumns::Tracks.names(true);
-                ("liked_tracks", ordered_columns.iter().map(|key|
-                    format!("{} {}", key, table_columns.get(key).unwrap())
-                ).collect::<Vec<String>>().join(",\n"))
+                (
+                    "liked_tracks",
+                    ordered_columns
+                        .iter()
+                        .map(|key| format!("{} {}", key, table_columns.get(key).unwrap()))
+                        .collect::<Vec<String>>()
+                        .join(",\n"),
+                )
             }
             InitTables::LikedTrackArtists => {
                 let ordered_columns = TableColumns::Artists.names(true);
-                ("liked_track_artists", ordered_columns.iter().map(|key|
-                    format!("{} {}", key, table_columns.get(key).unwrap())
-                ).collect::<Vec<String>>().join(",\n"))
+                (
+                    "liked_track_artists",
+                    ordered_columns
+                        .iter()
+                        .map(|key| format!("{} {}", key, table_columns.get(key).unwrap()))
+                        .collect::<Vec<String>>()
+                        .join(",\n"),
+                )
             }
             InitTables::FollowedArtists => {
                 let ordered_columns = TableColumns::Artists.names(true);
-                ("followed_artists", ordered_columns.iter().map(|key|
-                    format!("{} {}", key, table_columns.get(key).unwrap())
-                ).collect::<Vec<String>>().join(",\n"))
+                (
+                    "followed_artists",
+                    ordered_columns
+                        .iter()
+                        .map(|key| format!("{} {}", key, table_columns.get(key).unwrap()))
+                        .collect::<Vec<String>>()
+                        .join(",\n"),
+                )
             }
         };
-        format!("create table if not exists {} ({})", return_data.0, return_data.1)
+        format!(
+            "create table if not exists {} ({})",
+            return_data.0, return_data.1
+        )
     }
 }
 
@@ -224,68 +281,104 @@ impl Insert {
         match self {
             Insert::User => {
                 let column_names = TableColumns::User.names(false);
-                format!("insert into user ({}) values ({})",
-                    column_names.iter().map(
-                        |key| key.to_string()
-                    ).collect::<Vec<String>>().join(", "),
-                    column_names.iter().enumerate().map(
-                        |(index, _)| format!("?{}", index + 1)
-                    ).collect::<Vec<String>>().join(", ")
+                format!(
+                    "insert into user ({}) values ({})",
+                    column_names
+                        .iter()
+                        .map(|key| key.to_string())
+                        .collect::<Vec<String>>()
+                        .join(", "),
+                    column_names
+                        .iter()
+                        .enumerate()
+                        .map(|(index, _)| format!("?{}", index + 1))
+                        .collect::<Vec<String>>()
+                        .join(", ")
                 )
             }
             Insert::Playlists => {
                 let column_names = TableColumns::Playlists.names(false);
-                format!("insert into playlists ({}) values ({})",
-                    column_names.iter().map(
-                        |key| key.to_string()
-                    ).collect::<Vec<String>>().join(", "),
-                    column_names.iter().enumerate().map(
-                        |(index, _)| format!("?{}", index + 1)
-                    ).collect::<Vec<String>>().join(", ")
+                format!(
+                    "insert into playlists ({}) values ({})",
+                    column_names
+                        .iter()
+                        .map(|key| key.to_string())
+                        .collect::<Vec<String>>()
+                        .join(", "),
+                    column_names
+                        .iter()
+                        .enumerate()
+                        .map(|(index, _)| format!("?{}", index + 1))
+                        .collect::<Vec<String>>()
+                        .join(", ")
                 )
             }
             Insert::PlaylistTracks => {
                 let column_names = TableColumns::Tracks.names(false);
-                format!("insert into playlist_tracks ({}) values ({})",
-                    column_names.iter().map(
-                        |key| key.to_string()
-                    ).collect::<Vec<String>>().join(", "),
-                    column_names.iter().enumerate().map(
-                        |(index, _)| format!("?{}", index + 1)
-                    ).collect::<Vec<String>>().join(", ")
+                format!(
+                    "insert into playlist_tracks ({}) values ({})",
+                    column_names
+                        .iter()
+                        .map(|key| key.to_string())
+                        .collect::<Vec<String>>()
+                        .join(", "),
+                    column_names
+                        .iter()
+                        .enumerate()
+                        .map(|(index, _)| format!("?{}", index + 1))
+                        .collect::<Vec<String>>()
+                        .join(", ")
                 )
             }
             Insert::LikedTrackArtists => {
                 let column_names = TableColumns::Artists.names(false);
-                format!("insert into liked_track_artists ({}) values ({})",
-                    column_names.iter().map(
-                        |key| key.to_string()
-                    ).collect::<Vec<String>>().join(", "),
-                    column_names.iter().enumerate().map(
-                        |(index, _)| format!("?{}", index + 1)
-                    ).collect::<Vec<String>>().join(", ")
+                format!(
+                    "insert into liked_track_artists ({}) values ({})",
+                    column_names
+                        .iter()
+                        .map(|key| key.to_string())
+                        .collect::<Vec<String>>()
+                        .join(", "),
+                    column_names
+                        .iter()
+                        .enumerate()
+                        .map(|(index, _)| format!("?{}", index + 1))
+                        .collect::<Vec<String>>()
+                        .join(", ")
                 )
             }
             Insert::FollowedArtists => {
                 let column_names = TableColumns::Artists.names(false);
-                format!("insert into followed_artists ({}) values ({})",
-                    column_names.iter().map(
-                        |key| key.to_string()
-                    ).collect::<Vec<String>>().join(", "),
-                    column_names.iter().enumerate().map(
-                        |(index, _)| format!("?{}", index + 1)
-                    ).collect::<Vec<String>>().join(", ")
+                format!(
+                    "insert into followed_artists ({}) values ({})",
+                    column_names
+                        .iter()
+                        .map(|key| key.to_string())
+                        .collect::<Vec<String>>()
+                        .join(", "),
+                    column_names
+                        .iter()
+                        .enumerate()
+                        .map(|(index, _)| format!("?{}", index + 1))
+                        .collect::<Vec<String>>()
+                        .join(", ")
                 )
             }
             Insert::LikedTracks => {
                 let column_names = TableColumns::Tracks.names(false);
-                format!("insert into liked_tracks ({}) values ({})",
-                    column_names.iter().map(
-                        |key| key.to_string()
-                    ).collect::<Vec<String>>().join(", "),
-                    column_names.iter().enumerate().map(
-                        |(index, _)| format!("?{}", index + 1)
-                    ).collect::<Vec<String>>().join(", ")
+                format!(
+                    "insert into liked_tracks ({}) values ({})",
+                    column_names
+                        .iter()
+                        .map(|key| key.to_string())
+                        .collect::<Vec<String>>()
+                        .join(", "),
+                    column_names
+                        .iter()
+                        .enumerate()
+                        .map(|(index, _)| format!("?{}", index + 1))
+                        .collect::<Vec<String>>()
+                        .join(", ")
                 )
             }
         }

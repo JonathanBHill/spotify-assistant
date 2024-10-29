@@ -30,17 +30,28 @@ impl<S, N> FormatEvent<S, N> for CustomFormatter
             Level::DEBUG => Color::Blue.paint("DEBUG"),
             Level::TRACE => Color::White.paint("TRACE"),
         };
-        
+
         time.format_time(&mut writer.by_ref())?;
-        write!(writer, " [{}] {}.{} | ", log_type_color, module_path_color, event_code_line_color)?;
+        write!(
+            writer,
+            " [{}] {}.{} | ",
+            log_type_color, module_path_color, event_code_line_color
+        )?;
 
         // Retrieve and format the span's fields (if any)
         if let Some(scope) = ctx.event_scope() {
             let len = ctx.event_scope().unwrap().from_root().count();
             for (index, span) in scope.from_root().enumerate() {
                 // Colorize the span name
-                let fmt_span = Color::RGB(0,220,0).bold().paint(span.name().to_string()).to_string();
-                let fmt_arrow = Color::RGB(246, 115, 60).bold().blink().paint("->").to_string();
+                let fmt_span = Color::RGB(0, 220, 0)
+                    .bold()
+                    .paint(span.name().to_string())
+                    .to_string();
+                let fmt_arrow = Color::RGB(246, 115, 60)
+                    .bold()
+                    .blink()
+                    .paint("->")
+                    .to_string();
                 // Write span name
                 if index == len - 1 {
                     write!(writer, "{}: ", fmt_span)?;

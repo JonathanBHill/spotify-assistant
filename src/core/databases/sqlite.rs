@@ -1,5 +1,5 @@
 #[cfg(feature = "rusqlite")]
-use rusqlite::{Connection, Error, params};
+use rusqlite::{params, Connection, Error};
 
 #[cfg(feature = "rusqlite")]
 use crate::core::databases::querying::UserDB;
@@ -30,12 +30,30 @@ impl Sqweel {
         let _enter = span.enter();
 
         let mut init_table_statements = HashMap::new();
-        init_table_statements.insert("user", SQLiteStatements::InitTables(InitTables::User).string());
-        init_table_statements.insert("playlists", SQLiteStatements::InitTables(InitTables::Playlists).string());
-        init_table_statements.insert("playlist_tracks", SQLiteStatements::InitTables(InitTables::PlaylistTracks).string());
-        init_table_statements.insert("followed_artists", SQLiteStatements::InitTables(InitTables::FollowedArtists).string());
-        init_table_statements.insert("liked_tracks", SQLiteStatements::InitTables(InitTables::LikedTracks).string());
-        init_table_statements.insert("liked_track_artists", SQLiteStatements::InitTables(InitTables::LikedTrackArtists).string());
+        init_table_statements.insert(
+            "user",
+            SQLiteStatements::InitTables(InitTables::User).string(),
+        );
+        init_table_statements.insert(
+            "playlists",
+            SQLiteStatements::InitTables(InitTables::Playlists).string(),
+        );
+        init_table_statements.insert(
+            "playlist_tracks",
+            SQLiteStatements::InitTables(InitTables::PlaylistTracks).string(),
+        );
+        init_table_statements.insert(
+            "followed_artists",
+            SQLiteStatements::InitTables(InitTables::FollowedArtists).string(),
+        );
+        init_table_statements.insert(
+            "liked_tracks",
+            SQLiteStatements::InitTables(InitTables::LikedTracks).string(),
+        );
+        init_table_statements.insert(
+            "liked_track_artists",
+            SQLiteStatements::InitTables(InitTables::LikedTrackArtists).string(),
+        );
 
         for (key, statement) in init_table_statements.iter() {
             let mut key_as_chars = key.chars();
@@ -53,7 +71,9 @@ impl Sqweel {
         let span = tracing::span!(Level::INFO, "Sqweel.view_tables");
         let _enter = span.enter();
 
-        let mut tables = self.conn.prepare("SELECT name FROM sqlite_master WHERE type='table'")?;
+        let mut tables = self
+            .conn
+            .prepare("SELECT name FROM sqlite_master WHERE type='table'")?;
         let table_iter = tables.query_map([], |row| {
             let name: String = row.get(0)?;
             Ok(name)
@@ -72,12 +92,22 @@ impl Sqweel {
 
         self.conn.execute("delete from user", [])?;
         info!("Wiping user table");
-        self.conn.execute(&user_statement, params![
-            &user.id, &user.name, &user.email, &user.plan,
-            &user.followers, &user.explicit_filter_enabled,
-            &user.explicit_filter_locked, &user.spotify_url,
-            &user.href, &user.image, &user.last_updated,
-        ])?;
+        self.conn.execute(
+            &user_statement,
+            params![
+                &user.id,
+                &user.name,
+                &user.email,
+                &user.plan,
+                &user.followers,
+                &user.explicit_filter_enabled,
+                &user.explicit_filter_locked,
+                &user.spotify_url,
+                &user.href,
+                &user.image,
+                &user.last_updated,
+            ],
+        )?;
         Ok(())
     }
 }

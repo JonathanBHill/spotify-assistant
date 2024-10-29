@@ -1,11 +1,11 @@
 use std::collections::HashSet;
 use std::env;
 
-use rspotify::{AuthCodeSpotify, Config, Credentials, OAuth};
-use rspotify::model::{Id, Market, TrackId};
 use rspotify::model::{ArtistId, PlaylistId};
+use rspotify::model::{Id, Market, TrackId};
 use rspotify::prelude::OAuthClient;
-use tracing::{error, event, Level, span, trace};
+use rspotify::{AuthCodeSpotify, Config, Credentials, OAuth};
+use tracing::{error, event, span, trace, Level};
 
 use crate::core::enums::fs::{ProjectDirectories, ProjectFiles};
 
@@ -114,6 +114,5 @@ pub trait Api {
 }
 
 pub trait Querying {
-
     async fn new() -> Self;
 }

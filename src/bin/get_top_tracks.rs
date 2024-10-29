@@ -11,8 +11,7 @@ async fn main() {
         .with_max_level(Level::TRACE)
         .finish();
     // Initialize the global tracing subscriber
-    tracing::subscriber::set_global_default(subscriber)
-        .expect("setting default subscriber failed");
+    tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
 
     {
         let span = tracing::span!(Level::INFO, "main");

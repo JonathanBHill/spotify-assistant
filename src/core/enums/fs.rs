@@ -17,7 +17,8 @@ impl ProjectDirectories {
     #[cfg(target_os = "linux")]
     pub fn path(&self) -> PathBuf {
         let dir = directories::BaseDirs::new().expect("Could not get base directories");
-        let pdir = directories::ProjectDirs::from("com", "spotify-assistant", "spotify-assistant").expect("Could not find project directories");
+        let pdir = directories::ProjectDirs::from("com", "spotify-assistant", "spotify-assistant")
+            .expect("Could not find project directories");
         let directory_path = match self {
             ProjectDirectories::Home => dir.home_dir(),
             ProjectDirectories::Config => pdir.config_dir(),

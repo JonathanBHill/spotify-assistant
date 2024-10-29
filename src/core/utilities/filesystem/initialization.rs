@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use tracing::{debug, event, info, Level, span};
+use tracing::{debug, event, info, span, Level};
 
 use crate::core::enums::fs::ProjectDirectories;
 
@@ -26,14 +26,20 @@ impl ProjectFileSystem {
             state_directory: ProjectDirectories::State,
             cache_directory: ProjectDirectories::Cache,
         };
-        info!("Initializer struct has been initialized. Home directory set to: {:?}", new_init.home_directory.path());
+        info!(
+            "Initializer struct has been initialized. Home directory set to: {:?}",
+            new_init.home_directory.path()
+        );
         new_init
     }
     pub fn init(&self) {
         let dir_vec = vec![
-            self.home_directory.path(), self.config_directory.path(),
-            self.data_directory.path(), self.log_directory.path(),
-            self.state_directory.path(), self.cache_directory.path(),
+            self.home_directory.path(),
+            self.config_directory.path(),
+            self.data_directory.path(),
+            self.log_directory.path(),
+            self.state_directory.path(),
+            self.cache_directory.path(),
         ];
         let span = span!(Level::INFO, "Initializer.init");
         let _enter = span.enter();
@@ -42,16 +48,34 @@ impl ProjectFileSystem {
         }
     }
     pub fn create_directory(&self, directory_path: PathBuf) {
-        let span = span!(Level::INFO, "Initializer.create_directory", value = directory_path.clone().to_str().unwrap());
+        let span = span!(
+            Level::INFO,
+            "Initializer.create_directory",
+            value = directory_path.clone().to_str().unwrap()
+        );
         let _enter = span.enter();
-        event!(Level::INFO, "Attempting to create the following directory: {:?}", directory_path.clone().to_str().unwrap());
+        event!(
+            Level::INFO,
+            "Attempting to create the following directory: {:?}",
+            directory_path.clone().to_str().unwrap()
+        );
         if !directory_path.exists() {
-            std::fs::create_dir_all(directory_path.clone()).unwrap_or_else(|_| 
-                debug!("Unable to create the following directory: {:?}", directory_path.clone().to_str().unwrap())
+            std::fs::create_dir_all(directory_path.clone()).unwrap_or_else(|_| {
+                debug!(
+                    "Unable to create the following directory: {:?}",
+                    directory_path.clone().to_str().unwrap()
+                )
+            });
+            event!(
+                Level::INFO,
+                "{:?} was successfully created.",
+                directory_path.clone().to_str().unwrap()
             );
-            event!(Level::INFO, "{:?} was successfully created.", directory_path.clone().to_str().unwrap());
         } else {
-            event!(Level::INFO, "Skipping directory creation because it already exists.");
+            event!(
+                Level::INFO,
+                "Skipping directory creation because it already exists."
+            );
         }
     }
 }
