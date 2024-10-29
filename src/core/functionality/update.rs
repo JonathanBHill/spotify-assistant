@@ -153,6 +153,9 @@ impl ReleaseRadar {
                 if print {
                     info!("Replacing playlist with the first {:?} tracks", chunk.len());
                 }
+                let local_time = chrono::Local::now();
+                let local_time_string = local_time.format("%m/%d/%Y").to_string();
+                let description = format!("Release Radar playlist with songs from albums included. Created on 11/02/2023. Updated on {}.", local_time_string);
                 self.client
                     .playlist_change_detail(
                         pl_id.clone(),
