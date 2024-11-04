@@ -1,10 +1,10 @@
 #[cfg(feature = "rusqlite")]
-use rusqlite::{params, Connection, Error};
+use rusqlite::{Connection, Error, params};
 
 #[cfg(feature = "rusqlite")]
 use crate::core::databases::querying::UserDB;
 #[cfg(feature = "rusqlite")]
-use crate::core::enums::db::{InitTables, Insert, SQLiteStatements};
+use crate::core::enums::statements::{InitTables, Insert, SQLiteStatements};
 
 #[cfg(feature = "rusqlite")]
 pub struct Sqweel {

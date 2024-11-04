@@ -2,7 +2,7 @@ pub enum BatchLimits {
     Albums, // 20
     AlbumTracks, // 50
     GetSavedAlbums, // 50
-    ModifyCurrentUserAlbums, // 50 This applies to 'save albums for current user', 'remove users' saved albums', & 'check users saved albums'
+    ModifyCurrentUserAlbums, // 20 This applies to 'save albums for current user', 'remove users' saved albums', & 'check users saved albums'
     NewReleases, // 50
     Artists, // 50
     ArtistAlbums, //50
