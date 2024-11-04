@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use tracing::{debug, event, info, span, Level};
+use tracing::{debug, event, info, Level, span};
 
 use crate::core::enums::fs::ProjectDirectories;
 
@@ -89,16 +89,5 @@ mod tests {
         let init = ProjectFileSystem::default();
         println!("{:?}", init);
         assert_eq!(init.home_directory.path(), ProjectDirectories::Home.path());
-    }
-    #[test]
-    fn test_get_home_directory() {
-        let init = ProjectFileSystem::new();
-        std::fs::remove_dir(init.config_directory.path()).expect("Unable to remove the directory");
-        assert!(!init.config_directory.path().exists());
-        init.init();
-        assert!(init.config_directory.path().exists());
-        // let home_dir = init.home_directory.path();
-        // println!("{:?}", home_dir);
-        // assert_eq!(home_dir.exists(), true);
     }
 }

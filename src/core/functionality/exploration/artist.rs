@@ -23,7 +23,7 @@ pub struct ArtistXplr {
     discography_simple_album_guest: Vec<SimplifiedAlbum>,
     discography_album_ids_owned: Vec<AlbumId<'static>>,
     discography_album_ids_guest: Vec<AlbumId<'static>>,
-    pub discography_full_tracks: Vec<FullTrack>,
+    discography_full_tracks: Vec<FullTrack>,
     discography_simple_tracks: Vec<SimplifiedTrack>,
     discography_track_ids: Vec<TrackId<'static>>,
 }
@@ -372,5 +372,9 @@ mod tests {
     async fn test_album_methods() {
         let artist_id = ArtistId::from_id("7u160I5qtBYZTQMLEIJmyz").unwrap();
         let artist_xplr = ArtistXplr::new(artist_id.clone(), None).await;
+        let albums = artist_xplr.discography_full_album.clone();
+        let artists = albums[0].artists.clone();
+        let main_artist_id = artists[0].clone().id.unwrap();
+        assert_eq!(main_artist_id, artist_id);
     }
 }

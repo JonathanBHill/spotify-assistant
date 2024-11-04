@@ -176,7 +176,7 @@ impl ReleaseRadar {
                     info!("Adding {:?} tracks to the playlist", chunk.len());
                 }
                 self.client
-                    .playlist_add_items(pl_id.clone(), chunk_iterated, Option::None)
+                    .playlist_add_items(pl_id.clone(), chunk_iterated, None)
                     .await
                     .expect("Track IDs should be assigned to chunk_iterated as type TrackID");
             }
