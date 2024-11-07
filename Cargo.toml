@@ -1,0 +1,10 @@
+[workspace]
+members = [
+    "spotify-assistant-core",
+    "spotify-assistant-database",
+    "spotify-assistant",
+    "spotify-assistant-cli",
+    "spotify-assistant-tui",
+    "spotify-assistant-ai",
+]
+resolver = "2"

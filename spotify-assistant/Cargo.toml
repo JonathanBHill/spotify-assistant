@@ -1,0 +1,15 @@
+[package]
+name = "spotify-assistant"
+version = "0.1.0"
+resolver = "2"
+edition = "2021"
+
+[dependencies]
+rspotify = { version = "0.13.3", default-features = false, features = ["async-stream", "cli", "client-reqwest", "reqwest-default-tls", "env-file"] }
+tokio = { version = "1.41.0", features = ["full"] }
+tracing = "0.1.40"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter", "json", "default", "local-time", "chrono"] }
+spotify-assistant-core = { path = "../spotify-assistant-core" }
+spotify-assistant-database = { path = "../spotify-assistant-database", features = ["alldb"] }
+dotenv = "0.15.0"
+anyhow = "1.0.93"

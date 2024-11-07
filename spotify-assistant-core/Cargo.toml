@@ -1,0 +1,17 @@
+[package]
+name = "spotify-assistant-core"
+version = "0.1.0"
+resolver = "2"
+edition = "2021"
+
+[dependencies]
+rspotify = { version = "0.13.3", default-features = false, features = ["async-stream", "cli", "client-reqwest", "reqwest-default-tls", "env-file"] }
+tracing = "0.1.40"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter", "json", "default", "local-time", "chrono"] }
+dotenv = "0.15.0"
+chrono = "0.4.38"
+ansi_term = "0.12.1"
+directories = "5.0.1"
+tokio = { version = "1.41.0", features = ["full"] }
+futures = "0.3.31"
+anyhow = "1.0.93"
