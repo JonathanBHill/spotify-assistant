@@ -1,8 +1,8 @@
 use std::collections::HashSet;
 
+use rspotify::{AuthCodeSpotify, scopes};
 use rspotify::clients::{BaseClient, OAuthClient};
 use rspotify::model::{AlbumId, FullPlaylist, Id, PlayableId, PlayableItem, PlaylistId, TrackId};
-use rspotify::{scopes, AuthCodeSpotify};
 use tracing::{error, info, Level};
 
 use crate::enums::pl::PlaylistType;
@@ -150,7 +150,7 @@ impl ReleaseRadar {
 
             if first_chunk {
                 if print {
-                    info!("Replacing playlist with the first {:?} tracks", chunk.len());
+                    println!("Replacing playlist with the first {:?} tracks", chunk.len());
                 }
                 let local_time = chrono::Local::now();
                 let local_time_string = local_time.format("%m/%d/%Y").to_string();
@@ -172,7 +172,7 @@ impl ReleaseRadar {
                 first_chunk = false;
             } else {
                 if print {
-                    info!("Adding {:?} tracks to the playlist", chunk.len());
+                    println!("Adding {:?} tracks to the playlist", chunk.len());
                 }
                 self.client
                     .playlist_add_items(pl_id.clone(), chunk_iterated, None)
