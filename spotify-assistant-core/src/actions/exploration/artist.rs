@@ -1,48 +1,35 @@
 use std::borrow::Borrow;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use futures::stream::StreamExt;
+use rspotify::{AuthCodeSpotify, ClientResult, scopes};
 use rspotify::clients::BaseClient;
+use rspotify::clients::pagination::Paginator;
 use rspotify::model::{
     AlbumId, ArtistId, FullAlbum, FullArtist, FullTrack, PlayableId, SimplifiedAlbum,
     SimplifiedTrack, TrackId,
 };
-use rspotify::{scopes, AuthCodeSpotify};
 use tracing::{debug, error, info, Level};
 
 use crate::enums::validation::BatchLimits;
 use crate::traits::apis::Api;
 
-pub struct ArtistXplr {
+pub struct ArtistXplorer {
     client: AuthCodeSpotify,
-    log_level: Level,
     artist_id: ArtistId<'static>,
-    artist: FullArtist,
-    discography_full_album: Vec<FullAlbum>,
-    discography_simple_album_owned: Vec<SimplifiedAlbum>,
-    discography_simple_album_guest: Vec<SimplifiedAlbum>,
-    discography_album_ids_owned: Vec<AlbumId<'static>>,
-    discography_album_ids_guest: Vec<AlbumId<'static>>,
-    discography_full_tracks: Vec<FullTrack>,
-    discography_simple_tracks: Vec<SimplifiedTrack>,
-    discography_track_ids: Vec<TrackId<'static>>,
+    pub artist: FullArtist,
+    pub albums: Vec<SimplifiedAlbum>,
 }
 
-impl Api for ArtistXplr {
+impl Api for ArtistXplorer {
     fn select_scopes() -> HashSet<String> {
         scopes!("user-follow-read")
     }
 }
 
-impl ArtistXplr {
-    pub async fn new(artist_id: ArtistId<'static>, log_level: Option<Level>) -> Self {
-        let span = match log_level.unwrap_or(Level::ERROR) {
-            Level::ERROR => tracing::span!(Level::ERROR, "ArtistXplr.new"),
-            Level::INFO => tracing::span!(Level::INFO, "ArtistXplr.new"),
-            Level::DEBUG => tracing::span!(Level::DEBUG, "ArtistXplr.new"),
-            Level::TRACE => tracing::span!(Level::TRACE, "ArtistXplr.new"),
-            _ => tracing::span!(Level::INFO, "ArtistXplr.new"),
-        };
+impl ArtistXplorer {
+    pub async fn new(artist_id: ArtistId<'static>) -> Self {
+        let span = tracing::span!(Level::INFO, "ArtistXplorer.new");
         let _enter = span.enter();
 
         let client = Self::set_up_client(false, Some(Self::select_scopes())).await;
@@ -59,294 +46,179 @@ impl ArtistXplr {
                 panic!("Error: {:?}", error);
             }
         };
+        let albums = Self::albums(client.artist_albums(artist_id.clone(), None, Some(Self::market()))).await;
         info!("Data has been retrieved for the artist, '{}'.", artist.name);
-        let mut new_self = ArtistXplr {
-            client: client.clone(),
-            log_level: log_level.unwrap_or(Level::ERROR),
-            artist_id: artist_id.clone(),
-            artist: artist.clone(),
-            discography_simple_album_owned: Vec::new(),
-            discography_simple_album_guest: Vec::new(),
-            discography_album_ids_owned: Vec::new(),
-            discography_album_ids_guest: Vec::new(),
-            discography_full_album: Vec::new(),
-            discography_simple_tracks: Vec::new(),
-            discography_track_ids: Vec::new(),
-            discography_full_tracks: Vec::new(),
-        };
-        let (
-            discography_album_ids_owned,
-            discography_simple_album_owned,
-            discography_album_ids_guest,
-            discography_simple_album_guest,
-        ) = new_self.simple_album_id_discography().await;
-        new_self.discography_simple_album_owned = discography_simple_album_owned;
-        new_self.discography_simple_album_guest = discography_simple_album_guest;
-        new_self.discography_album_ids_owned = discography_album_ids_owned;
-        new_self.discography_album_ids_guest = discography_album_ids_guest;
-        let discography_full_album = new_self.discography_full_albums(None).await;
-        new_self.discography_full_album = discography_full_album;
-        let (discography_track_ids, discography_simple_tracks) =
-            new_self.simple_track_ids_discography().await;
-        new_self.discography_simple_tracks = discography_simple_tracks;
-        new_self.discography_track_ids = discography_track_ids;
-        let discography_full_tracks = new_self.discography_for_full_tracks().await;
-        new_self.discography_full_tracks = discography_full_tracks;
-        info!("All discography information was successfully obtained.");
-        new_self
-    }
-    pub async fn discography_for_full_tracks(&self) -> Vec<FullTrack> {
-        let span = match self.log_level {
-            Level::ERROR => tracing::span!(Level::ERROR, "ArtistXplr.track-disco-full"),
-            Level::INFO => tracing::span!(Level::INFO, "ArtistXplr.track-disco-full"),
-            Level::DEBUG => tracing::span!(Level::DEBUG, "ArtistXplr.track-disco-full"),
-            Level::TRACE => tracing::span!(Level::TRACE, "ArtistXplr.track-disco-full"),
-            _ => tracing::span!(Level::INFO, "ArtistXplr.track-disco-full"),
-        };
-        let _enter = span.enter();
-
-        let mut return_tracks = Vec::new();
-        let limit = BatchLimits::Tracks.get_limit();
-        for id_chunk in self.discography_track_ids.chunks(limit) {
-            let full_tracks = match self
-                .client
-                .tracks(id_chunk.to_vec(), Some(Self::market()))
-                .await
-            {
-                Ok(full_tracks) => {
-                    info!("{} tracks have been requested.", full_tracks.len());
-                    full_tracks
-                }
-                Err(error) => {
-                    error!(track_id = ?id_chunk, "Was not able to get data for the requested track");
-                    panic!("Error: {:?}", error);
-                }
-            };
-            return_tracks.extend(full_tracks);
+        ArtistXplorer {
+            client,
+            artist_id,
+            artist,
+            albums,
         }
-        return_tracks
     }
-    pub async fn simple_track_ids_discography(
-        &self,
-    ) -> (Vec<TrackId<'static>>, Vec<SimplifiedTrack>) {
-        let span = match self.log_level {
-            Level::ERROR => tracing::span!(Level::ERROR, "ArtistXplr.simple-track-id-disco"),
-            Level::INFO => tracing::span!(Level::INFO, "ArtistXplr.simple-track-id-disco"),
-            Level::DEBUG => tracing::span!(Level::DEBUG, "ArtistXplr.simple-track-id-disco"),
-            Level::TRACE => tracing::span!(Level::TRACE, "ArtistXplr.simple-track-id-disco"),
-            _ => tracing::span!(Level::INFO, "ArtistXplr.simple-track-id-disco"),
-        };
+    pub async fn albums(mut paginated_albums: Paginator<'_, ClientResult<SimplifiedAlbum>>) -> Vec<SimplifiedAlbum> {
+        let span = tracing::span!(Level::INFO, "ArtistXplorer.albums");
         let _enter = span.enter();
 
-        let full_albums = self.discography_full_album.clone();
-        let mut album_tracks: Vec<SimplifiedTrack> = Vec::new();
-        let mut album_track_ids: Vec<TrackId> = Vec::new();
-        for album in full_albums {
-            let tracks = album.tracks.clone();
-            if tracks.offset > 50 {
-                info!(total = ?tracks.total, "Album has more than 50 tracks, manual iteration is required.");
-                let loops = tracks.offset / 50;
-                let mut manual_album = Vec::new();
-                for index in 0..loops {
-                    let offset = index * 50;
-                    let album_iteration = match self
-                        .client
-                        .album_track_manual(
-                            album.id.clone(),
-                            Some(Self::market()),
-                            Some(BatchLimits::AlbumTracks.get_limit() as u32),
-                            Some(offset),
-                        )
-                        .await
-                    {
-                        Ok(album) => {
-                            debug!(offset = ?offset, iterations = ?loops, current_item_count = ?album.items.len());
-                            album.items
-                        }
-                        Err(error) => {
-                            error!(album_id = ?album.id.clone(), "Was not able to get data for the requested album");
-                            panic!("Error: {:?}", error);
-                        }
-                    };
-                    manual_album.extend(album_iteration);
-                }
-                manual_album.iter().for_each(|track| {
-                    album_tracks.push(track.clone());
-                    album_track_ids.push(track.id.clone().unwrap());
-                });
-            } else {
-                album.tracks.items.iter().for_each(|track| {
-                    album_tracks.push(track.clone());
-                    album_track_ids.push(track.id.clone().unwrap());
-                });
+        let mut albums: Vec<SimplifiedAlbum> = Vec::new();
+        while let Some(albums_page) = paginated_albums.next().await {
+            match albums_page {
+                Ok(album) => albums.push(album),
+                Err(error) => panic!("ERROR: Was not able to get album from the requested artist.\nError information: {:?}", error)
             }
         }
-        (album_track_ids, album_tracks)
+        albums
     }
-    async fn discography_full_albums(&self, guest: Option<bool>) -> Vec<FullAlbum> {
-        let span = match self.log_level {
-            Level::ERROR => tracing::span!(Level::ERROR, "ArtistXplr.discography-full-albums"),
-            Level::INFO => tracing::span!(Level::INFO, "ArtistXplr.discography-full-albums"),
-            Level::DEBUG => tracing::span!(Level::DEBUG, "ArtistXplr.discography-full-albums"),
-            Level::TRACE => tracing::span!(Level::TRACE, "ArtistXplr.discography-full-albums"),
-            _ => tracing::span!(Level::INFO, "ArtistXplr.discography-full-albums"),
-        };
+    pub fn album_by_type(&self) -> HashMap<&'static str, Vec<SimplifiedAlbum>> {
+        let span = tracing::span!(Level::INFO, "ArtistXplorer.album_by_type");
+        let _enter = span.enter();
+        let mut albums = Vec::new();
+        let mut singles = Vec::new();
+        let mut compilations = Vec::new();
+        let mut appears_on = Vec::new();
+        self.albums.clone().iter().for_each(|album| {
+            info!("{:?}", album.name);
+            let alb_type = match album.album_type.clone() {
+                None => { "n/a".to_string() }
+                Some(typeofalbum) => { typeofalbum }
+            };
+            match alb_type.as_str() {
+                "album" => {
+                    info!("Name: {:?} | Type: {:?}", album.name, alb_type);
+                    albums.push(album.clone());
+                },
+                "single" => {
+                    info!("Name: {:?} | Type: {:?}", album.name, alb_type);
+                    singles.push(album.clone());
+                },
+                "compilation" => {
+                    info!("Name: {:?} | Type: {:?}", album.name, alb_type);
+                    compilations.push(album.clone());
+                },
+                "appears_on" => {
+                    info!("Name: {:?} | Type: {:?}", album.name, alb_type);
+                    appears_on.push(album.clone());
+                },
+                _ => {
+                    error!("Album type is not available for album: {:?}", album.name);
+                },
+            };
+        });
+        HashMap::from([("album", albums), ("single", singles), ("compilation", compilations), ("appears_on", appears_on)])
+    }
+    pub fn album_ids(&self) -> Vec<AlbumId> {
+        let span = tracing::span!(Level::INFO, "ArtistXplorer.album_ids");
         let _enter = span.enter();
 
-        let mut return_albums: Vec<FullAlbum> = Vec::new();
+        self.albums.clone().iter().map(|album| {
+            info!("{:?}", album.name);
+            match album.id.clone() {
+                Some(id) => id,
+                None => panic!("Could not get album ID for album {}", album.name)
+            }
+        }).collect::<Vec<AlbumId>>()
+    }
+    pub async fn full_albums(&self) -> Vec<FullAlbum> {
+        let span = tracing::span!(Level::INFO, "ArtistXplorer.full_albums");
+        let _enter = span.enter();
+
+        let mut full_albums = Vec::new();
         let limit = BatchLimits::Albums.get_limit();
-        let discography_album_ids = match guest {
-            Some(true) => self.discography_album_ids_guest.clone(),
-            _ => self.discography_album_ids_owned.clone(),
-        };
-        for id_chunk in discography_album_ids.chunks(limit) {
-            let full_album = match self
-                .client
-                .albums(id_chunk.to_vec(), Some(Self::market()))
-                .await
-            {
+        for album_id_chunk in self.album_ids().chunks(limit) {
+            let full_album = match self.client.albums(album_id_chunk.to_vec(), Some(Self::market())).await {
                 Ok(full_albums) => {
                     info!("{} albums have been requested.", full_albums.len());
                     full_albums
                 }
-                Err(error) => {
-                    error!(album_id = ?id_chunk, "Was not able to get data for the requested album");
-                    panic!("Error: {:?}", error);
-                }
+                Err(error) => panic!("ERROR: Was not able to get album from the requested artist.\nError information: {:?}", error)
             };
-            return_albums.extend(full_album);
+            full_albums.extend(full_album);
         }
-        return_albums
+        full_albums
     }
-    pub async fn simple_album_id_discography(
-        &self,
-    ) -> (
-        Vec<AlbumId<'static>>,
-        Vec<SimplifiedAlbum>,
-        Vec<AlbumId<'static>>,
-        Vec<SimplifiedAlbum>,
-    ) {
-        let span = match self.log_level {
-            Level::ERROR => tracing::span!(Level::ERROR, "ArtistXplr.discography-simple&ids"),
-            Level::INFO => tracing::span!(Level::INFO, "ArtistXplr.discography-simple&ids"),
-            Level::DEBUG => tracing::span!(Level::DEBUG, "ArtistXplr.discography-simple&ids"),
-            Level::TRACE => tracing::span!(Level::TRACE, "ArtistXplr.discography-simple&ids"),
-            _ => tracing::span!(Level::INFO, "ArtistXplr.discography-simple&ids"),
-        };
+    pub async fn full_tracks(&self) -> Vec<FullTrack> {
+        let span = tracing::span!(Level::INFO, "ArtistXplorer.full_tracks");
         let _enter = span.enter();
 
-        let mut albums =
-            self.client
-                .artist_albums(self.artist_id.clone(), None, Some(Self::market()));
-        let mut index = 0;
-
-        let mut albums_as_host: Vec<SimplifiedAlbum> = Vec::new();
-        let mut albums_as_guest: Vec<SimplifiedAlbum> = Vec::new();
-        let mut album_ids_as_host: Vec<AlbumId> = Vec::new();
-        let mut album_ids_as_guest: Vec<AlbumId> = Vec::new();
-        while let Some(albums_page) = albums.next().await {
-            match albums_page {
-                Ok(album) => {
-                    let album_type = match album.album_type.borrow() {
-                        Some(borrowed_album_type) => borrowed_album_type.to_string(),
-                        None => "None".to_string(),
-                    };
-                    let album_group = match album.album_group.borrow() {
-                        Some(borrowed_album_group) => borrowed_album_group.to_string(),
-                        None => "None".to_string(),
-                    };
-                    let album_type = format!("{}/{}", album_type, album_group);
-                    info!("{} ({}): {}", index + 1, album_type, album.name);
-                    println!("{:?}", album.name);
-                    index += 1;
-                    match album_group.as_str() {
-                        "album" => {
-                            album_ids_as_host.push(album.id.clone().expect("oof"));
-                            albums_as_host.push(album);
-                        }
-                        "single" => {
-                            album_ids_as_host.push(album.id.clone().expect("oof"));
-                            albums_as_host.push(album);
-                        }
-                        "appears_on" => {
-                            album_ids_as_guest.push(album.id.clone().expect("oof"));
-                            albums_as_guest.push(album);
-                        }
-                        _ => {
-                            album_ids_as_guest.push(album.id.clone().expect("oof"));
-                            albums_as_guest.push(album);
-                        }
-                    }
+        let mut full_tracks = Vec::new();
+        let limit = BatchLimits::Tracks.get_limit();
+        for track_id_chunk in self.track_ids().await.chunks(limit) {
+            let full_track = match self.client.tracks(track_id_chunk.to_vec(), Some(Self::market())).await {
+                Ok(full_tracks) => {
+                    info!("{} tracks have been requested.", full_tracks.len());
+                    full_tracks
                 }
-                Err(error) => {
-                    error!(artist_id = ?self.artist_id.clone(), "Was not able to get data for the requested artist");
-                    panic!("Error: {:?}", error);
+                Err(error) => panic!("ERROR: Was not able to get album from the requested artist.\nError information: {:?}", error)
+            };
+            full_tracks.extend(full_track);
+        }
+        full_tracks
+    }
+    pub async fn track_ids(&self) -> Vec<TrackId> {
+        let span = tracing::span!(Level::INFO, "ArtistXplorer.track_ids");
+        let _enter = span.enter();
+
+        let mut track_ids = Vec::new();
+        for track in self.tracks().await {
+            info!("{:?}", track.name);
+            match track.id.clone() {
+                Some(id) => track_ids.push(id),
+                None => panic!("Could not get track ID for track {}", track.name)
+            }
+        }
+        track_ids
+    }
+    pub async fn tracks(&self) -> Vec<SimplifiedTrack> {
+        let span = tracing::span!(Level::INFO, "ArtistXplorer.tracks");
+        let _enter = span.enter();
+
+        let mut album_tracks = Vec::new();
+
+        for album in self.full_albums().await {
+            let mut altracks = self.client.album_track(album.id.clone(), Some(Self::market()));
+
+            while let Some(tracks_page) = altracks.next().await {
+                match tracks_page {
+                    Ok(track) => album_tracks.push(track),
+                    Err(error) => panic!("ERROR: Was not able to get album from the requested artist.\nError information: {:?}", error)
                 }
             }
         }
-        (
-            album_ids_as_host,
-            albums_as_host,
-            album_ids_as_guest,
-            albums_as_guest,
-        )
+        album_tracks
     }
-    pub async fn related_artists(&self) -> Vec<FullArtist> {
-        let span = match self.log_level {
-            Level::ERROR => tracing::span!(Level::ERROR, "ArtistXplr.related-artists"),
-            Level::INFO => tracing::span!(Level::INFO, "ArtistXplr.related-artists"),
-            Level::DEBUG => tracing::span!(Level::DEBUG, "ArtistXplr.related-artists"),
-            Level::TRACE => tracing::span!(Level::TRACE, "ArtistXplr.related-artists"),
-            _ => tracing::span!(Level::INFO, "ArtistXplr.related-artists"),
-        };
+    pub async fn top_tracks_as_playable_ids(&self) -> Vec<PlayableId> {
+        let span = tracing::span!(Level::INFO, "ArtistXplorer.top_tracks_as_playable_ids");
         let _enter = span.enter();
 
-        match self
-            .client
-            .artist_related_artists(self.artist_id.clone())
-            .await
-        {
+        match self.client.artist_top_tracks(self.artist_id.clone(), Some(Self::market())).await {
+            Ok(top_tracks) => {
+                top_tracks.iter().map(|track| {
+                    info!("{:?}", track.name);
+                    let track_id = match track.id.clone() {
+                        Some(id) => id,
+                        None => panic!("Could not get track ID for track {}", track.name)
+                    };
+                    PlayableId::Track(track_id)
+                }).collect::<Vec<PlayableId>>()
+            }
+            Err(error) => panic!("ERROR: Was not able to get album from the requested artist.\nError information: {:?}", error)
+        }
+    }
+    pub async fn related_artists(&self) -> Vec<FullArtist> {
+        let span = tracing::span!(Level::INFO, "ArtistXplorer.related_artists");
+        let _enter = span.enter();
+
+        match self.client.artist_related_artists(self.artist_id.clone()).await {
             Ok(related) => {
                 for (index, artist) in related.iter().enumerate() {
-                    // let t = artist.followers.total
                     info!(
-                        "{}: {} | {:?} | {} | {} |",
-                        index,
-                        artist.name,
-                        artist.genres,
-                        artist.popularity,
-                        artist.followers.total
+                        "{}). {} - genres: {:?} | {} followers | {} popularity",
+                        index, artist.name, artist.genres, artist.followers.total,
+                        artist.popularity
                     );
                 }
                 related
             }
-            Err(error) => {
-                error!(artist_id = ?self.artist_id.clone(), "Was not able to get data for the requested artist");
-                panic!("Error: {:?}", error);
-            }
-        }
-    }
-    pub async fn top_tracks_as_playable_ids(&self) -> Vec<PlayableId> {
-        match self
-            .client
-            .artist_top_tracks(self.artist_id.clone(), Some(Self::market()))
-            .await
-        {
-            Ok(top_tracks) => top_tracks
-                .iter()
-                .map(|track| {
-                    info!("{:?}", track.name);
-                    let track_id = match track.id.clone() {
-                        Some(id) => id,
-                        None => panic!("Could not get track ID for track {}", track.name),
-                    };
-                    PlayableId::Track(track_id)
-                })
-                .collect::<Vec<PlayableId>>(),
-            Err(error) => {
-                error!(artist_id = ?self.artist_id.clone(), "Was not able to get data for the requested artist");
-                panic!("Error: {:?}", error);
-            }
+            Err(error) => panic!("ERROR: Was not able to get album from the requested artist.\nError information: {:?}", error)
         }
     }
     pub fn genres(&self) -> Vec<String> {
@@ -363,7 +235,7 @@ mod tests {
     #[tokio::test]
     async fn test_artist_xplr() {
         let artist_id = ArtistId::from_id("7u160I5qtBYZTQMLEIJmyz").unwrap();
-        let artist_xplr = ArtistXplr::new(artist_id.clone(), None).await;
+        let artist_xplr = ArtistXplorer::new(artist_id.clone()).await;
         println!("{:?}", artist_xplr.genres());
         assert_eq!(artist_xplr.artist_id, artist_id);
     }
@@ -371,8 +243,8 @@ mod tests {
     #[tokio::test]
     async fn test_album_methods() {
         let artist_id = ArtistId::from_id("7u160I5qtBYZTQMLEIJmyz").unwrap();
-        let artist_xplr = ArtistXplr::new(artist_id.clone(), None).await;
-        let albums = artist_xplr.discography_full_album.clone();
+        let artist_xplr = ArtistXplorer::new(artist_id.clone()).await;
+        let albums = artist_xplr.full_albums().await;
         let artists = albums[0].artists.clone();
         let main_artist_id = artists[0].clone().id.unwrap();
         assert_eq!(main_artist_id, artist_id);

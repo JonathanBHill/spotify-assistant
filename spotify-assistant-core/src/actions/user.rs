@@ -1,8 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
+use rspotify::{AuthCodeSpotify, scopes};
 use rspotify::clients::OAuthClient;
-use rspotify::model::{FullTrack, Id, PrivateUser, SubscriptionLevel, TimeRange};
-use rspotify::{scopes, AuthCodeSpotify};
+use rspotify::model::{FullArtist, FullTrack, Id, PrivateUser, SubscriptionLevel, TimeRange};
 use tracing::{event, info, Level};
 
 use crate::traits::apis::Api;
@@ -206,7 +206,7 @@ impl UserData {
         });
         info!("Total playlists: {}", playlists.total);
     }
-    pub async fn artists(&self) {
+    pub async fn artists(&self) -> Vec<FullArtist> {
         let span = tracing::span!(Level::INFO, "UserData.artists");
         let _enter = span.enter();
 
@@ -215,6 +215,7 @@ impl UserData {
             .client
             .current_user_followed_artists(None, Some(1))
             .await;
+        let mut followed_artists = Vec::new();
         match artists {
             Ok(artists) => {
                 let total = artists.total.unwrap_or(limit);
@@ -244,6 +245,7 @@ impl UserData {
                                 .for_each(|(index, artist)| {
                                     let true_index = index as u32 + (page * limit);
                                     info!("{}: {:?}", true_index, artist.name);
+                                    followed_artists.push(artist.clone());
                                 });
                         }
                         Err(error) => panic!("Could not get artists: {:?}", error),
@@ -253,5 +255,6 @@ impl UserData {
             }
             Err(error) => panic!("Could not get artists: {:?}", error),
         }
+        followed_artists
     }
 }
