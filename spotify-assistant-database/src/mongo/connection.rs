@@ -192,7 +192,7 @@ pub struct Recommendation {
     collection: Collection<RecommendedRecord>,
 }
 
-impl MongoConnection for Recommendations {}
+impl MongoConnection for Recommendation {}
 
 impl Recommendation {
     pub async fn new() -> mongodb::error::Result<Self> {
