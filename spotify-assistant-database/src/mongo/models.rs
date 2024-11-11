@@ -25,6 +25,34 @@ pub struct GenerationSeeds {
     pub seed_tracks: Vec<RecommendationsSeed>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub struct ArtistRecord {
+    #[serde(rename = "artist_id")]
+    pub id: String,
+    #[serde(rename = "artist_name")]
+    pub name: String,
+    #[serde(rename = "spotify_url")]
+    pub external_url: String,
+    #[serde(rename = "genres")]
+    pub genres: Vec<String>,
+    #[serde(rename = "popularity")]
+    pub popularity: u32,
+    pub followers: u32,
+    pub followed: bool,
+    #[serde(rename = "updated_on")]
+    pub updated: HashMap<String, String>,
+    #[serde(rename = "total_albums", skip_serializing_if = "Option::is_none", default)]
+    pub albums: Option<i32>,
+    #[serde(rename = "total_singles", skip_serializing_if = "Option::is_none", default)]
+    pub singles: Option<i32>,
+    #[serde(rename = "total_compilations", skip_serializing_if = "Option::is_none", default)]
+    pub compilations: Option<i32>,
+    #[serde(rename = "total_appears_on", skip_serializing_if = "Option::is_none", default)]
+    pub appears_on: Option<i32>,
+    #[serde(rename = "total_tracks", skip_serializing_if = "Option::is_none", default)]
+    pub tracks: Option<i32>,
+}
+
 #[cfg(test)]
 mod tests {
     use rspotify::model::RecommendationsSeedType;
