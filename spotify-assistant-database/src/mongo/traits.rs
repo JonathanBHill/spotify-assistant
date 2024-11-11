@@ -35,7 +35,4 @@ pub trait MongoConnection {
             }
         }
     }
-    // fn alive(&self) -> std::future::Future<Output = bool> + Send;
-    // fn insert_document(&self, db_name: &str, coll_name: &str, doc: Person) -> std::future::Future<Output = ()> + Send;
-    // fn get_collection(&self, db_name: &str, coll_name: &str) -> Collection<FullArtist>;
 }
