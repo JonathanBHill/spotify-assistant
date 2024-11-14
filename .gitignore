@@ -9,7 +9,7 @@ tests
 /spotify-assistant/src/bin/get_recommendations.rs
 /spotify-assistant/src/bin/sqlite_db.rs
 /spotify-assistant/src/bin/mongo_db.rs
-/spotify-assistant/src/bin/exploration.rs
+/spotify-assistant/src/bin/explore_artist.rs
 /spotify-assistant-ai/Cargo.lock
 /spotify-assistant-cli/Cargo.lock
 /spotify-assistant-core/Cargo.lock
