@@ -1,11 +1,11 @@
 use std::collections::HashSet;
 
+use rspotify::{AuthCodeSpotify, scopes};
 use rspotify::clients::BaseClient;
 use rspotify::model::{
     AlbumId, ArtistId, FullPlaylist, FullTrack, PlayableItem, PlaylistId, SimplifiedAlbum,
     SimplifiedArtist, TrackId,
 };
-use rspotify::{scopes, AuthCodeSpotify};
 use tracing::{event, Level};
 
 use crate::traits::apis::Api;
@@ -130,7 +130,7 @@ impl PlaylistXplr {
             });
         }
         if !self.duplicates {
-            artist_ids = Self::clean_duplicates_hashset(artist_ids);
+            artist_ids = Self::clean_duplicate_id_vector(artist_ids);
         }
         artist_ids
     }
@@ -183,7 +183,7 @@ impl PlaylistXplr {
             });
         }
         if !self.duplicates {
-            track_ids = Self::clean_duplicates_hashset(track_ids);
+            track_ids = Self::clean_duplicate_id_vector(track_ids);
         }
         track_ids
     }
