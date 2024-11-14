@@ -4,7 +4,7 @@ use std::future::Future;
 use mongodb::{Client, Collection};
 use mongodb::bson::doc;
 use mongodb::options::{ClientOptions, ServerApi, ServerApiVersion};
-use rspotify::model::{FullArtist, FullTrack, Recommendations, RecommendationsSeedType};
+use rspotify::model::{FullArtist, FullTrack, Recommendations, RecommendationsSeedType, SimplifiedAlbum};
 use rspotify::prelude::{BaseClient, Id};
 use serde::{Deserialize, Serialize};
 
@@ -89,44 +89,38 @@ impl Artist {
         };
         Ok(mongo_ob)
     }
-    pub async fn get_documents(&self, filter: HashMap<&str, &str>) -> mongodb::error::Result<Vec<ArtistRecord>> {
-        let (x, y) = filter.get_key_value("artist_name").unwrap();
-        let filter = doc! {x.to_string(): y.to_string()};
-        // let doc = self.collection.find(filter).await?;
-        // let t = doc.deserialize_current();
-        // t
+    pub async fn get_documents_by_artist_name(&self, filter: HashMap<&str, &str>) -> mongodb::error::Result<Vec<ArtistRecord>> {
+        let (key, value) = filter.get_key_value("artist_name").unwrap();
+        let filter = doc! {key.to_string(): value.to_string()};
         let mut return_records = Vec::new();
         let mut cursor = self.collection.find(filter).await?;
 
         while cursor.advance().await? {
             return_records.push(cursor.deserialize_current()?);
-            println!("{:?}", cursor.deserialize_current()?);
+            // println!("{:?}", cursor.deserialize_current()?);
         };
         Ok(return_records)
-
-
-        // match t {
-        //         Ok(doc) => {
-        //             println!("{:?}", doc);
-        //             Ok(doc)
-        //         },
-        //         // None => Err(mongodb::error::Error::from(mongodb::error::ErrorKind::InvalidArgument {
-        //         //     message: format!("No document could be found with the following filter: {}", filter),
-        //         // })),
-        //         _ => Err(mongodb::error::Error::from(std::io::Error::new(
-        //             std::io::ErrorKind::Other,
-        //             "No document could be found with the following filter",
-        //         ))),
-        //     }
     }
-    pub fn format_documents(&self, artists: Vec<FullArtist>, followed: Option<bool>) -> Vec<ArtistRecord> {
+    pub async fn get_all_documents(&self) -> mongodb::error::Result<Vec<ArtistRecord>> {
+        let mut return_records = Vec::new();
+        let mut cursor = self.collection.find(Default::default()).await?;
+
+        while cursor.advance().await? {
+            return_records.push(cursor.deserialize_current()?);
+            // println!("{:?}", cursor.deserialize_current()?);
+        };
+        Ok(return_records)
+    }
+    pub fn format_documents(&self, artists: Vec<FullArtist>, discography: Option<HashMap<&'static str, Vec<SimplifiedAlbum>>>, total_tracks: Option<usize>, followed: Option<bool>) -> Vec<ArtistRecord> {
         let records = artists
             .iter()
-            .map(|artist| self.format_document(artist.clone(), followed))
+            .map(|artist| {
+                self.format_document(artist.clone(), discography.clone(), total_tracks, followed)
+            })
             .collect();
         records
     }
-    pub fn format_document(&self, artist: FullArtist, followed: Option<bool>) -> ArtistRecord {
+    pub fn format_document(&self, artist: FullArtist, discography: Option<HashMap<&'static str, Vec<SimplifiedAlbum>>>, total_tracks: Option<usize>, followed: Option<bool>) -> ArtistRecord {
         let now = chrono::Local::now();
         let date_formatted = now.format("%m-%d-%Y").to_string();
         let time_formatted = now.format("%H:%M:%S").to_string();
@@ -134,6 +128,17 @@ impl Artist {
             ("date".to_string(), date_formatted.clone()),
             ("time".to_string(), time_formatted),
         ]);
+        let unwrapped_discography = if let Some(unwrapped) = discography {
+            unwrapped
+        } else {
+            HashMap::new()
+        };
+        let binding = vec![];
+        let albums = unwrapped_discography.get("album").unwrap_or(&binding);
+        let singles = unwrapped_discography.get("single").unwrap_or(&binding);
+        let compilations = unwrapped_discography.get("compilation").unwrap_or(&binding);
+        let appears_on = unwrapped_discography.get("appears_on").unwrap_or(&binding);
+
         ArtistRecord {
             id: artist.id.id().to_string(),
             name: artist.name.clone(),
@@ -142,12 +147,12 @@ impl Artist {
             followers: artist.followers.total,
             followed: followed.unwrap_or(false),
             updated: datetime,
-            albums: None,
-            singles: None,
-            compilations: None,
-            appears_on: None,
+            total_albums: Some(albums.len() as i32),
+            total_singles: Some(singles.len() as i32),
+            total_compilations: Some(compilations.len() as i32),
+            total_appears_on: Some(appears_on.len() as i32),
             popularity: artist.popularity,
-            tracks: None,
+            total_tracks: Some(total_tracks.unwrap_or(0)),
         }
     }
     pub async fn insert_documents(&self, artists: Vec<ArtistRecord>) -> mongodb::error::Result<()> {
@@ -162,12 +167,12 @@ impl Artist {
         println!("{:?} document was successfully added", count);
         Ok(())
     }
-    pub async fn remove_document(&self, artist_name: String) -> mongodb::error::Result<()> {
-        let coll: Collection<RecommendedRecord> = self
-            .client
-            .database(self.database_name)
-            .collection(self.collection_name);
-        let delete = coll.delete_one(doc! {"name": artist_name}).await?;
+    pub async fn delete_document(&self, artist_name: String) -> mongodb::error::Result<()> {
+        // let coll: Collection<RecommendedRecord> = self
+        //     .client
+        //     .database(self.database_name)
+        //     .collection(self.collection_name);
+        let delete = self.collection.delete_one(doc! {"name": artist_name}).await?;
         println!(
             "{:?} document was successfully removed",
             delete.deleted_count
@@ -175,7 +180,7 @@ impl Artist {
         Ok(())
     }
     pub async fn replace_document(&self, name: String, doc: ArtistRecord) -> mongodb::error::Result<()> {
-        let replace = self.collection.replace_one(doc! {"name": name}, doc).await?;
+        let replace = self.collection.replace_one(doc! {"artist_name": name}, doc).await?;
         println!(
             "{:?} document was successfully replaced",
             replace.modified_count
