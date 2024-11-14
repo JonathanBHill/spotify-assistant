@@ -13,3 +13,4 @@ spotify-assistant-core = { path = "../spotify-assistant-core" }
 spotify-assistant-database = { path = "../spotify-assistant-database", features = ["alldb"] }
 dotenv = "0.15.0"
 anyhow = "1.0.93"
+pbr = "1.1.1"

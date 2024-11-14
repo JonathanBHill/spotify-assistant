@@ -1,10 +1,10 @@
 use std::collections::HashSet;
 use std::env;
 
+use rspotify::{AuthCodeSpotify, Config, Credentials, OAuth};
 use rspotify::model::{Id, Market};
 use rspotify::prelude::OAuthClient;
-use rspotify::{AuthCodeSpotify, Config, Credentials, OAuth};
-use tracing::{error, event, span, trace, Level};
+use tracing::{error, event, Level, span, trace};
 
 use crate::enums::fs::{ProjectDirectories, ProjectFiles};
 
@@ -105,7 +105,7 @@ pub trait Api {
     fn market() -> Market {
         Market::Country(rspotify::model::Country::UnitedStates)
     }
-    fn clean_duplicates_hashset<T: Clone + Eq + Id + std::hash::Hash>(data: Vec<T>) -> Vec<T> {
+    fn clean_duplicate_id_vector<T: Clone + Eq + Id + std::hash::Hash>(data: Vec<T>) -> Vec<T> {
         let mut cleaned_vec = Vec::new();
         let mut seen = HashSet::new();
         data.into_iter().for_each(|item| {
