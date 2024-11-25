@@ -13,7 +13,7 @@ pub struct ProjectFiles {
 }
 
 impl ProjectFiles {
-    pub fn new(directory: String) -> Self {
+    pub fn new() -> Self {
         let pfs = ProjectFileSystem::new();
         ProjectFiles {
             directory: pfs.data_directory.path(),
