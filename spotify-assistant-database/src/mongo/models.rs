@@ -25,7 +25,7 @@ pub struct GenerationSeeds {
     pub seed_tracks: Vec<RecommendationsSeed>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Default)]
+#[derive(Clone, Debug, Serialize, Deserialize, Default)]
 pub struct ArtistRecord {
     #[serde(rename = "artist_id")]
     pub id: String,
