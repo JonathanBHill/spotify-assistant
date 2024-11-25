@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::io::Error;
 use std::path::PathBuf;
 
@@ -33,6 +34,39 @@ impl ProjectFileSystem {
         );
         new_init
     }
+    pub fn get_files(&self, dir: PathBuf, filter: &str) -> HashSet<PathBuf> {
+        let span = span!(Level::INFO, "ProjectFileSystem.get_files");
+        let _enter = span.enter();
+        let reader = match dir.read_dir() {
+            Ok(read_dir) => { read_dir }
+            Err(error) => {
+                event!(Level::ERROR, "Error reading directory: {:?}", error);
+                return HashSet::new();
+            }
+        };
+        let mut return_vec = HashSet::new();
+        reader.for_each(|entry| {
+            let path = entry.unwrap().path();
+            let is_dir = path.is_dir();
+            if is_dir {
+                println!("Checking the {:?} directory", path.file_name().unwrap());
+                let matched_files = self.get_files(path, filter);
+                for file in matched_files {
+                    println!("Matched file: {:?}", file.file_name().unwrap());
+                    return_vec.insert(file);
+                }
+            } else {
+                if path.file_name().unwrap().to_str().unwrap().contains(filter) {
+                    println!("File match: {:?}", path.file_name().unwrap());
+                    return_vec.insert(path);
+                } else {
+                    println!("Other file: {:?}", path.file_name().unwrap());
+                }
+            }
+        });
+        println!("{:?}", return_vec);
+        return_vec
+    }
     pub fn init(&self) {
         let dir_vec = vec![
             self.home_directory.path(),
@@ -65,7 +99,7 @@ impl ProjectFileSystem {
     pub fn initialize_directory(&self, directory_path: &PathBuf) -> Result<bool, Error> {
         let span = span!(
             Level::INFO,
-            "Initializer.create_directory",
+            "Initializer.initialize_directory",
             value = directory_path.clone().to_str().unwrap()
         );
         let _enter = span.enter();
@@ -111,6 +145,7 @@ impl ProjectFileSystem {
             }
         }
     }
+
 }
 
 #[cfg(test)]
@@ -125,6 +160,18 @@ mod tests {
         let init = ProjectFileSystem::default();
         println!("{:?}", init);
         assert_eq!(init.home_directory.path(), ProjectDirectories::Home.path());
+    }
+
+    #[test]
+    fn test_get_files() {
+        let init = ProjectFileSystem::default();
+        // init.show_items(ProjectDirectories::Data.path(), 0);
+        let mut x = init.get_files(ProjectDirectories::Data.path(), "Audio");
+        x.retain(|path| path.extension().unwrap() == "json");
+        x.clone().into_iter().enumerate().for_each(|(index, path)| {
+            println!("{}: {:?}", index, path);
+        });
+        assert_eq!(x.len(), 8);
     }
 
     #[test]
