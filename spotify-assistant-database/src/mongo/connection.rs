@@ -180,10 +180,10 @@ impl Artist {
         Ok(())
     }
     pub async fn replace_document(&self, name: String, doc: ArtistRecord) -> mongodb::error::Result<()> {
-        let replace = self.collection.replace_one(doc! {"artist_name": name}, doc).await?;
+        let replace = self.collection.replace_one(doc! {"artist_name": name}, doc.clone()).await?;
         println!(
-            "{:?} document was successfully replaced",
-            replace.modified_count
+            "{:?} document was successfully replaced for {}",
+            replace.modified_count, doc.name
         );
         Ok(())
     }
