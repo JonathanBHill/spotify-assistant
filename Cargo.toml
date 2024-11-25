@@ -6,5 +6,6 @@ members = [
     "spotify-assistant-cli",
     "spotify-assistant-tui",
     "spotify-assistant-ai",
+    "spotify-assistant-data-request",
 ]
 resolver = "2"
