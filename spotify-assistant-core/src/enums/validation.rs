@@ -122,3 +122,55 @@ impl BatchLimits {
         }
     }
 }
+
+#[derive(Debug, PartialEq)]
+pub enum TimeOfDay {
+    Morning,
+    Afternoon,
+    Evening,
+    Night,
+}
+
+impl TimeOfDay {
+    pub fn from_hour(hour: u32) -> Self {
+        match hour {
+            6..=11 => TimeOfDay::Morning,
+            12..=17 => TimeOfDay::Afternoon,
+            18..=23 => TimeOfDay::Evening,
+            0..=5 => TimeOfDay::Night,
+            _ => TimeOfDay::Morning,
+        }
+    }
+    pub fn string(&self) -> String {
+        match self {
+            TimeOfDay::Morning => "morning".to_string(),
+            TimeOfDay::Afternoon => "afternoon".to_string(),
+            TimeOfDay::Evening => "evening".to_string(),
+            TimeOfDay::Night => "night".to_string(),
+        }
+    }
+    pub fn is_morning(&self) -> bool {
+        match self {
+            TimeOfDay::Morning => true,
+            _ => false,
+        }
+    }
+    pub fn is_afternoon(&self) -> bool {
+        match self {
+            TimeOfDay::Afternoon => true,
+            _ => false,
+        }
+    }
+    pub fn is_evening(&self) -> bool {
+        match self {
+            TimeOfDay::Evening => true,
+            _ => false,
+        }
+    }
+    pub fn is_night(&self) -> bool {
+        match self {
+            TimeOfDay::Night => true,
+            _ => false,
+        }
+    }
+}

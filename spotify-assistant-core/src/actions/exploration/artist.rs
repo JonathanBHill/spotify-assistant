@@ -2,9 +2,10 @@ use std::borrow::Borrow;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::thread;
 
+use chrono::{DateTime, NaiveDate, NaiveDateTime};
 use futures::stream::StreamExt;
 use pbr::ProgressBar;
-use rspotify::{AuthCodeSpotify, ClientResult, scopes};
+use rspotify::{AuthCodeSpotify, ClientError, ClientResult, scopes};
 use rspotify::clients::BaseClient;
 use rspotify::clients::pagination::Paginator;
 use rspotify::model::{AlbumId, ArtistId, FullAlbum, FullArtist, FullTrack, Id, PlayableId, SimplifiedAlbum, SimplifiedArtist, SimplifiedTrack, TrackId};
@@ -12,6 +13,7 @@ use tracing::{debug, error, info, Level};
 
 use crate::enums::validation::BatchLimits;
 use crate::traits::apis::Api;
+use crate::utilities::datetime::Checks;
 
 pub struct ArtistXplorer {
     client: AuthCodeSpotify,
@@ -150,6 +152,46 @@ impl ArtistXplorer {
             }
         }).collect::<Vec<AlbumId>>()
     }
+    pub fn album_slice(&self, cutoff: Option<NaiveDateTime>) -> Self {
+        let span = tracing::span!(Level::INFO, "ArtistXplorer.filter_albums");
+        let _enter = span.enter();
+        let cutoff = match cutoff {
+            Some(date) => NaiveDate::from(date),
+            None => {
+                let now = chrono::Local::now();
+                let cutoff_date = now.date_naive() - chrono::Duration::days(365);
+                cutoff_date
+            }
+        };
+
+        // let mut albums = Vec::new();
+        // self.albums.clone().iter().for_each(|album| {
+        let final_vec = self.albums.clone().iter().filter_map(|album| {
+            info!("{:?}", album.name);
+            let release_date = match album.release_date.clone() {
+                Some(date) => {
+                    match NaiveDate::parse_from_str(date.as_str(), "%Y-%m-%d") {
+                        Ok(dttime) => { dttime }
+                        Err(e) => { panic!("Could not parse date: {:?}", e) }
+                    }
+                },
+                None => panic!("Could not get release date for album {}", album.name)
+            };
+            // let date_check = Checks::new().is_outdated(release_date.as_str(), chrono::Duration::days(365));
+            if release_date > cutoff {
+                Some(album.clone())
+            } else {
+                None
+            }
+        }).collect::<Vec<SimplifiedAlbum>>();
+        let test = ArtistXplorer {
+            client: self.client.clone(),
+            artist_id: self.artist_id.clone(),
+            artist: self.artist.clone(),
+            albums: final_vec.clone(),
+        };
+        test
+    }
     pub async fn full_albums(&self) -> Vec<FullAlbum> {
         let span = tracing::span!(Level::INFO, "ArtistXplorer.full_albums");
         let _enter = span.enter();
@@ -167,6 +209,18 @@ impl ArtistXplorer {
             full_albums.extend(full_album);
         }
         full_albums
+    }
+    pub async fn total_tracks(&self) -> usize {
+        let span = tracing::span!(Level::INFO, "ArtistXplorer.full_tracks");
+        let _enter = span.enter();
+
+        let albums = self.full_albums().await;
+        self.artist.name.clone();
+        info!("{} albums queried for {}", albums.len(), self.artist.name.clone());
+        albums.clone().iter().fold(0, |acc, album| {
+            info!("Running total: {}", acc + album.tracks.total);
+            acc + album.tracks.total
+        }) as usize
     }
     pub async fn full_tracks(&self) -> Vec<FullTrack> {
         let span = tracing::span!(Level::INFO, "ArtistXplorer.full_tracks");
@@ -193,7 +247,7 @@ impl ArtistXplorer {
         let chunked_ids = track_ids.chunks(limit);
         let loops = chunked_ids.len();
         let wait_threshold = 200;
-        let count = 35;
+        let count = 25;
         for (index, track_id_chunk) in track_ids.chunks(limit).enumerate() {
             let full_track = match self.client.tracks(track_id_chunk.to_vec(), Some(Self::market())).await {
                 Ok(full_tracks) => {
@@ -201,12 +255,14 @@ impl ArtistXplorer {
                     info!("{} tracks have been requested. {} remaining tracks", full_tracks.len(), remaining);
                     full_tracks
                 }
-                Err(error) => panic!("ERROR: Was not able to get album from the requested artist.\nError information: {:?}", error)
+                Err(error) => {
+                    panic!("ERROR: Was not able to get album from the requested artist.\nError information: {:?}", error)
+                }
             };
             full_tracks.extend(full_track);
             let mut pb = ProgressBar::new(count);
             pb.format("╢▌▌░╟");
-            if (index % 4 == 0) & (track_ids.len() > wait_threshold) {
+            if track_ids.len() > wait_threshold {
                 for _ in 0..count {
                     pb.inc();
                     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
