@@ -1,9 +1,9 @@
-use std::collections::HashSet;
-
-use rspotify::{AuthCodeSpotify, scopes};
-use rspotify::clients::OAuthClient;
+use futures::{StreamExt, TryStreamExt};
+use rspotify::clients::{BaseClient, OAuthClient};
 use rspotify::model::{FullPlaylist, PlaylistId, SimplifiedPlaylist};
-use tracing::{info, Level};
+use rspotify::{scopes, AuthCodeSpotify};
+use std::collections::{HashMap, HashSet};
+use tracing::{event, info, Level};
 
 use crate::traits::apis::Api;
 
@@ -18,14 +18,26 @@ impl Api for LikedSongs {
         scopes!("user-library-read", "user-library-modify")
     }
 }
+impl LikedSongs {
+    pub fn full_playlist(&self) -> FullPlaylist {
+        self.full_playlist.clone()
+    }
+    pub fn id(&self) -> PlaylistId {
+        self.id.clone()
+    }
+    pub fn client(&self) -> AuthCodeSpotify {
+        self.client.clone()
+    }
+}
 
+#[derive(Clone)]
 pub struct UserPlaylists {
     client: AuthCodeSpotify,
 }
 
 impl Api for UserPlaylists {
     fn select_scopes() -> HashSet<String> {
-        scopes!("playlist-read-private")
+        scopes!("playlist-read-private", "playlist-read-collaborative", "user-library-read")
     }
 }
 
@@ -37,7 +49,58 @@ impl UserPlaylists {
         let client = Self::set_up_client(false, Some(Self::select_scopes())).await;
         UserPlaylists { client }
     }
-    pub async fn get_user_playlists(&self) -> Vec<SimplifiedPlaylist> {
+    pub async fn stockrr(&self) -> FullPlaylist {
+        let span = tracing::span!(Level::INFO, "UserPlaylists.stockrr");
+        let _enter = span.enter();
+        let rr_id = PlaylistId::from_id("37i9dQZEVXbdINACbjb1qu").unwrap();
+        let rr_pl = self
+            .client
+            .playlist(rr_id.clone(), None, Some(Self::market()))
+            .await
+            .expect("Could not retrieve playlists");
+        rr_pl
+    }
+    pub async fn myrr(&self) -> FullPlaylist {
+        let span = tracing::span!(Level::INFO, "UserPlaylists.myrr");
+        let _enter = span.enter();
+        let rr_id = PlaylistId::from_id("46mIugmIiN2HYVwAwlaBAr").unwrap();
+        let rr_pl = self
+            .client
+            .playlist(rr_id.clone(), None, Some(Self::market()))
+            .await
+            .expect("Could not retrieve playlists");
+        rr_pl
+    }
+    pub async fn get_user_playlists(&self) -> HashMap<String, PlaylistId> {
+        let span = tracing::span!(Level::INFO, "UserPlaylists.myrr");
+        let _enter = span.enter();
+
+        let mut user_playlists = self
+            .client
+            .current_user_playlists();
+        let mut playlists = HashMap::new();
+        let mut retries = 3;
+        while retries > 0 {
+            if let Some(pl) = user_playlists.next().await {
+                match pl {
+                    Ok(simp) => {
+                        playlists.insert(simp.name, simp.id);
+                    },
+                    Err(err) => {
+                        event!(Level::ERROR, "Error retrieving playlist: {:?}", err);
+                        retries -= 1;
+                    }
+                }
+            } else {
+                break;
+            }
+        }
+        if retries == 0 {
+            event!(Level::ERROR, "Failed to retrieve playlists after multiple attempts.");
+        }
+        playlists.clone()
+    }
+    pub async fn get_user_playlists_old(&self) -> Vec<SimplifiedPlaylist> {
         let span = tracing::span!(Level::INFO, "UserData.playlists");
         let _enter = span.enter();
         let playlists = match self
@@ -83,12 +146,10 @@ impl UserPlaylists {
             .iter()
             .enumerate()
             .for_each(|(index, playlist)| {
-                // playlist.public
                 info!(
                     "{index}: Name: {:?} | Public: {:?}",
                     playlist.name, playlist.public
                 );
-                // pl_vec.insert(index, playlist.clone());
             });
         info!("Total playlists: {}", playlists.total);
         pl_vec
