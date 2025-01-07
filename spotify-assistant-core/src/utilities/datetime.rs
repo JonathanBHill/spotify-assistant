@@ -51,7 +51,7 @@ mod tests {
     #[test]
     fn test_checks() {
         let checks = Checks::new();
-        assert_eq!(checks.is_weekend(), false);
+        assert!(!checks.is_weekend());
         assert_eq!(checks.time_of_day, TimeOfDay::Morning);
     }
 
@@ -63,9 +63,9 @@ mod tests {
         let input_not_outdated = "11-10-2024";
         let threshold = Duration::weeks(52);
         let threshold_2 = Duration::weeks(60);
-        assert_eq!(checks.is_outdated(input_outdated, threshold), true);
-        assert_eq!(checks.is_outdated(input_outdated, threshold_2), false);
-        assert_eq!(checks.is_outdated(input_outdated_2, threshold), true);
-        assert_eq!(checks.is_outdated(input_not_outdated, threshold), false);
+        assert!(checks.is_outdated(input_outdated, threshold));
+        assert!(!checks.is_outdated(input_outdated, threshold_2));
+        assert!(checks.is_outdated(input_outdated_2, threshold));
+        assert!(!checks.is_outdated(input_not_outdated, threshold));
     }
 }

@@ -1,11 +1,11 @@
 use std::collections::HashSet;
 
+use rspotify::{AuthCodeSpotify, scopes};
 use rspotify::clients::BaseClient;
 use rspotify::model::{
     AlbumId, ArtistId, FullAlbum, FullArtist, FullTrack, Id, SimplifiedArtist, SimplifiedTrack,
     TrackId,
 };
-use rspotify::{scopes, AuthCodeSpotify};
 use tracing::{error, info, Level};
 
 use crate::traits::apis::Api;
@@ -19,10 +19,10 @@ pub struct AlbumXplr {
 impl Api for AlbumXplr {
     fn select_scopes() -> HashSet<String> {
         scopes!(
-            "playlist-read-private",
-            "playlist-read-collaborative",
-            "playlist-modify-public",
-            "playlist-modify-private"
+            "playlists-read-private",
+            "playlists-read-collaborative",
+            "playlists-modify-public",
+            "playlists-modify-private"
         )
     }
 }
@@ -55,6 +55,9 @@ impl AlbumXplr {
             album_id,
             full_album,
         }
+    }
+    pub fn album_id(&self) -> AlbumId {
+        self.album_id.clone()
     }
     pub fn simple_artists(&self) -> Vec<SimplifiedArtist> {
         self.full_album.artists.to_vec()
