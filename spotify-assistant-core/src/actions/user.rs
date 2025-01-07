@@ -1,8 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
-use rspotify::{AuthCodeSpotify, scopes};
 use rspotify::clients::OAuthClient;
 use rspotify::model::{FullArtist, FullTrack, Id, PlayHistory, PrivateUser, SubscriptionLevel, TimeRange};
+use rspotify::{scopes, AuthCodeSpotify};
 use tracing::{event, info, Level};
 
 use crate::traits::apis::Api;
@@ -114,7 +114,7 @@ impl UserData {
             }
         }
     }
-    pub async fn get_recently_played(&self, next_page: Option<String>) -> (Vec<PlayHistory>, String) {
+    pub async fn get_recently_played(&self) -> (Vec<PlayHistory>, String) {
         let results = match self.client.current_user_recently_played(Some(50), None).await {
             Ok(results) => {
                 results
