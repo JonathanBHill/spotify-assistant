@@ -6,13 +6,19 @@ edition = "2021"
 
 [dependencies]
 rspotify = { version = "0.13.3", default-features = false, features = ["async-stream", "cli", "client-reqwest", "reqwest-default-tls", "env-file"] }
-tracing = "0.1.40"
-tracing-subscriber = { version = "0.3.18", features = ["env-filter", "json", "default", "local-time", "chrono"] }
+tracing = "0.1.41"
+tracing-subscriber = { version = "0.3.19", features = ["env-filter", "json", "default", "local-time", "chrono"] }
 dotenv = "0.15.0"
-chrono = "0.4.38"
+chrono = "0.4.39"
 ansi_term = "0.12.1"
 directories = "5.0.1"
-tokio = { version = "1.41.0", features = ["full"] }
+tokio = { version = "1.42.0", features = ["full"] }
 futures = "0.3.31"
-anyhow = "1.0.93"
+anyhow = "1.0.95"
 pbr = "1.1.1"
+regex = "1.11.1"
+dialoguer = "0.11.0"
+toml = "0.8.19"
+serde = { version = "1.0.216", features = ["derive"] }
+term_size = "1.0.0-beta1"
+unicode-normalization = "0.1.24"

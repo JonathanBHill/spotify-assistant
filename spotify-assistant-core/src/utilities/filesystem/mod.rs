@@ -1,2 +1,2 @@
 pub mod initialization;
-mod files;
+pub mod files;
