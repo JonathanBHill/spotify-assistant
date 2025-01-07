@@ -17,7 +17,7 @@ pub enum BatchLimits {
     ModifyCurrentUserEpisodes, //50 This applies to 'save episode for current user', 'remove users' saved episode', & 'check users saved episode'
     RecentlyPlayed,            //50
     PlaylistItems,             //50
-    ModifyPlaylistItems, //100 This applies to 'add playlist items', 'remove playlist items', & 'update playlist items'
+    ModifyPlaylistItems, //100 This applies to 'add playlists items', 'remove playlists items', & 'update playlists items'
     UserPlaylists,       //50 This applies to a public user and private/current user
     GetPlaylists,        //50 This applies to category and featured playlists
     SearchItem,          //50
@@ -150,27 +150,15 @@ impl TimeOfDay {
         }
     }
     pub fn is_morning(&self) -> bool {
-        match self {
-            TimeOfDay::Morning => true,
-            _ => false,
-        }
+        matches!(self, TimeOfDay::Morning)
     }
     pub fn is_afternoon(&self) -> bool {
-        match self {
-            TimeOfDay::Afternoon => true,
-            _ => false,
-        }
+        matches!(self, TimeOfDay::Afternoon)
     }
     pub fn is_evening(&self) -> bool {
-        match self {
-            TimeOfDay::Evening => true,
-            _ => false,
-        }
+        matches!(self, TimeOfDay::Evening)
     }
     pub fn is_night(&self) -> bool {
-        match self {
-            TimeOfDay::Night => true,
-            _ => false,
-        }
+        matches!(self, TimeOfDay::Night)
     }
 }
