@@ -15,5 +15,7 @@ spotify-assistant-data-request = { path = "../spotify-assistant-data-request" }
 dotenv = "0.15.0"
 anyhow = "1.0.93"
 pbr = "1.1.1"
-polars = { version = "0.44.2", optional = true }
+polars = { version = "0.45.1", optional = true }
 chrono = "0.4.38"
+spotify-assistant-cli = { path = "../spotify-assistant-cli" }
+unicode-normalization = "0.1.24"

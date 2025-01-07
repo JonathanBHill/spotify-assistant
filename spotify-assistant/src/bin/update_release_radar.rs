@@ -1,7 +1,8 @@
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
 
-use spotify_assistant_core::actions::update::ReleaseRadar;
+use spotify_assistant_core::actions::update::PlaylistCreator;
+use spotify_assistant_core::traits::apis::Querying;
 use spotify_assistant_core::utilities::configurations::CustomFormatter;
 
 #[tokio::main]
@@ -17,6 +18,6 @@ async fn main() {
         let span = tracing::span!(Level::INFO, "main");
         let _enter = span.enter();
     }
-    let my_release_radar = ReleaseRadar::new_personal().await;
-    my_release_radar.update_rr(true).await
+    let my_release_radar = PlaylistCreator::release_radar().await;
+    my_release_radar.update_playlist().await
 }
