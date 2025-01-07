@@ -1,15 +1,14 @@
-use std::borrow::Borrow;
+// use std::borrow::Borrow;
 use std::collections::{BTreeMap, HashMap, HashSet};
-use std::thread;
 
-use chrono::{DateTime, NaiveDate, NaiveDateTime};
+use chrono::{NaiveDate, NaiveDateTime};
 use futures::stream::StreamExt;
 use pbr::ProgressBar;
-use rspotify::{AuthCodeSpotify, ClientError, ClientResult, scopes};
-use rspotify::clients::BaseClient;
 use rspotify::clients::pagination::Paginator;
-use rspotify::model::{AlbumId, ArtistId, FullAlbum, FullArtist, FullTrack, Id, PlayableId, SimplifiedAlbum, SimplifiedArtist, SimplifiedTrack, TrackId};
-use tracing::{debug, error, info, Level};
+use rspotify::clients::BaseClient;
+use rspotify::model::{AlbumId, ArtistId, FullAlbum, FullArtist, FullTrack, PlayableId, SimplifiedAlbum, SimplifiedTrack, TrackId};
+use rspotify::{scopes, AuthCodeSpotify, ClientError, ClientResult};
+use tracing::{error, info, Level};
 
 use crate::enums::validation::BatchLimits;
 use crate::traits::apis::Api;
@@ -29,7 +28,7 @@ impl Api for ArtistXplorer {
 }
 
 impl ArtistXplorer {
-    pub async fn new(artist_id: ArtistId<'static>) -> Self {
+    pub async fn new(artist_id: ArtistId<'static>) -> Result<Self, ClientError> {
         let span = tracing::span!(Level::INFO, "ArtistXplorer.new");
         let _enter = span.enter();
 
@@ -44,17 +43,17 @@ impl ArtistXplorer {
             }
             Err(error) => {
                 error!(artist_id = ?artist_id.clone(), "Was not able to get data for the requested artist");
-                panic!("Error: {:?}", error);
+                return Err(error);
             }
         };
         let albums = Self::albums(client.artist_albums(artist_id.clone(), None, Some(Self::market()))).await;
         info!("Data has been retrieved for the artist, '{}'.", artist.name);
-        ArtistXplorer {
+        Ok(ArtistXplorer {
             client,
             artist_id,
             artist,
             albums,
-        }
+        })
     }
     pub async fn albums(mut paginated_albums: Paginator<'_, ClientResult<SimplifiedAlbum>>) -> Vec<SimplifiedAlbum> {
         let span = tracing::span!(Level::INFO, "ArtistXplorer.albums");
@@ -164,8 +163,6 @@ impl ArtistXplorer {
             }
         };
 
-        // let mut albums = Vec::new();
-        // self.albums.clone().iter().for_each(|album| {
         let final_vec = self.albums.clone().iter().filter_map(|album| {
             info!("{:?}", album.name);
             let release_date = match album.release_date.clone() {
@@ -177,7 +174,6 @@ impl ArtistXplorer {
                 },
                 None => panic!("Could not get release date for album {}", album.name)
             };
-            // let date_check = Checks::new().is_outdated(release_date.as_str(), chrono::Duration::days(365));
             if release_date > cutoff {
                 Some(album.clone())
             } else {
@@ -237,13 +233,6 @@ impl ArtistXplorer {
                 }
             }).collect::<Vec<TrackId>>()
         }).collect::<Vec<TrackId>>();
-        // let tracks = self.tracks().await;
-        // let track_ids = tracks.iter().map(|track| {
-        //     match track.id.clone() {
-        //         Some(id) => id,
-        //         None => panic!("Could not get track ID for track {}", track.name)
-        //     }
-        // }).collect::<Vec<TrackId>>();
         let chunked_ids = track_ids.chunks(limit);
         let loops = chunked_ids.len();
         let wait_threshold = 200;
@@ -385,7 +374,13 @@ mod tests {
     #[tokio::test]
     async fn test_artist_xplr() {
         let artist_id = ArtistId::from_id("7u160I5qtBYZTQMLEIJmyz").unwrap();
-        let artist_xplr = ArtistXplorer::new(artist_id.clone()).await;
+        let artist_xplr = match ArtistXplorer::new(artist_id.clone()).await {
+            Ok(xplorer) => { xplorer }
+            Err(err) => {
+                eprintln!("Client Error: {:?}", err);
+                return;
+            }
+        };
         println!("{:?}", artist_xplr.genres());
         assert_eq!(artist_xplr.artist_id, artist_id);
     }
@@ -393,7 +388,13 @@ mod tests {
     #[tokio::test]
     async fn test_album_methods() {
         let artist_id = ArtistId::from_id("7u160I5qtBYZTQMLEIJmyz").unwrap();
-        let artist_xplr = ArtistXplorer::new(artist_id.clone()).await;
+        let artist_xplr = match ArtistXplorer::new(artist_id.clone()).await {
+            Ok(xplorer) => { xplorer }
+            Err(err) => {
+                eprintln!("Client Error: {:?}", err);
+                return;
+            }
+        };
         let albums = artist_xplr.full_albums().await;
         let artists = albums[0].artists.clone();
         let main_artist_id = artists[0].clone().id.unwrap();

@@ -9,7 +9,7 @@ use crate::enums::fs::ProjectDirectories;
 #[derive(Debug, Default)]
 pub struct ProjectFileSystem {
     pub home_directory: ProjectDirectories,
-    config_directory: ProjectDirectories,
+    pub config_directory: ProjectDirectories,
     pub data_directory: ProjectDirectories,
     log_directory: ProjectDirectories,
     state_directory: ProjectDirectories,
@@ -55,13 +55,11 @@ impl ProjectFileSystem {
                     println!("Matched file: {:?}", file.file_name().unwrap());
                     return_vec.insert(file);
                 }
+            } else if path.file_name().unwrap().to_str().unwrap().contains(filter) {
+                println!("File match: {:?}", path.file_name().unwrap());
+                return_vec.insert(path);
             } else {
-                if path.file_name().unwrap().to_str().unwrap().contains(filter) {
-                    println!("File match: {:?}", path.file_name().unwrap());
-                    return_vec.insert(path);
-                } else {
-                    println!("Other file: {:?}", path.file_name().unwrap());
-                }
+                println!("Other file: {:?}", path.file_name().unwrap());
             }
         });
         println!("{:?}", return_vec);
@@ -75,6 +73,9 @@ impl ProjectFileSystem {
             self.log_directory.path(),
             self.state_directory.path(),
             self.cache_directory.path(),
+        ];
+        let file_vec = vec![
+            self.config_directory.path().join("blacklist.toml"),
         ];
         let span = span!(Level::INFO, "Initializer.init");
         let _enter = span.enter();
@@ -94,6 +95,48 @@ impl ProjectFileSystem {
                     );
                 }
             };
+        };
+        for file in file_vec {
+            match self.initialize_file(&file.clone()) {
+                Ok(_) => {
+                    debug!(
+                        "File {:?} was successfully created.",
+                        file.clone().to_str().unwrap()
+                    );
+                }
+                Err(e) => {
+                    debug!(
+                        "File {:?} was not created. Error: {:?}",
+                        file.clone().to_str().unwrap(),
+                        e
+                    );
+                }
+            };
+        };
+    }
+    pub fn initialize_file(&self, file_path: &PathBuf) -> Result<bool, Error> {
+        let span = span!(
+            Level::INFO,
+            "Initializer.initialize_file",
+            value = file_path.clone().to_str().unwrap()
+        );
+        let _enter = span.enter();
+        event!(
+            Level::INFO,
+            "Attempting to create the following file: {:?}",
+            file_path.clone().to_str().unwrap()
+        );
+        if !file_path.exists() {
+            match self.create_file(file_path.clone()) {
+                Ok(_) => Ok(true),
+                Err(e) => Err(e)
+            }
+        } else {
+            event!(
+                Level::INFO,
+                "Skipping file creation because it already exists."
+            );
+            Ok(false)
         }
     }
     pub fn initialize_directory(&self, directory_path: &PathBuf) -> Result<bool, Error> {
@@ -119,6 +162,32 @@ impl ProjectFileSystem {
                 "Skipping directory creation because it already exists."
             );
             Ok(false)
+        }
+    }
+    fn create_file(&self, file_path: PathBuf) -> Result<(), Error> {
+        let span = span!(
+            Level::INFO,
+            "Initializer.create_file",
+            value = file_path.clone().to_str().unwrap()
+        );
+        let _enter = span.enter();
+        return match std::fs::File::create(file_path.clone()) {
+            Ok(_) => {
+                event!(
+                    Level::INFO,
+                    "{:?} was successfully created.",
+                    file_path.clone().to_str().unwrap()
+                );
+                Ok(())
+            }
+            Err(e) => {
+                event!(
+                    Level::DEBUG,
+                    "Unable to create the following file: {:?}",
+                    file_path.clone().to_str().unwrap()
+                );
+                Err(e)
+            }
         }
     }
     fn create_directory(&self, directory_path: PathBuf) -> Result<(), Error> {
@@ -179,7 +248,20 @@ mod tests {
         let init = ProjectFileSystem::new();
         assert_eq!(init.home_directory.path(), ProjectDirectories::Home.path());
     }
-
+    #[test]
+    fn test_create_file() {
+        let init = ProjectFileSystem::default();
+        let file = init.home_directory.path().join("test_file");
+        match init.create_file(file.clone()) {
+            Ok(_) => {
+                assert!(file.exists());
+            }
+            Err(e) => {
+                assert_eq!(e.kind(), ErrorKind::AlreadyExists);
+            }
+        };
+        fs::remove_file(file).unwrap();
+    }
     #[test]
     fn test_initialize_directory() {
         let init = ProjectFileSystem::default();

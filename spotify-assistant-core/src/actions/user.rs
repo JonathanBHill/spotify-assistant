@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use rspotify::{AuthCodeSpotify, scopes};
 use rspotify::clients::OAuthClient;
-use rspotify::model::{FullArtist, FullTrack, Id, PrivateUser, SubscriptionLevel, TimeRange};
+use rspotify::model::{FullArtist, FullTrack, Id, PlayHistory, PrivateUser, SubscriptionLevel, TimeRange};
 use tracing::{event, info, Level};
 
 use crate::traits::apis::Api;
@@ -114,27 +114,19 @@ impl UserData {
             }
         }
     }
-    pub async fn recently_played(&self) -> Vec<(String, String, String)> {
-        let x = self
-            .client
-            .current_user_recently_played(Some(50), None)
-            .await;
-        let ux = x.expect("Issue unwrapping");
-        let uxc = ux.items;
-        // println!("{:?}, {:?}", ux.total, ux.limit);
-        let items = uxc
-            .iter()
-            .map(|track| {
-                let track_name = track.track.name.clone();
-                let context = match track.context.clone() {
-                    Some(context) => context._type.to_string(),
-                    None => "not known".to_string(),
-                };
-                let x = track.played_at.naive_local().to_string();
-                (track_name, context, x)
-            })
-            .collect::<Vec<(String, String, String)>>();
-        items
+    pub async fn get_recently_played(&self, next_page: Option<String>) -> (Vec<PlayHistory>, String) {
+        let results = match self.client.current_user_recently_played(Some(50), None).await {
+            Ok(results) => {
+                results
+            }
+            Err(err) => {
+                panic!("Could not retrieve your listening history: {:?}", err);
+            }
+        };
+        let tracks = results.items;
+        println!("{:?}", results.next);
+        let reverse_tracks = tracks.into_iter().rev().collect::<Vec<PlayHistory>>();
+        (reverse_tracks, results.next.unwrap_or_default())
     }
     pub async fn top_tracks(&self) -> Vec<FullTrack> {
         let span = tracing::span!(Level::INFO, "UserData.top-tracks");
