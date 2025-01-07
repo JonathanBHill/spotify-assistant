@@ -12,7 +12,6 @@ use tracing::{error, info, Level};
 
 use crate::enums::validation::BatchLimits;
 use crate::traits::apis::Api;
-use crate::utilities::datetime::Checks;
 
 pub struct ArtistXplorer {
     client: AuthCodeSpotify,
