@@ -8,6 +8,13 @@ use crate::enums::fs::ProjectFiles;
 pub enum PlaylistType {
     StockRR,
     MyRR,
+    Top24,
+    Top23,
+    Top22,
+    Top21,
+    Top20,
+    Top19,
+    Top18,
 }
 
 impl PlaylistType {
@@ -16,11 +23,18 @@ impl PlaylistType {
         let env_id = match self {
             PlaylistType::StockRR => "RELEASE_RADAR_ID",
             PlaylistType::MyRR => "MY_RELEASE_RADAR_ID",
+            PlaylistType::Top24 => "TOP_24_ID",
+            PlaylistType::Top23 => "TOP_23_ID",
+            PlaylistType::Top22 => "TOP_22_ID",
+            PlaylistType::Top21 => "TOP_21_ID",
+            PlaylistType::Top20 => "TOP_20_ID",
+            PlaylistType::Top19 => "TOP_19_ID",
+            PlaylistType::Top18 => "TOP_18_ID"
         };
         let rr_id = env::var(env_id)
             .expect("Error: The MY_RELEASE_RADAR_ID environmental variable was not found");
         let pl_id = PlaylistId::from_id(Cow::from(rr_id))
-            .expect("Error: The PlaylistId could not be created from the playlist ID");
+            .expect("Error: The PlaylistId could not be created from the playlists ID");
         pl_id.into_static()
     }
 }
