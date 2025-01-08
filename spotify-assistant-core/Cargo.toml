@@ -5,7 +5,7 @@ resolver = "2"
 edition = "2021"
 
 [dependencies]
-rspotify = { version = "0.13.3", default-features = false, features = ["async-stream", "cli", "client-reqwest", "reqwest-default-tls", "env-file"] }
+rspotify = { version = "0.14.0", default-features = false, features = ["async-stream", "cli", "client-reqwest", "reqwest-default-tls", "env-file"] }
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter", "json", "default", "local-time", "chrono"] }
 dotenv = "0.15.0"
