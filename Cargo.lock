@@ -838,14 +838,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "derivative"
-version = "2.2.0"
+name = "derive-where"
+version = "1.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fcc3dd5e9e9c0b295d6e1e4d811fb6f157d5ffd784b8d202fc62eac8035a770b"
+checksum = "62d671cc41a825ebabc75757b62d3d168c577f9149b2d49ece1dad1f72119d25"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 1.0.109",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -1338,9 +1338,9 @@ checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 
 [[package]]
 name = "hickory-proto"
-version = "0.24.1"
+version = "0.24.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "07698b8420e2f0d6447a436ba999ec85d8fbf2a398bbd737b82cac4a2e96e512"
+checksum = "447afdcdb8afb9d0a852af6dc65d9b285ce720ed7a59e42a8bf2e931c67bc1b5"
 dependencies = [
  "async-trait",
  "cfg-if",
@@ -1349,7 +1349,7 @@ dependencies = [
  "futures-channel",
  "futures-io",
  "futures-util",
- "idna 0.4.0",
+ "idna",
  "ipnet",
  "once_cell",
  "rand",
@@ -1362,9 +1362,9 @@ dependencies = [
 
 [[package]]
 name = "hickory-resolver"
-version = "0.24.1"
+version = "0.24.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "28757f23aa75c98f254cf0405e6d8c25b831b32921b050a66692427679b1f243"
+checksum = "0a2e2aba9c389ce5267d31cf1e4dace82390ae276b0b364ea55630b1fa1b44b4"
 dependencies = [
  "cfg-if",
  "futures-util",
@@ -1675,16 +1675,6 @@ name = "ident_case"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
-
-[[package]]
-name = "idna"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7d20d6b07bfbc108882d88ed8e37d39636dcc260e15e30c45e6ba089610b917c"
-dependencies = [
- "unicode-bidi",
- "unicode-normalization",
-]
 
 [[package]]
 name = "idna"
@@ -2039,16 +2029,16 @@ dependencies = [
 
 [[package]]
 name = "mongodb"
-version = "3.1.0"
+version = "3.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c857d71f918b38221baf2fdff7207fec9984b4504901544772b1edf0302d669f"
+checksum = "ff1f6edf7fe8828429647a2200f684681ca6d5a33b45edc3140c81390d852301"
 dependencies = [
  "async-trait",
  "base64 0.13.1",
  "bitflags 1.3.2",
  "bson",
  "chrono",
- "derivative",
+ "derive-where",
  "derive_more",
  "futures-core",
  "futures-executor",
@@ -2087,9 +2077,9 @@ dependencies = [
 
 [[package]]
 name = "mongodb-internal-macros"
-version = "3.1.0"
+version = "3.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3a6dbc533e93429a71c44a14c04547ac783b56d3f22e6c4f12b1b994cf93844e"
+checksum = "8b07bfd601af78e39384707a8e80041946c98260e3e0190e294ee7435823e6bf"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3777,12 +3767,13 @@ dependencies = [
 
 [[package]]
 name = "redis"
-version = "0.27.5"
+version = "0.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "81cccf17a692ce51b86564334614d72dcae1def0fd5ecebc9f02956da74352b5"
+checksum = "ff21dd025d2d3d2a6ad6788c0f7153f82d063216a7638f70367aac5790fea5da"
 dependencies = [
  "arc-swap",
  "combine",
+ "itertools",
  "itoa",
  "num-bigint",
  "percent-encoding",
@@ -3952,9 +3943,9 @@ dependencies = [
 
 [[package]]
 name = "rspotify"
-version = "0.13.3"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "71aa4a990ef1bacbed874fbab621e16c61a8b5a56854ada6b2bcccf19acb5795"
+checksum = "97e4f3254b449534ab3891331881d922d50ec36bd07c155147253a747fa5d475"
 dependencies = [
  "async-stream",
  "async-trait",
@@ -3971,43 +3962,43 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
- "thiserror 1.0.68",
+ "thiserror 2.0.9",
  "url",
  "webbrowser",
 ]
 
 [[package]]
 name = "rspotify-http"
-version = "0.13.3"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a193f73ee55ab66aeb0337170d120bc73ec4963b150d9c66d68b28d14bc5ac5f"
+checksum = "ed8a6b6d3cfea3040a2436e02366e5cb8d84f7658667be7075f6ed1cc64360da"
 dependencies = [
  "async-trait",
  "log",
  "maybe-async",
  "reqwest",
  "serde_json",
- "thiserror 1.0.68",
+ "thiserror 2.0.9",
 ]
 
 [[package]]
 name = "rspotify-macros"
-version = "0.13.3"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b78387b0ebb8da6d4c72e728496b09701b7054c0ef88ea2f4f40e46b9107a6de"
+checksum = "559fad82b639297c093c5cc8ef406001dd0cb55cd9f5125a8fb40310e38b95d9"
 
 [[package]]
 name = "rspotify-model"
-version = "0.13.3"
+version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1b6ce0f0ecf4eb3b0b8ab7c6932328d03040dd77169b1c533a3ead1308985af6"
+checksum = "8cd00345ab89d2dd8059f0d0c168a6b0f858099795d7e318554411303b827d95"
 dependencies = [
  "chrono",
  "enum_dispatch",
  "serde",
  "serde_json",
  "strum",
- "thiserror 1.0.68",
+ "thiserror 2.0.9",
 ]
 
 [[package]]
@@ -4233,9 +4224,9 @@ checksum = "61697e0a1c7e512e84a621326239844a24d8207b4669b41bc18b32ea5cbf988b"
 
 [[package]]
 name = "serde"
-version = "1.0.216"
+version = "1.0.217"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0b9781016e935a97e8beecf0c933758c97a5520d32930e460142b4cd80c6338e"
+checksum = "02fc4265df13d6fa1d00ecff087228cc0a2b5f3c0e87e258d8b94a156e984c70"
 dependencies = [
  "serde_derive",
 ]
@@ -4251,9 +4242,9 @@ dependencies = [
 
 [[package]]
 name = "serde_derive"
-version = "1.0.216"
+version = "1.0.217"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "46f859dbbf73865c6627ed570e78961cd3ac92407a2d117204c49232485da55e"
+checksum = "5a9bf7cf98d04a2b28aead066b7496853d4779c9cc183c440dbac457641e19a0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5224,7 +5215,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8d157f1b96d14500ffdc1f10ba712e780825526c03d9a49b4d0324b0d9113ada"
 dependencies = [
  "form_urlencoded",
- "idna 1.0.3",
+ "idna",
  "percent-encoding",
 ]
 
