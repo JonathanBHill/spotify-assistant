@@ -60,23 +60,10 @@ impl Updater {
     pub fn target_playlist(&self) -> FullPlaylist {
         self.target_pl.clone()
     }
-    pub async fn query_rr(&self, rr_type: bool) {
-        let playlist = match rr_type {
-            true => self.ref_pl.clone(),
-            false => self.target_pl.clone(),
-        };
-        let tracks = playlist.tracks.items;
-        for track in tracks {
-            match track.track {
-                Some(PlayableItem::Track(ref track)) => {
-                    println!("Track: {:?}", track.name);
-                    println!("Album: {:?}", track.album.name);
-                    println!("Artists: {:?}", track.artists);
-                    print_separator();
-                }
-                _ => (),
-            }
-        }
+    pub async fn get_snapshot(&self) -> String {
+        let x = self.target_pl.snapshot_id.clone();
+        println!("Snapshot ID: {:?}", x);
+        x
     }
     pub async fn get_snapshot(&self) -> String {
         let x = self.target_pl.snapshot_id.clone();
@@ -88,25 +75,6 @@ impl Updater {
             None => { panic!("Track does not have an album ID.") }
             Some(album_id) => { album_id }
         }
-    }
-    pub async fn get_reference_track_artist_ids(&self) -> Vec<Vec<(String, ArtistId)>> {
-        self.ref_pl
-            .tracks
-            .items
-            .iter()
-            .filter_map(|track| match track.track {
-                Some(PlayableItem::Track(ref track)) => {
-                    let artist_ids = track
-                        .artists
-                        .iter()
-                        .map(|artist| (artist.name.clone(), artist.id.clone().expect("Could not clone artist ID")))
-                        .collect::<Vec<(String, ArtistId)>>();
-                    Some(artist_ids)
-                }
-                _ => None,
-            })
-            // .flatten()
-            .collect()
     }
     pub async fn get_reference_track_album_ids_filtered(&self) -> Vec<AlbumId> {
         let blacklist = Blacklist::new().artists();
@@ -129,20 +97,6 @@ impl Updater {
                         let album_id = self.get_track_album_id(track);
                         Some(album_id)
                     }
-                }
-                _ => None,
-            })
-            .collect()
-    }
-    pub async fn get_reference_track_album_ids(&self) -> Vec<AlbumId> {
-        self.ref_pl
-            .tracks
-            .items
-            .iter()
-            .filter_map(|track| match track.track {
-                Some(PlayableItem::Track(ref track)) => {
-                    let album_id = self.get_track_album_id(track);
-                    Some(album_id)
                 }
                 _ => None,
             })
