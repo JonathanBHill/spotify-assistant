@@ -1,0 +1,9 @@
+[package]
+name = "spotify-assistant-data-request"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+polars = { version = "0.44.2", features = ["lazy", "fmt", "temporal", "json", "polars-plan", "strings", "polars-io", "parquet", "cum_agg"] }
+tracing = "0.1.40"
+spotify-assistant-core = { path = "../spotify-assistant-core" }

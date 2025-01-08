@@ -124,7 +124,7 @@ impl Artist {
         let now = chrono::Local::now();
         let date_formatted = now.format("%m-%d-%Y").to_string();
         let time_formatted = now.format("%H:%M:%S").to_string();
-        let mut datetime = HashMap::from([
+        let datetime = HashMap::from([
             ("date".to_string(), date_formatted.clone()),
             ("time".to_string(), time_formatted),
         ]);
