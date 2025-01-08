@@ -13,7 +13,7 @@ use tracing::{event, span, Level};
 use spotify_assistant_core::actions::exploration::artist::ArtistXplorer;
 use spotify_assistant_core::actions::exploration::playlist::PlaylistXplr;
 use spotify_assistant_core::actions::playlists::user::UserPlaylists;
-use spotify_assistant_core::actions::update::PlaylistCreator;
+use spotify_assistant_core::actions::update::Updater;
 use spotify_assistant_core::models::blacklist::{Blacklist, BlacklistArtist};
 
 use crate::enums::{BlacklistArgs, ConfigArgs, QueryArgs, ReleaseRadarArgs, ReleaseRadarCmds, ShellType};
