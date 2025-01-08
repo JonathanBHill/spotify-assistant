@@ -2697,7 +2697,7 @@ dependencies = [
  "rayon",
  "regex",
  "strum_macros",
-    "thiserror 2.0.9",
+ "thiserror 2.0.9",
  "version_check",
  "xxhash-rust",
 ]
@@ -2724,7 +2724,7 @@ dependencies = [
  "polars-arrow-format",
  "regex",
  "simdutf8",
-    "thiserror 2.0.9",
+ "thiserror 2.0.9",
 ]
 
 [[package]]
@@ -3632,7 +3632,7 @@ dependencies = [
  "rustc-hash",
  "rustls 0.23.16",
  "socket2",
-    "thiserror 2.0.9",
+ "thiserror 2.0.9",
  "tokio",
  "tracing",
 ]
@@ -3651,7 +3651,7 @@ dependencies = [
  "rustls 0.23.16",
  "rustls-pki-types",
  "slab",
-    "thiserror 2.0.9",
+ "thiserror 2.0.9",
  "tinyvec",
  "tracing",
  "web-time",
@@ -4807,7 +4807,7 @@ version = "2.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f072643fd0190df67a8bab670c20ef5d8737177d6ac6b2e9a236cb096206b2cc"
 dependencies = [
-    "thiserror-impl 2.0.9",
+ "thiserror-impl 2.0.9",
 ]
 
 [[package]]
