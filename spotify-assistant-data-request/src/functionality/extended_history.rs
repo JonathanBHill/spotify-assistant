@@ -14,14 +14,14 @@ pub struct DataFrameLoader {
 impl DataFrameLoader {
     pub fn from_json(file_path: String) -> Result<Self, PolarsError> {
         let file = DataFrameLoader::from_file(file_path);
-        let mut df = JsonReader::new(file).infer_schema_len(None).finish()?;
+        let df = JsonReader::new(file).infer_schema_len(None).finish()?;
         Ok(DataFrameLoader {
             df,
         })
     }
     pub fn from_parquet(file_path: String) -> Result<Self, PolarsError> {
         let file = DataFrameLoader::from_file(file_path);
-        let mut df = ParquetReader::new(file).finish()?;
+        let df = ParquetReader::new(file).finish()?;
         Ok(DataFrameLoader {
             df,
         })
@@ -113,7 +113,7 @@ impl DataFrameLoader {
                          .with_column(col("datetime").dt().minute().alias("minute"))
                          .with_column(col("datetime").dt().second().alias("second"))
                          .collect()?;
-        let mut cols_to_drop: Vec<PlSmallStr> = vec![
+        let cols_to_drop: Vec<PlSmallStr> = vec![
             "ts".into(),
             "datetime".into(),
             "username".into(),
