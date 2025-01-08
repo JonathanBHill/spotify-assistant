@@ -5,7 +5,9 @@ resolver = "2"
 edition = "2021"
 
 [dependencies]
-clap = { version = "4.5.21", features = ["derive"] }
-clap_complete = { version = "4.5.38", default-features = true }
-futures = "0.3.31"
-spotify-assistant-core = { path = "../spotify-assistant-core" }
+clap = { version = "4.5.24", features = ["derive"] }
+clap_complete = "4.5.41"
+futures = "0.3.30"
+spotify-assistant-core = { version = "0.1.0", path = "../spotify-assistant-core" }
+rspotify = "0.13.3"
+tracing = "0.1.41"
