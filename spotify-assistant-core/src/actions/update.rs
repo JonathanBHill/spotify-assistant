@@ -11,7 +11,7 @@ use crate::traits::apis::Api;
 use crate::utilities::filesystem::files::ProjectFiles;
 use crate::utilities::general::print_separator;
 
-pub struct PlaylistCreator {
+pub struct Updater {
     client: AuthCodeSpotify,
     ref_id: PlaylistId<'static>,
     target_id: PlaylistId<'static>,
@@ -19,7 +19,7 @@ pub struct PlaylistCreator {
     target_pl: FullPlaylist,
 }
 
-impl Api for PlaylistCreator {
+impl Api for Updater {
     fn select_scopes() -> HashSet<String> {
         scopes!(
             "playlist-read-private",
@@ -29,18 +29,18 @@ impl Api for PlaylistCreator {
         )
     }
 }
-impl PlaylistCreator {
+impl Updater {
     pub async fn release_radar() -> Self {
         let client = Self::set_up_client(false, Some(Self::select_scopes())).await;
         let ref_id = PlaylistType::StockRR.get_id();
         let target_id = PlaylistType::MyRR.get_id();
         let target_pl = client
-            .playlist(target_id.clone(), None, Some(PlaylistCreator::market()))
+            .playlist(target_id.clone(), None, Some(Updater::market()))
             .await.expect("Could not retrieve custom playlists");
         let ref_pl = client
-            .playlist(ref_id.clone(), None, Some(PlaylistCreator::market()))
+            .playlist(ref_id.clone(), None, Some(Updater::market()))
             .await.expect("Could not retrieve stock playlists");
-        PlaylistCreator {
+        Updater {
             client,
             ref_id,
             target_id,
@@ -77,6 +77,11 @@ impl PlaylistCreator {
                 _ => (),
             }
         }
+    }
+    pub async fn get_snapshot(&self) -> String {
+        let x = self.target_pl.snapshot_id.clone();
+        println!("Snapshot ID: {:?}", x);
+        x
     }
     fn get_track_album_id(&self, full_track: &FullTrack) -> AlbumId {
         match full_track.album.id.clone() {
