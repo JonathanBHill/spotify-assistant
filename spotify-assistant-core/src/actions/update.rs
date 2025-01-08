@@ -61,14 +61,9 @@ impl Updater {
         self.target_pl.clone()
     }
     pub async fn get_snapshot(&self) -> String {
-        let x = self.target_pl.snapshot_id.clone();
-        println!("Snapshot ID: {:?}", x);
-        x
-    }
-    pub async fn get_snapshot(&self) -> String {
-        let x = self.target_pl.snapshot_id.clone();
-        println!("Snapshot ID: {:?}", x);
-        x
+        let snapshot = self.target_pl.snapshot_id.clone();
+        println!("Snapshot ID: {:?}", snapshot);
+        snapshot
     }
     fn get_track_album_id(&self, full_track: &FullTrack) -> AlbumId {
         match full_track.album.id.clone() {
