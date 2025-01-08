@@ -7,14 +7,14 @@ edition = "2021"
 [dependencies]
 rusqlite = { version = "0.32.1", optional = true, features = ["chrono"] }
 tokio-postgres = { version = "0.7.12", optional = true }
-mongodb = { version = "3.1.0", optional = true }
-redis = { version = "0.27.5", optional = true }
+mongodb = { version = "3.1.1", optional = true }
+redis = { version = "0.28.0", optional = true }
 dotenv = "0.15.0"
 spotify-assistant-core = { path = "../spotify-assistant-core" }
-rspotify = { version = "0.13.3", default-features = false, features = ["async-stream", "cli", "client-reqwest", "reqwest-default-tls", "env-file"] }
-serde = { version = "1.0.214", features = ["derive"] }
+rspotify = { version = "0.14.0", default-features = false, features = ["async-stream", "cli", "client-reqwest", "reqwest-default-tls", "env-file"] }
+serde = { version = "1.0.217", features = ["derive"] }
 tracing = "0.1.40"
-tracing-subscriber = { version = "0.3.18", features = ["env-filter", "json", "default", "local-time", "chrono"] }
+tracing-subscriber = { version = "0.3.19", features = ["env-filter", "json", "default", "local-time", "chrono"] }
 chrono = "0.4.38"
 tokio = { version = "1.41.0", features = ["default"] }
 
