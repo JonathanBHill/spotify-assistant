@@ -24,13 +24,23 @@ impl Api for PlaylistQuery {
 impl PlaylistQuery {
     pub async fn new() -> Self {
         let scope = scopes!(
-            "playlists-read-private",
-            "playlists-read-collaborative",
-            "playlists-modify-public",
-            "playlists-modify-private"
+            "playlist-read-private",
+            "playlist-read-collaborative",
+            "playlist-modify-public",
+            "playlist-modify-private"
         );
         PlaylistQuery {
             client: Self::set_up_client(false, Some(scope)).await,
+        }
+    }
+    pub async fn get_playlist(&self, playlist_id_as_str: &str) -> Result<FullPlaylist, Box<dyn std::error::Error>> {
+        let playlist_id = match PlaylistId::from_id(playlist_id_as_str) {
+            Ok(id) => { id }
+            Err(err) => { return Err(Box::new(err)) }
+        };
+        match self.client.playlist(playlist_id, None, None).await {
+            Ok(pl) => { Ok(pl) }
+            Err(err) => { Err(Box::new(err)) }
         }
     }
     fn construct_pattern(&self, words: Vec<&str>) -> String {
