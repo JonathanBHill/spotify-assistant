@@ -1,17 +1,16 @@
 use std::collections::HashSet;
 
-use rspotify::model::{AlbumId, ArtistId, FullPlaylist, FullTrack, PlayableItem, PlaylistId, TrackId};
-use rspotify::prelude::*;
-use rspotify::{scopes, AuthCodeSpotify};
-use tracing::{error, info, Level};
-
+use crate::actions::exploration::playlist::PlaylistXplr;
 use crate::enums::pl::PlaylistType;
 use crate::models::blacklist::{Blacklist, BlacklistArtist};
 use crate::traits::apis::Api;
-use crate::utilities::filesystem::files::ProjectFiles;
-use crate::utilities::general::print_separator;
+use rspotify::model::{AlbumId, FullPlaylist, FullTrack, PlayableItem, PlaylistId, TrackId};
+use rspotify::prelude::*;
+use rspotify::{scopes, AuthCodeSpotify};
+use tracing::{error, event, info, Level};
 
-pub struct Updater {
+#[derive(Debug)]
+pub struct Editor {
     client: AuthCodeSpotify,
     ref_id: PlaylistId<'static>,
     target_id: PlaylistId<'static>,
@@ -19,7 +18,7 @@ pub struct Updater {
     target_pl: FullPlaylist,
 }
 
-impl Api for Updater {
+impl Api for Editor {
     fn select_scopes() -> HashSet<String> {
         scopes!(
             "playlist-read-private",
@@ -29,23 +28,85 @@ impl Api for Updater {
         )
     }
 }
-impl Updater {
+impl Editor {
     pub async fn release_radar() -> Self {
         let client = Self::set_up_client(false, Some(Self::select_scopes())).await;
         let ref_id = PlaylistType::StockRR.get_id();
         let target_id = PlaylistType::MyRR.get_id();
         let target_pl = client
-            .playlist(target_id.clone(), None, Some(Updater::market()))
-            .await.expect("Could not retrieve custom playlists");
+            .playlist(target_id.clone(), None, Some(Editor::market()))
+            .await.expect("Could not retrieve target playlist");
         let ref_pl = client
-            .playlist(ref_id.clone(), None, Some(Updater::market()))
-            .await.expect("Could not retrieve stock playlists");
-        Updater {
+            .playlist(ref_id.clone(), None, Some(Editor::market()))
+            .await.expect("Could not retrieve reference playlist");
+        Editor {
             client,
             ref_id,
             target_id,
             ref_pl,
             target_pl,
+        }
+    }
+    pub async fn new(ref_id: PlaylistId<'static>, target_id: PlaylistId<'static>) -> Self {
+        let client = Self::set_up_client(false, Some(Self::select_scopes())).await;
+        let target_pl = client
+            .playlist(target_id.clone(), None, Some(Editor::market()))
+            .await.expect("Could not retrieve target playlist");
+        let ref_pl = client
+            .playlist(ref_id.clone(), None, Some(Editor::market()))
+            .await.expect("Could not retrieve reference playlist");
+        Editor {
+            client,
+            ref_id,
+            target_id,
+            ref_pl,
+            target_pl,
+        }
+    }
+    pub async fn remove_liked_songs(&mut self) {
+        let span = tracing::span!(Level::DEBUG, "remove_liked_songs");
+        let _enter = span.enter();
+
+        let xplr = PlaylistXplr::new(self.target_id.clone(), false).await;
+        let is_liked_hashmap = xplr.find_liked_songs().await;
+        let liked = is_liked_hashmap.get("liked").unwrap();
+        let liked_song_ids = liked.iter().map(|track| {
+            match PlayableItem::Track(track.clone()).id() {
+                None => { panic!("Track does not have an ID.") }
+                Some(id) => { id.into_static() }
+            }
+        }).collect::<Vec<PlayableId>>();
+        event!(
+            Level::INFO, "Removing liked songs from {:?}. Current track number: {:?} | Snapshot ID: {:?}",
+            self.target_pl.name, self.target_pl.tracks.total, self.get_target_snapshot()
+        );
+        // println!("Target ID: {:?} | Snapshot ID: {:?}", self.target_id, self.get_target_snapshot());
+        event!(Level::DEBUG, "Liked songs count: {:?}", liked_song_ids.len());
+        for batch in liked_song_ids.chunks(100) {
+            match self.client.playlist_remove_all_occurrences_of_items(
+                self.target_id.clone(),
+                batch.to_vec(),
+                Some(self.get_target_snapshot().as_str())
+            ).await {
+                Ok(snapshot_id) => {
+                    self.target_pl = match self.client.playlist(self.target_id.clone(), None, Some(Self::market()))
+                                               .await {
+                        Ok(pl) => { pl }
+                        Err(err) => {
+                            error!("Error: {:?}", err);
+                            panic!("Could not retrieve target playlist");
+                        }
+                    };
+                    event!(
+                        Level::INFO, "Removed liked songs from {:?}. Updated track number: {:?} | Snapshot ID: {:?}",
+                        self.target_pl.name, self.target_pl.tracks.total, snapshot_id
+                    );
+                }
+                Err(err) => {
+                    error!("Error: {:?}", err);
+                    panic!("Could not remove liked songs");
+                }
+            };
         }
     }
     pub fn reference_id(&self) -> PlaylistId {
@@ -60,7 +121,7 @@ impl Updater {
     pub fn target_playlist(&self) -> FullPlaylist {
         self.target_pl.clone()
     }
-    pub async fn get_snapshot(&self) -> String {
+    pub fn get_target_snapshot(&self) -> String {
         let snapshot = self.target_pl.snapshot_id.clone();
         println!("Snapshot ID: {:?}", snapshot);
         snapshot
@@ -125,7 +186,7 @@ impl Updater {
         return_vector
     }
     pub async fn update_playlist(&self) {
-        let span = tracing::span!(Level::DEBUG, "rr_update");
+        let span = tracing::span!(Level::DEBUG, "Editor.update_playlist");
         let _enter = span.enter();
         let ids = self.get_album_tracks_from_reference().await;
         if self.target_id.clone() == PlaylistType::StockRR.get_id() {

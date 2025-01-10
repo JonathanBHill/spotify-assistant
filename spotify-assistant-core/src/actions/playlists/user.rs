@@ -1,16 +1,17 @@
-use futures::{StreamExt, TryStreamExt};
+use futures::StreamExt;
 use rspotify::clients::{BaseClient, OAuthClient};
-use rspotify::model::{FullPlaylist, PlaylistId, SimplifiedPlaylist};
+use rspotify::model::{FullPlaylist, FullTrack, PlaylistId, SavedTrack, SimplifiedPlaylist};
 use rspotify::{scopes, AuthCodeSpotify};
 use std::collections::{HashMap, HashSet};
+use std::time::Duration;
+use tokio::time::sleep;
 use tracing::{event, info, Level};
 
 use crate::traits::apis::Api;
 
 pub struct LikedSongs {
     client: AuthCodeSpotify,
-    id: PlaylistId<'static>,
-    full_playlist: FullPlaylist,
+    total_tracks: u32,
 }
 
 impl Api for LikedSongs {
@@ -19,15 +20,55 @@ impl Api for LikedSongs {
     }
 }
 impl LikedSongs {
-    pub fn full_playlist(&self) -> FullPlaylist {
-        self.full_playlist.clone()
-    }
-    pub fn id(&self) -> PlaylistId {
-        self.id.clone()
+    pub async fn new() -> Self {
+        let span = tracing::span!(Level::INFO, "LikedSongs.new");
+        let _enter = span.enter();
+        let client = Self::set_up_client(false, Some(Self::select_scopes())).await;
+        let total_tracks = match client.current_user_saved_tracks_manual(
+            Some(Self::market()),
+            None,
+            None
+        ).await {
+            Ok(tracks) => { tracks.total }
+            Err(err) => {
+                event!(Level::ERROR, "Error: {:?}", err);
+                panic!("Could not retrieve saved tracks.");
+            }
+        };
+        LikedSongs {
+            client,
+            total_tracks,
+        }
     }
     pub fn client(&self) -> AuthCodeSpotify {
         self.client.clone()
     }
+    pub async fn library(&self) -> Vec<SavedTrack> {
+        let span = tracing::span!(Level::INFO, "LikedSongs.library");
+        let _enter = span.enter();
+
+        let mut liked_songs = self.client.current_user_saved_tracks(Some(Self::market()));
+        let mut saved_tracks: Vec<SavedTrack> = Vec::new();
+        let mut retries = 3;
+        while retries > 0 {
+            if let Some(page) = liked_songs.next().await {
+                match page {
+                    Ok(saved_track) => {
+                        event!(Level::INFO, "Saved track: {:?} | New vector length: {:?}", saved_track.track.name, saved_tracks.len() + 1);
+                        saved_tracks.push(saved_track);
+                    },
+                    Err(err) => {
+                        event!(Level::ERROR, "Error: {:?}", err);
+                        retries -= 1;
+                    }
+                }
+            } else {
+                break;
+            }
+        }
+        saved_tracks
+    }
+
 }
 
 #[derive(Clone)]
@@ -60,19 +101,26 @@ impl UserPlaylists {
             .expect("Could not retrieve playlists");
         rr_pl
     }
-    pub async fn myrr(&self) -> FullPlaylist {
-        let span = tracing::span!(Level::INFO, "UserPlaylists.myrr");
+    pub async fn custom_release_radar(&self) -> FullPlaylist {
+        let span = tracing::span!(Level::INFO, "UserPlaylists.custom_release_radar");
         let _enter = span.enter();
-        let rr_id = PlaylistId::from_id("46mIugmIiN2HYVwAwlaBAr").unwrap();
-        let rr_pl = self
-            .client
-            .playlist(rr_id.clone(), None, Some(Self::market()))
-            .await
-            .expect("Could not retrieve playlists");
-        rr_pl
+        let rr_id = match PlaylistId::from_id("46mIugmIiN2HYVwAwlaBAr") {
+            Ok(id) => id,
+            Err(err) => {
+                event!(Level::ERROR, "Error: {:?}", err);
+                panic!("Could not retrieve playlist");
+            }
+        };
+        match self.client.playlist(rr_id.clone(), None, Some(Self::market())).await {
+            Ok(release_radar_playlist) => release_radar_playlist,
+            Err(err) => {
+                event!(Level::ERROR, "Error: {:?}", err);
+                panic!("Could not retrieve playlists");
+            }
+        }
     }
     pub async fn get_user_playlists(&self) -> HashMap<String, PlaylistId> {
-        let span = tracing::span!(Level::INFO, "UserPlaylists.myrr");
+        let span = tracing::span!(Level::INFO, "UserPlaylists.get_user_playlists");
         let _enter = span.enter();
 
         let mut user_playlists = self
@@ -103,11 +151,7 @@ impl UserPlaylists {
     pub async fn get_user_playlists_old(&self) -> Vec<SimplifiedPlaylist> {
         let span = tracing::span!(Level::INFO, "UserData.playlists");
         let _enter = span.enter();
-        let playlists = match self
-            .client
-            .current_user_playlists_manual(Some(50), None)
-            .await
-        {
+        let playlists = match self.client.current_user_playlists_manual(Some(50), None).await {
             Ok(playlists) => playlists,
             Err(error) => panic!("Could not get playlists: {}", error),
         };
