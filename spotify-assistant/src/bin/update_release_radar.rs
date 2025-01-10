@@ -1,7 +1,7 @@
 use tracing::Level;
 use tracing_subscriber::FmtSubscriber;
 
-use spotify_assistant_core::actions::update::Updater;
+use spotify_assistant_core::actions::update::Editor;
 use spotify_assistant_core::traits::apis::Querying;
 use spotify_assistant_core::utilities::configurations::CustomFormatter;
 
@@ -18,6 +18,6 @@ async fn main() {
         let span = tracing::span!(Level::INFO, "main");
         let _enter = span.enter();
     }
-    let my_release_radar = Updater::release_radar().await;
+    let my_release_radar = Editor::release_radar().await;
     my_release_radar.update_playlist().await
 }

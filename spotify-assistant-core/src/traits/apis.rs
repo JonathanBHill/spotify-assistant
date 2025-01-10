@@ -1,10 +1,10 @@
 use std::collections::HashSet;
 use std::env;
 
-use rspotify::{AuthCodeSpotify, Config, Credentials, OAuth};
 use rspotify::model::{Id, Market};
 use rspotify::prelude::OAuthClient;
-use tracing::{error, event, Level, span, trace};
+use rspotify::{AuthCodeSpotify, Config, Credentials, OAuth};
+use tracing::{error, event, span, trace, Level};
 
 use crate::enums::fs::{ProjectDirectories, ProjectFiles};
 
@@ -72,14 +72,12 @@ pub trait Api {
                                 false
                             }
                         });
-
                         error!(
                             name: "client-setup.credentials",
                             target: "client-setup",
                             "Credentials not found in .env file.",
                         );
                     }
-                    error!("Credentials not found.");
                     panic!("Credentials not found.")
                 }
             };
@@ -99,6 +97,7 @@ pub trait Api {
             }
             let url = spotify_client.get_authorize_url(false).unwrap();
             spotify_client.prompt_for_token(&url).await.unwrap();
+            event!(Level::TRACE, "Client was initialized");
             spotify_client
         }
     }
