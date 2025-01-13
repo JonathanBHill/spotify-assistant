@@ -65,7 +65,6 @@ impl HashMapArgTypes {
                         println!("update false; returning hsmbool");
                         HashMapArgTypes::Bool(false)
                     }
-                    // HashMapArgTypes::Bool(Some(val.get_one::<bool>(id.as_str()).clone()))
                 } else if id == "queryrr" {
                     if let Some(val) = val.get_one::<String>(id.as_str()) {
                         println!("list true; returning hsmstring");
@@ -86,13 +85,6 @@ impl HashMapArgTypes {
                     println!("invalid flag; returning hsmbool");
                     HashMapArgTypes::Bool(false)
                 }
-                // if let Some(val) = val.get_one::<String>(id.as_str()) {
-                //     HashMapArgTypes::String(val.to_string())
-                // } else if let Some(val) = val.get_one::<bool>(id.as_str()) {
-                //     HashMapArgTypes::Bool(val.clone())
-                // } else {
-                //     HashMapArgTypes::Bool(false)
-                // }
             }
         }
     }
@@ -100,7 +92,6 @@ impl HashMapArgTypes {
 
 pub enum ReleaseRadarCmds {
     Update(ArgMatches),
-    // Query(ArgMatches),
     Compare(ArgMatches),
     Empty,
 }
@@ -109,9 +100,6 @@ impl ReleaseRadarCmds {
     pub fn from_matches(matches: &ArgMatches) -> ReleaseRadarCmds {
         if let Some(update_arguments) = matches.subcommand_matches("update") {
             ReleaseRadarCmds::Update(update_arguments.to_owned())
-        // } else if let Some(query_arguments) = matches.subcommand_matches("query") {
-        // // if let Some(query_arguments) = matches.subcommand_matches("query") {
-        //     ReleaseRadarCmds::Query(query_arguments.to_owned())
         } else if let Some(compare_arguments) = matches.subcommand_matches("compare") {
             ReleaseRadarCmds::Compare(compare_arguments.to_owned())
         } else {
@@ -123,38 +111,32 @@ pub enum QueryArgs {
     QStock(bool),
     QCustom(bool),
     QBlacklist(bool),
+    QLibrary(bool),
     Empty,
 }
 impl QueryArgs {
     pub fn from_query_matches(matches: &ArgMatches) -> QueryArgs {
-        let rlstock = match matches.get_one::<bool>("rlstock") {
-            Some(let_stock) => { let_stock.clone() }
-            None => { false }
-        };
-        let rlcustom = match matches.get_one::<bool>("rlcustom") {
-            Some(let_custom) => { let_custom.clone() }
-            None => { false }
-        };
-        let rlblacklist = match matches.get_one::<bool>("rlblacklist") {
-            Some(let_blacklist) => { let_blacklist.clone() }
-            None => { false }
-        };
-        if rlstock {
-            QueryArgs::QStock(rlstock)
-        } else if rlcustom {
-            QueryArgs::QCustom(rlcustom)
-        } else if rlblacklist {
-            QueryArgs::QBlacklist(rlblacklist)
+        let stock_rr_arg = Self::arg_exists("qstock", matches);
+        let custom_rr_arg = Self::arg_exists("qcustom", matches);
+        let blacklist_arg = Self::arg_exists("qblacklist", matches);
+        let liked_songs_arg = Self::arg_exists("qlibrary", matches);
+        if stock_rr_arg {
+            QueryArgs::QStock(stock_rr_arg)
+        } else if custom_rr_arg {
+            QueryArgs::QCustom(custom_rr_arg)
+        } else if blacklist_arg {
+            QueryArgs::QBlacklist(blacklist_arg)
+        } else if liked_songs_arg {
+            QueryArgs::QLibrary(liked_songs_arg)
         } else {
             QueryArgs::Empty
         }
-        // if let Some(let_custom) = matches.get_one::<bool>("rlcustom") {
-        //     QueryArgs::QCustom(*let_custom)
-        // } else if let Some(let_blacklist) = matches.get_one::<String>("rlblacklist") {
-        //     QueryArgs::QBlacklist(Some(let_blacklist.to_string()))
-        // } else {
-        //     QueryArgs::Empty
-        // }
+    }
+    fn arg_exists(command: &str, matches: &ArgMatches) -> bool {
+        match matches.get_one::<bool>(command) {
+            Some(exists) => { *exists }
+            None => { false }
+        }
     }
 }
 #[derive(Debug)]
@@ -191,52 +173,17 @@ impl ReleaseRadarArgs {
                         println!("Does not exist")
                     }
                 }
-                // "rlstock" | "rlcustom" => {
-                //     // ReleaseRadarArgs::from_query_matches(matches)
-                //     if ReleaseRadarArgs::exists(true, arg, matches) {
-                //         return ReleaseRadarArgs::from_query_matches(matches);
-                //     }
-                // }
-                // "rlblacklist" => {
-                //     if ReleaseRadarArgs::exists(false, arg, matches) {
-                //         return ReleaseRadarArgs::from_query_matches(matches);
-                //     }
-                // }
                 "playlisttocompare" => {
-                    // ReleaseRadarArgs::from_compare_matches(matches)
                     if ReleaseRadarArgs::exists(false, arg, matches) {
                         return ReleaseRadarArgs::from_compare_matches(matches);
                     }
                 }
                 _ => {
-                    // ReleaseRadarArgs::Empty
                     return ReleaseRadarArgs::Empty;
                 }
             }
         };
         ReleaseRadarArgs::Empty
-        // ReleaseRadarArgs::Empty
-        // match matches.get_one::<bool>("print") {
-        //     Some(print) => {
-        //         ReleaseRadarArgs::UPrint(print.clone())
-        //     }
-        //     None => {
-        //         ReleaseRadarArgs::Empty
-        //     }
-        // }
-        // // if let Some(let_print) = matches.get_one::<bool>("print") {
-        // //     ReleaseRadarArgs::UPrint(let_print.clone())
-        // if let Some(let_stock) = matches.get_one::<bool>("rlstock") {
-        //     ReleaseRadarArgs::QStock(*let_stock)
-        // } else if let Some(let_custom) = matches.get_one::<bool>("rlcustom") {
-        //     ReleaseRadarArgs::QCustom(*let_custom)
-        // } else if let Some(let_blacklist) = matches.get_one::<String>("rlblacklist") {
-        //     ReleaseRadarArgs::QBlacklist(Some(let_blacklist.to_string()))
-        // } else if let Some(let_playlists) = matches.get_one::<String>("playlisttocompare") {
-        //     ReleaseRadarArgs::CPlaylists(let_playlists.to_string())
-        // } else {
-        //     ReleaseRadarArgs::Empty
-        // }
     }
     fn bool_exists(command: &str, matches: &ArgMatches) -> bool {
         if let Some(_) = matches.get_one::<bool>(command) {
