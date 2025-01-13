@@ -5,15 +5,12 @@ use clap::builder::{styling, BoolValueParser, BoolishValueParser, Styles, TypedV
 use clap::{arg, value_parser, Arg, ArgAction, ArgGroup, ArgMatches, ColorChoice, Command};
 use clap_complete::{generate, Shell};
 use futures::{stream, StreamExt};
-use rspotify::model::idtypes::ArtistId;
-use rspotify::model::{IdError, PlaylistId};
-use rspotify::ClientError;
+use rspotify::model::PlaylistId;
 use tracing::{event, span, Level};
 
-use spotify_assistant_core::actions::exploration::artist::ArtistXplorer;
 use spotify_assistant_core::actions::exploration::playlist::PlaylistXplr;
-use spotify_assistant_core::actions::playlists::user::UserPlaylists;
-use spotify_assistant_core::actions::update::Updater;
+use spotify_assistant_core::actions::general::FullProfiles;
+use spotify_assistant_core::actions::playlists::user::{LikedSongs, UserPlaylists};
 use spotify_assistant_core::models::blacklist::{Blacklist, BlacklistArtist};
 
 use crate::enums::{BlacklistArgs, ConfigArgs, QueryArgs, ReleaseRadarArgs, ReleaseRadarCmds, ShellType};
@@ -70,6 +67,12 @@ macro_rules! handle_rr {
 pub struct TerminalApp {
     /// A `clap::Command` instance that defines the main CLI structure, including subcommands, arguments, and behavior.
     command: Command,
+}
+
+impl Default for TerminalApp {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl TerminalApp {
@@ -148,34 +151,32 @@ impl TerminalApp {
                     match name {
                         "playlists" => {
                             event!(Level::TRACE, "Subcommand 'playlists' detected; executing run_playlist_command \
-                            with the following arguments:\n{:?}", &subcommand);
-                            self.run_playlist_command(&subcommand).expect("Couldn't complete the playlist command execution");
+                            with the following arguments:\n{:?}", subcommand);
+                            self.run_playlist_command(subcommand).expect("Couldn't complete the playlist command execution");
                         }
                         "config" => {
                             event!(Level::TRACE, "Subcommand 'config' detected; executing run_config_command \
-                            with the following arguments:\n{:?}", &subcommand);
-                            self.run_config_command(&subcommand).await.expect("Couldn't complete the config command execution");
+                            with the following arguments:\n{:?}", subcommand);
+                            self.run_config_command(subcommand).await.expect("Couldn't complete the config command execution");
                         }
                         "releaseradar" => {
                             event!(Level::TRACE, "Subcommand 'releaseradar' detected; executing run_rr_command \
-                            with the following arguments:\n{:?}", &subcommand);
-                            self.run_rr_command(&subcommand).await.expect("Couldn't complete the release radar command execution");
+                            with the following arguments:\n{:?}", subcommand);
+                            self.run_rr_command(subcommand).await.expect("Couldn't complete the release radar command execution");
                         }
                         "query" => {
                             event!(Level::TRACE, "Subcommand 'query' detected; executing run_query_command \
-                            with the following arguments:\n{:?}", &subcommand);
-                            self.run_query_command(&subcommand).expect("Couldn't complete the query command execution");
+                            with the following arguments:\n{:?}", subcommand);
+                            self.run_query_command(subcommand).await.expect("Couldn't complete the query command execution");
                         }
                         "listeninghistory" => {
                             event!(Level::TRACE, "Subcommand 'listeninghistory' detected; executing \
-                            run_listening_history_command with the following arguments:\n{:?}", &subcommand);
+                            run_listening_history_command with the following arguments:\n{:?}", subcommand);
                         }
                         _ => {
-                            event!(Level::TRACE, "No subcommand detected in the following input:\n{:?}", &subcommand);
+                            event!(Level::TRACE, "No subcommand detected in the following input:\n{:?}", subcommand);
                         }
                     }
-                    event!(Level::DEBUG, "Subcommand: {:?}", &name);
-                    event!(Level::DEBUG, "Subcommand matches:\n{:?}", &subcommand);
                 }
             }
         }).await;
@@ -187,7 +188,7 @@ impl TerminalApp {
     ///
     /// # Arguments
     /// * `matches` - The argument matches for the playlists subcommand.
-    fn run_playlist_command(&self, matches: &ArgMatches) -> Result<(), Box<dyn std::error::Error>> {
+    fn run_playlist_command(&self, matches: &ArgMatches) -> Result<(), Box<dyn Error>> {
         let span = span!(Level::INFO, "TerminalApp.run_playlist_command");
         let _enter = span.enter();
 
@@ -206,7 +207,7 @@ impl TerminalApp {
     ///
     /// # Arguments
     /// * `config_arguments` - The argument matches for the config subcommand.
-    async fn run_config_command(&self, config_arguments: &ArgMatches) -> Result<(), Box<dyn std::error::Error>> {
+    async fn run_config_command(&self, config_arguments: &ArgMatches) -> Result<(), Box<dyn Error>> {
         let span = span!(Level::INFO, "TerminalApp.run_config_command");
         let _enter = span.enter();
 
@@ -231,7 +232,7 @@ impl TerminalApp {
             ConfigArgs::Blacklist(args) => {
                 match self.run_blacklist_subcommand(&args).await {
                     Ok(_) => { Ok(()) }
-                    Err(err) => return Err(err)
+                    Err(err) => Err(err)
                 }
             }
             ConfigArgs::Empty => {
@@ -248,33 +249,16 @@ impl TerminalApp {
     ///
     /// # Arguments
     /// * `blacklist_arguments` - The argument matches for the blacklist subcommand.
-    async fn run_blacklist_subcommand(&self, blacklist_arguments: &ArgMatches) -> Result<(), Box<dyn std::error::Error>> {
+    async fn run_blacklist_subcommand(&self, blacklist_arguments: &ArgMatches) -> Result<(), Box<dyn Error>> {
         let span = span!(Level::INFO, "TerminalApp.run_config_command");
         let _enter = span.enter();
 
         let mut blacklist = Blacklist::new();
         match BlacklistArgs::from_matches(blacklist_arguments) {
             BlacklistArgs::Add(artist_id) => {
-                let artist = match ArtistId::from_id(artist_id) {
-                    Ok(artist) => artist,
-                    Err(err) => {
-                        println!("Could not create an artist profile from the provided ID string.");
-                        eprintln!("ID Error: {:?}", err);
-                        return Err(Box::new(err));
-                    }
-                };
-
-                let explorer = match ArtistXplorer::new(artist.clone()).await {
-                    Ok(xplorer) => {
-                        xplorer
-                    }
-                    Err(err) => {
-                        event!(Level::ERROR, "Could not retrieve artist data: {:?}", err);
-                        return Err(Box::new(err));
-                    }
-                };
-                let artist_name = explorer.artist.name;
-                let artist_id = explorer.artist.id.to_string();
+                let full_artist = FullProfiles::new().await.artist(artist_id).await;
+                let artist_name = full_artist.name;
+                let artist_id = full_artist.id.to_string().split(':').collect::<Vec<&str>>()[2].to_string();
                 let artist = BlacklistArtist::new(artist_name, artist_id);
                 println!("Adding {}'s ID to blacklist: {}", artist.name(), artist.id());
                 blacklist.add_artist(artist);
@@ -284,22 +268,32 @@ impl TerminalApp {
                 let normalized_input = playlist.clone().trim().to_lowercase();
                 let user_playlists = UserPlaylists::new().await;
                 let playlist_names_and_ids = user_playlists.get_user_playlists().await;
-                let playlist_id = match playlist_names_and_ids.iter().find_map(|(name, id)| {
-                    event!(Level::DEBUG, "Testing input as name: {:?}", &playlist);
-                    if name.clone().to_lowercase() == normalized_input {
-                        event!(Level::DEBUG, "Input matches a name (playlist, input): {:?}, {:?}", &playlist, &name.to_lowercase());
-                        let new_id_string = id.to_string().split(':').collect::<Vec<&str>>().iter().map(|slice| slice.to_string()).collect::<Vec<String>>();
-                        event!(Level::DEBUG, "ID string: {:?}", new_id_string);
-                        match PlaylistId::from_id(new_id_string[2].clone()) {
-                            Ok(id) => { Some(id) }
-                            Err(err) => {
-                                event!(Level::ERROR, "Failed to parse playlist ID '{}': {:?}", &playlist, err);
-                                return None;
-                            }
-                        }
-                    } else {
-                        None
-                    }
+                let playlist_id = match playlist_names_and_ids.iter()
+                                                              .find_map(|(name, id)| {
+                                                                  event!(Level::DEBUG, "Testing input as name: {:?}", &playlist);
+                                                                  if name.clone().to_lowercase() == normalized_input {
+                                                                      event!(
+                                Level::DEBUG,
+                                "Input matches a name (playlist, input): {:?}, {:?}",
+                                &playlist, &name.to_lowercase()
+                            );
+                                                                      let new_id_string = id.to_string()
+                                                                                            .split(':')
+                                                                                            .collect::<Vec<&str>>()
+                                                                                            .iter()
+                                                                                            .map(|slice| slice.to_string())
+                                                                                            .collect::<Vec<String>>();
+                                                                      event!(Level::DEBUG, "ID string: {:?}", new_id_string);
+                                                                      match PlaylistId::from_id(new_id_string[2].clone()) {
+                                                                          Ok(id) => { Some(id) }
+                                                                          Err(err) => {
+                                                                              event!(Level::ERROR, "Failed to parse playlist ID '{}': {:?}", &playlist, err);
+                                                                              None
+                                                                          }
+                                                                      }
+                                                                  } else {
+                                                                      None
+                                                                  }
                 }) {
                     Some(id) => id,
                     None => {
@@ -370,7 +364,7 @@ impl TerminalApp {
     ///
     /// # Arguments
     /// * `release_radar_arguments` - The argument matches for the Release Radar subcommand.
-    async fn run_rr_command(&self, release_radar_arguments: &ArgMatches) -> Result<(), Box<dyn std::error::Error>> {
+    async fn run_rr_command(&self, release_radar_arguments: &ArgMatches) -> Result<(), Box<dyn Error>> {
         match ReleaseRadarCmds::from_matches(release_radar_arguments) {
             ReleaseRadarCmds::Update(update_value) => {
                 match ReleaseRadarArgs::from_update_matches(&update_value) {
@@ -417,18 +411,19 @@ impl TerminalApp {
     ///
     /// # Arguments
     /// * `query_arguments` - The argument matches for the query subcommand.
-    fn run_query_command(&self, query_arguments: &ArgMatches) -> Result<(), Box<dyn std::error::Error>> {
+    async fn run_query_command(&self, query_arguments: &ArgMatches) -> Result<(), Box<dyn Error>> {
         let span = span!(Level::TRACE, "TerminalApp.run_query_command");
         let _enter = span.enter();
 
         event!(Level::DEBUG,
-            "Stock RR: {:?} | Custom RR: {:?} | Blacklist: {:?}",
-            query_arguments.get_one::<bool>("rlstock").unwrap_or(&false).to_string(),
-            query_arguments.get_one::<bool>("rlcustom").unwrap_or(&false).to_string(),
-            query_arguments.get_one::<bool>("rlblacklist").unwrap_or(&false).to_string()
+            "Stock RR: {:?} | Custom RR: {:?} | Blacklist: {:?} | Library: {:?}",
+            query_arguments.get_one::<bool>("qstock").unwrap_or(&false).to_string(),
+            query_arguments.get_one::<bool>("qcustom").unwrap_or(&false).to_string(),
+            query_arguments.get_one::<bool>("qblacklist").unwrap_or(&false).to_string(),
+            query_arguments.get_one::<bool>("qlibrary").unwrap_or(&false).to_string(),
         );
 
-        match QueryArgs::from_query_matches(&query_arguments) {
+        match QueryArgs::from_query_matches(query_arguments) {
             QueryArgs::QStock(stock) => {
                 event!(Level::TRACE, "Querying Stock Release Radar playlists: {:?}", stock);
                 Ok(())
@@ -441,6 +436,13 @@ impl TerminalApp {
                 event!(Level::TRACE, "Querying the current blacklist: {:?}", blacklist);
                 let blackist = Blacklist::new();
                 blackist.print_blacklist();
+                Ok(())
+            }
+            QueryArgs::QLibrary(playlists) => {
+                event!(Level::TRACE, "Querying user playlists: {:?}", playlists);
+                let liked = LikedSongs::new().await;
+                let library = liked.library().await;
+                println!("Library: {:?}", library.len());
                 Ok(())
             }
             QueryArgs::Empty => {
@@ -519,18 +521,18 @@ impl TerminalApp {
                     )
                     .group(
                         ArgGroup::new("blacklist_sub")
-                            .args(&["bladd", "blremove"])
+                            .args(["bladd", "blremove"])
                             .required(false),
                     ),
             )
             .group(
                 ArgGroup::new("prefs_sub")
-                    .args(&["cset", "cunset", "cget"])
+                    .args(["cset", "cunset", "cget"])
                     .required(false),
             )
             .group(
                 ArgGroup::new("gen_sub")
-                    .args(&["cshell"])
+                    .args(["cshell"])
                     .required(false),
             )
             .styles(TerminalApp::styling())
@@ -551,7 +553,7 @@ impl TerminalApp {
                     .short('l')
                     .long("list")
                     .value_parser(BoolValueParser::new()
-                        .map(|b| if b { true } else { false })
+                        .map(|b| b)
                     )
                     .action(ArgAction::SetTrue)
                     .help("List all playlists"),
@@ -589,38 +591,46 @@ impl TerminalApp {
             .short_flag('Q')
             .long_flag("query")
             .arg(
-                Arg::new("rlstock")
+                Arg::new("qstock")
                     .short('s')
                     .long("spotify")
                     .value_parser(BoolValueParser::new()
-                        .map(|b| if b { true } else { false })
+                        .map(|b| b)
                     )
                     .action(ArgAction::SetTrue)
-                    .conflicts_with("rlcustom")
+                    .conflicts_with("qcustom")
                     .help("List all songs in the stock Release Radar playlist"),
             )
             .arg(
-                Arg::new("rlcustom")
+                Arg::new("qcustom")
                     .short('c')
                     .long("custom")
                     .value_parser(BoolValueParser::new()
-                        .map(|b| if b { true } else { false })
+                        .map(|b| b)
                     )
                     .action(ArgAction::SetTrue)
                     .help("List all songs in the full Release Radar playlist"),
             )
             .arg(
-                Arg::new("rlblacklist")
+                Arg::new("qblacklist")
                     .short('b')
                     .long("blacklist")
-                    // .num_args(0..=1)
                     .value_parser(BoolValueParser::new()
-                        .map(|b| if b { true } else { false })
+                        .map(|b| b)
                     )
                     .action(ArgAction::SetTrue)
-                    // .value_name("ARTIST-NAME")
                     .help("Select from a list of artists pulled from your full release radar playlist \
                             or provide the name of an artist to add to your blacklist"),
+            )
+            .arg(
+                Arg::new("qlibrary")
+                    .short('l')
+                    .long("library")
+                    .value_parser(BoolValueParser::new()
+                        .map(|b| b)
+                    )
+                    .action(ArgAction::SetTrue)
+                    .help("List all user playlists"),
             )
             .styles(TerminalApp::styling())
             .after_help("This command will list all songs in the specified Release Radar playlists")
@@ -647,7 +657,7 @@ impl TerminalApp {
                             .short('p')
                             .long("print")
                             .value_parser(BoolValueParser::new()
-                                .map(|b| if b { false } else { true })
+                                .map(|b| !b)
                             )
                             .action(ArgAction::SetFalse)
                             .help("Print the update progress"),
