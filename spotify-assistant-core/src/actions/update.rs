@@ -36,9 +36,13 @@ impl Editor {
         let target_pl = client
             .playlist(target_id.clone(), None, Some(Editor::market()))
             .await.expect("Could not retrieve target playlist");
-        let ref_pl = client
-            .playlist(ref_id.clone(), None, Some(Editor::market()))
-            .await.expect("Could not retrieve reference playlist");
+        let ref_pl = match client.playlist(ref_id.clone(), None, Some(Editor::market())).await {
+            Ok(pl) => { pl }
+            Err(err) => {
+                error!("Error: {:?}", err);
+                panic!("Could not retrieve reference playlist");
+            }
+        };
         Editor {
             client,
             ref_id,
