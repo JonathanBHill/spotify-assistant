@@ -30,6 +30,7 @@ impl BlacklistArtist {
     /// # Returns
     /// A new `BlacklistArtist` instance.
     pub fn new(name: String, id: String) -> Self {
+        let id = id.split(':').collect::<Vec<&str>>()[2].to_string();
         BlacklistArtist { name, id }
     }
 

@@ -11,6 +11,7 @@ use tracing::{event, span, Level};
 use spotify_assistant_core::actions::exploration::playlist::PlaylistXplr;
 use spotify_assistant_core::actions::general::FullProfiles;
 use spotify_assistant_core::actions::playlists::user::{LikedSongs, UserPlaylists};
+use spotify_assistant_core::actions::update::Editor;
 use spotify_assistant_core::models::blacklist::{Blacklist, BlacklistArtist};
 
 use crate::enums::{BlacklistArgs, ConfigArgs, QueryArgs, ReleaseRadarArgs, ReleaseRadarCmds, ShellType};
@@ -374,6 +375,7 @@ impl TerminalApp {
                     }
                     ReleaseRadarArgs::Empty => {
                         println!("Updating Release Radar playlist");
+                        Editor::release_radar().await.update_playlist().await;
                         Ok(())
                     }
                     _ => {
