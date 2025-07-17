@@ -137,7 +137,11 @@ impl Editor {
         }
     }
     pub async fn get_reference_track_album_ids_filtered(&self) -> Vec<AlbumId> {
+        let span = tracing::span!(Level::DEBUG, "Editor.get_reference_track_album_ids_filtered");
+        let _enter = span.enter();
+
         let blacklist = Blacklist::new().artists();
+        event!(Level::DEBUG, "Current blacklist: {:?}", blacklist);
         self.ref_pl
             .tracks
             .items
@@ -152,6 +156,9 @@ impl Editor {
                         .first().unwrap().name.clone();
                     let hypothetical_blacklist_artist = BlacklistArtist::new(lead_artist_name.clone(), lead_artist_id.clone());
                     if blacklist.contains(&hypothetical_blacklist_artist) {
+                        event!(
+                            Level::INFO, "Artist {:?} is blacklisted. Skipping album ID retrieval.", lead_artist_name
+                        );
                         None
                     } else {
                         let album_id = self.get_track_album_id(track);
@@ -188,6 +195,30 @@ impl Editor {
         album_track_ids = Self::clean_duplicate_id_vector(album_track_ids);
         println!("Return length: {:?} | ID length {:?}", return_vector.len(), album_track_ids.len());
         return_vector
+    }
+    pub async fn wipe_reference_playlist(&self) {
+        let span = tracing::span!(Level::DEBUG, "Editor.wipe_reference_playlist");
+        let _enter = span.enter();
+        let ref_id = self.ref_id.clone();
+        let xplorer = PlaylistXplr::new(ref_id.clone(), false).await;
+        let track_ids = xplorer.tracks
+                               .iter().map(|track| {
+            match PlayableItem::Track(track.clone()).id() {
+                None => { panic!("Track does not have an ID.") }
+                Some(id) => { id.into_static() }
+            }
+        }).collect::<Vec<PlayableId>>();
+        for batch in track_ids.chunks(100) {
+            match self.client.playlist_remove_all_occurrences_of_items(ref_id.clone(), batch.to_vec(), None).await {
+                Ok(_) => {
+                    event!(Level::INFO, "Removed tracks from reference playlist.");
+                }
+                Err(err) => {
+                    error!("Error: {:?}", err);
+                    panic!("Could not remove tracks from reference playlist");
+                }
+            }
+        }
     }
     pub async fn update_playlist(&self) {
         let span = tracing::span!(Level::DEBUG, "Editor.update_playlist");
@@ -229,6 +260,7 @@ impl Editor {
                     .await.expect("Track IDs should be assigned to chunk_iterated as type TrackID");
             }
         }
+        self.wipe_reference_playlist().await;
     }
     fn append_uniques<'a>(existing: &Vec<TrackId<'a>>, new: &[TrackId<'a>]) -> Vec<TrackId<'a>> {
         let mut extended = existing.to_owned();

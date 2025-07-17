@@ -1,12 +1,9 @@
-use std::env;
-
+#[cfg(feature = "mongo")]
 use mongodb::bson::doc;
+#[cfg(feature = "mongo")]
 use mongodb::Client;
 
-use spotify_assistant_core::enums::fs::ProjectFiles;
-
-use crate::mongo::groups::Clusters;
-
+#[cfg(feature = "mongo")]
 pub trait MongoConnection {
     fn connection_string() -> String {
         dotenv::from_path(ProjectFiles::DotEnv.path()).ok();
