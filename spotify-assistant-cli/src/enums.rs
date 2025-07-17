@@ -147,10 +147,17 @@ pub enum ReleaseRadarArgs {
 }
 impl ReleaseRadarArgs {
     pub fn from_update_matches(matches: &ArgMatches) -> ReleaseRadarArgs {
-        if let Some(let_print) = matches.get_one::<bool>("print") {
-            ReleaseRadarArgs::UPrint(let_print.clone())
+        let uprint = Self::arg_exists("print", matches);
+        if uprint {
+            ReleaseRadarArgs::UPrint(uprint)
         } else {
             ReleaseRadarArgs::Empty
+        }
+    }
+    fn arg_exists(command: &str, matches: &ArgMatches) -> bool {
+        match matches.get_one::<bool>(command) {
+            Some(exists) => { *exists }
+            None => { false }
         }
     }
     pub fn from_compare_matches(matches: &ArgMatches) -> ReleaseRadarArgs {
