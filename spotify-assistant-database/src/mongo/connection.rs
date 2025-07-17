@@ -1,23 +1,23 @@
-use std::collections::HashMap;
-use std::future::Future;
-
-use mongodb::{Client, Collection};
+#[cfg(feature = "mongo")]
 use mongodb::bson::doc;
+#[cfg(feature = "mongo")]
 use mongodb::options::{ClientOptions, ServerApi, ServerApiVersion};
-use rspotify::model::{FullArtist, FullTrack, Recommendations, RecommendationsSeedType, SimplifiedAlbum};
-use rspotify::prelude::{BaseClient, Id};
-use serde::{Deserialize, Serialize};
+#[cfg(feature = "mongo")]
+use mongodb::{Client, Collection};
 
-use spotify_assistant_core::enums::fs::ProjectFiles;
-
+#[cfg(feature = "mongo")]
 use crate::mongo::groups::Clusters;
+#[cfg(feature = "mongo")]
 use crate::mongo::models::{ArtistRecord, RecommendedRecord};
+#[cfg(feature = "mongo")]
 use crate::mongo::traits::MongoConnection;
 
+#[cfg(feature = "mongo")]
 pub struct Connection {
     client: Client,
 }
 
+#[cfg(feature = "mongo")]
 impl Connection {
     pub async fn new() -> mongodb::error::Result<Self> {
         dotenv::from_path(ProjectFiles::DotEnv.path()).ok();
@@ -60,6 +60,7 @@ impl Connection {
     }
 }
 
+#[cfg(feature = "mongo")]
 pub struct Artist {
     client: Client,
     database_name: &'static str,
@@ -67,8 +68,10 @@ pub struct Artist {
     collection: Collection<ArtistRecord>,
 }
 
+#[cfg(feature = "mongo")]
 impl MongoConnection for Artist {}
 
+#[cfg(feature = "mongo")]
 impl Artist {
     pub async fn new() -> mongodb::error::Result<Self> {
         let connection_string = Self::connection_string();
@@ -190,6 +193,7 @@ impl Artist {
 }
 
 // pub
+#[cfg(feature = "mongo")]
 pub struct Recommendation {
     client: Client,
     database_name: &'static str,
@@ -197,8 +201,10 @@ pub struct Recommendation {
     collection: Collection<RecommendedRecord>,
 }
 
+#[cfg(feature = "mongo")]
 impl MongoConnection for Recommendation {}
 
+#[cfg(feature = "mongo")]
 impl Recommendation {
     pub async fn new() -> mongodb::error::Result<Self> {
         let connection_string = Self::connection_string();
@@ -321,6 +327,7 @@ impl Recommendation {
     }
 }
 
+#[cfg(feature = "mongo")]
 #[cfg(test)]
 mod tests {
     use super::*;
