@@ -254,7 +254,7 @@ impl TerminalApp {
         let span = span!(Level::INFO, "TerminalApp.run_config_command");
         let _enter = span.enter();
 
-        let mut blacklist = Blacklist::new();
+        let mut blacklist = Blacklist::default();
         match BlacklistArgs::from_matches(blacklist_arguments) {
             BlacklistArgs::Add(artist_id) => {
                 let full_artist = FullProfiles::new().await.artist(artist_id).await;
@@ -436,7 +436,7 @@ impl TerminalApp {
             }
             QueryArgs::QBlacklist(blacklist) => {
                 event!(Level::TRACE, "Querying the current blacklist: {:?}", blacklist);
-                let blackist = Blacklist::new();
+                let blackist = Blacklist::default();
                 blackist.print_blacklist();
                 Ok(())
             }

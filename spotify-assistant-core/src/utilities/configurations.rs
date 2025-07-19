@@ -1,11 +1,35 @@
 use ansi_term::Color;
 use tracing::Level;
-use tracing_subscriber::fmt::{
-    FmtContext, format::Writer, FormatEvent, FormatFields, FormattedFields,
-};
 use tracing_subscriber::fmt::time::{ChronoLocal, FormatTime};
+use tracing_subscriber::fmt::{
+    format::Writer, FmtContext, FormatEvent, FormatFields, FormattedFields,
+};
 use tracing_subscriber::registry::LookupSpan;
 
+/// A custom formatter struct used for formatting purposes.
+///
+/// This struct is typically employed in scenarios where custom formatting logic
+/// for specific data types or outputs is necessary. The use of the `#[cfg(not(tarpaulin_include))]`
+/// attribute ensures that this struct is excluded from coverage analysis by the `tarpaulin` code
+/// coverage tool, thereby preventing its inclusion in test coverage reports.
+///
+/// # Example
+/// ```ignore
+/// let formatter = CustomFormatter;
+/// // Use `formatter` to apply custom formatting logic
+/// ```
+///
+/// # Attributes
+/// None
+///
+/// # Notes
+/// This struct does not contain any fields or methods by default and is expected
+/// to be extended or used in conjunction with other logic to serve as a formatting utility.
+///
+/// # Feature Flags
+/// - This struct is conditionally excluded from test coverage reporting when
+///   compiled with the `tarpaulin` tool due to the inclusion of the `cfg(not(tarpaulin_include))`
+///   conditional compilation attribute.
 #[cfg(not(tarpaulin_include))]
 pub struct CustomFormatter;
 
@@ -14,6 +38,51 @@ impl<S, N> FormatEvent<S, N> for CustomFormatter
         S: tracing::Subscriber + for<'a> LookupSpan<'a>,
         N: for<'a> FormatFields<'a> + 'static,
 {
+    /// Formats a `tracing::Event` for logging output with custom formatting, including
+    /// time, log level, module path, and optional span field data styling.
+    ///
+    /// # Parameters
+    /// - `ctx`: A reference to the `FmtContext`, providing the context for formatting
+    ///   the event and managing field formatting and spans.
+    /// - `writer`: A `Writer` object to which the formatted log is written.
+    /// - `event`: The `tracing::Event` to be formatted and logged.
+    ///
+    /// # Returns
+    /// - A `std::fmt::Result`, indicating success or failure of the formatting operation.
+    ///
+    /// # Behavior
+    /// 1. Retrieves metadata about the event, including log level, line number, and target.
+    /// 2. Formats the current timestamp using a specific time format (`"%H:%M:%S%.3f"`).
+    /// 3. Styles various components of the log entry:
+    ///    - The target (module path) is formatted in purple.
+    ///    - The line number is formatted in bold purple.
+    ///    - Log levels are color-coded:
+    ///       - `INFO`: Green
+    ///       - `WARN`: Yellow
+    ///       - `ERROR`: Red
+    ///       - `DEBUG`: Blue
+    ///       - `TRACE`: White
+    /// 4. If the event originates within a scope, iterates through the span hierarchy
+    ///    (from root to the event) and formats the spans:
+    ///    - Span names are colored green and bolded.
+    ///    - Arrows between spans are colored orange and bolded (with a blinking effect).
+    ///    - Span fields, if present, are italicized and cyan-colored.
+    /// 5. Formats the event's fields and message, applying custom styling, such as italicization.
+    ///
+    /// # Usage
+    /// This function is invoked during custom formatting of events for a logger implementation
+    /// that uses the `tracing` crate. It is not included in coverage analysis as it is marked with
+    /// `#[cfg(not(tarpaulin_include))]`.
+    ///
+    /// # Example
+    /// ```rust
+    /// // Hypothetical usage within a logger configuration.
+    /// use crate::spotify_assistant_core::utilities::configurations::CustomFormatter;
+    /// let formatter = CustomFormatter;
+    /// tracing_subscriber::fmt()
+    ///     .event_format(formatter)
+    ///     .init();
+    /// ```
     #[cfg(not(tarpaulin_include))]
     fn format_event(
         &self,
