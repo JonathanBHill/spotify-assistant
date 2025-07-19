@@ -4519,6 +4519,7 @@ dependencies = [
  "regex",
  "rspotify",
  "serde",
+ "serde_json",
  "term_size",
  "tokio",
  "toml",

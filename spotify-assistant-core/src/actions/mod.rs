@@ -4,3 +4,4 @@ pub mod user;
 pub mod playlists;
 pub mod recently_played;
 pub mod general;
+pub mod liked_songs;
