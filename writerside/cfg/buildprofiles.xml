@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<buildprofiles>
+    <variables>
+        <primary-color>emerald</primary-color>
+        <product-web-url>https://github.com/yourusername/spotify-assistant</product-web-url>
+        <header-logo>spotify-assistant-logo-v2.png</header-logo>
+    </variables>
+</buildprofiles>
