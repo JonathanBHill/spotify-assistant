@@ -30,35 +30,21 @@ impl Api for Editor {
 }
 impl Editor {
     pub async fn release_radar() -> Self {
-        let client = Self::set_up_client(false, Some(Self::select_scopes())).await;
-        let ref_id = PlaylistType::StockRR.get_id();
-        let target_id = PlaylistType::MyRR.get_id();
-        let target_pl = client
-            .playlist(target_id.clone(), None, Some(Editor::market()))
-            .await.expect("Could not retrieve target playlist");
-        let ref_pl = match client.playlist(ref_id.clone(), None, Some(Editor::market())).await {
-            Ok(pl) => { pl }
+        Editor::new(PlaylistType::StockRR.get_id(), PlaylistType::MyRR.get_id()).await
+    }
+    async fn playlist_from_id(client: &AuthCodeSpotify, pl_id: PlaylistId<'static>) -> FullPlaylist {
+        match client.playlist(pl_id.clone(), None, Some(Self::market())).await {
+            Ok(pl) => pl,
             Err(err) => {
-                error!("Error: {:?}", err);
-                panic!("Could not retrieve reference playlist");
+                error!("Error: {err:?}");
+                panic!("Could not retrieve playlist with ID, '{pl_id:?}'");
             }
-        };
-        Editor {
-            client,
-            ref_id,
-            target_id,
-            ref_pl,
-            target_pl,
         }
     }
     pub async fn new(ref_id: PlaylistId<'static>, target_id: PlaylistId<'static>) -> Self {
         let client = Self::set_up_client(false, Some(Self::select_scopes())).await;
-        let target_pl = client
-            .playlist(target_id.clone(), None, Some(Editor::market()))
-            .await.expect("Could not retrieve target playlist");
-        let ref_pl = client
-            .playlist(ref_id.clone(), None, Some(Editor::market()))
-            .await.expect("Could not retrieve reference playlist");
+        let target_pl = Self::playlist_from_id(&client, target_id.clone()).await;
+        let ref_pl = Self::playlist_from_id(&client, ref_id.clone()).await;
         Editor {
             client,
             ref_id,
@@ -82,15 +68,14 @@ impl Editor {
         }).collect::<Vec<PlayableId>>();
         event!(
             Level::INFO, "Removing liked songs from {:?}. Current track number: {:?} | Snapshot ID: {:?}",
-            self.target_pl.name, self.target_pl.tracks.total, self.get_target_snapshot()
+            self.target_pl.name, self.target_pl.tracks.total, self.target_snapshot()
         );
-        // println!("Target ID: {:?} | Snapshot ID: {:?}", self.target_id, self.get_target_snapshot());
         event!(Level::DEBUG, "Liked songs count: {:?}", liked_song_ids.len());
         for batch in liked_song_ids.chunks(100) {
             match self.client.playlist_remove_all_occurrences_of_items(
                 self.target_id.clone(),
                 batch.to_vec(),
-                Some(self.get_target_snapshot().as_str())
+                Some(self.target_snapshot().as_str())
             ).await {
                 Ok(snapshot_id) => {
                     self.target_pl = match self.client.playlist(self.target_id.clone(), None, Some(Self::market()))
@@ -125,9 +110,9 @@ impl Editor {
     pub fn target_playlist(&self) -> FullPlaylist {
         self.target_pl.clone()
     }
-    pub fn get_target_snapshot(&self) -> String {
+    pub fn target_snapshot(&self) -> String {
         let snapshot = self.target_pl.snapshot_id.clone();
-        println!("Snapshot ID: {:?}", snapshot);
+        println!("Snapshot ID: {snapshot:?}");
         snapshot
     }
     fn get_track_album_id(&self, full_track: &FullTrack) -> AlbumId {
@@ -199,8 +184,7 @@ impl Editor {
     pub async fn wipe_reference_playlist(&self) {
         let span = tracing::span!(Level::DEBUG, "Editor.wipe_reference_playlist");
         let _enter = span.enter();
-        let ref_id = self.ref_id.clone();
-        let xplorer = PlaylistXplr::new(ref_id.clone(), false).await;
+        let xplorer = PlaylistXplr::new(self.ref_id.clone(), false).await;
         let track_ids = xplorer.tracks
                                .iter().map(|track| {
             match PlayableItem::Track(track.clone()).id() {
@@ -209,7 +193,7 @@ impl Editor {
             }
         }).collect::<Vec<PlayableId>>();
         for batch in track_ids.chunks(100) {
-            match self.client.playlist_remove_all_occurrences_of_items(ref_id.clone(), batch.to_vec(), None).await {
+            match self.client.playlist_remove_all_occurrences_of_items(self.ref_id.clone(), batch.to_vec(), None).await {
                 Ok(_) => {
                     event!(Level::INFO, "Removed tracks from reference playlist.");
                 }
@@ -220,33 +204,38 @@ impl Editor {
             }
         }
     }
-    pub async fn update_playlist(&self) {
-        let span = tracing::span!(Level::DEBUG, "Editor.update_playlist");
-        let _enter = span.enter();
-        let ids = self.get_album_tracks_from_reference().await;
+    fn check_if_stock_release_radar_id_was_used(&self, number_of_ids: usize) {
         if self.target_id.clone() == PlaylistType::StockRR.get_id() {
-            error!(
-                "Your Stock Release Radar ID was used: {playlist_id}",
+            event!(
+                Level::ERROR, "Your Stock Release Radar ID was used: {playlist_id}",
                 playlist_id = self.target_id.id()
             );
             panic!("You must ensure that you are calling the update method with your full version release radar ID instead of your stock version's.")
         } else {
-            info!(
-                "Your Full Release Radar playlists will be updated with {number} songs",
-                number = ids.len()
+            event!(
+                Level::INFO, "Your Full Release Radar playlists will be updated with {number_of_ids} songs",
             );
         }
+    }
+    fn generate_release_radar_description(&self) -> String {
+        let local_time = chrono::Local::now();
+        let local_time_string = local_time.format("%m/%d/%Y").to_string();
+        format!(
+            "Release Radar playlists with songs from albums included. Created on 11/02/2023. Updated on {local_time_string}."
+        )
+    }
+    pub async fn update_playlist(&self) {
+        let span = tracing::span!(Level::DEBUG, "Editor.update_playlist");
+        let _enter = span.enter();
+        let ids = self.get_album_tracks_from_reference().await;
+        self.check_if_stock_release_radar_id_was_used(ids.len());
+        
         let mut first_chunk = true;
         for chunk in ids.chunks(20) {
             let chunk_iterated = chunk.iter().map(|track| PlayableId::Track(track.as_ref()));
 
             if first_chunk {
-                let local_time = chrono::Local::now();
-                let local_time_string = local_time.format("%m/%d/%Y").to_string();
-                let description = format!(
-                    "Release Radar playlists with songs from albums included. Created on 11/02/2023. Updated on {}.",
-                    local_time_string
-                );
+                let description = self.generate_release_radar_description();
                 self.client
                     .playlist_change_detail(self.target_id.clone(), None, None, Some(description.as_str()), None)
                     .await.expect("Couldn't update description");
