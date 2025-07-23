@@ -4,6 +4,7 @@ use crate::actions::exploration::playlist::PlaylistXplr;
 use crate::enums::pl::PlaylistType;
 use crate::models::blacklist::{Blacklist, BlacklistArtist};
 use crate::traits::apis::Api;
+use rspotify::model::Id;
 use rspotify::model::{AlbumId, FullPlaylist, FullTrack, PlayableItem, PlaylistId, TrackId};
 use rspotify::prelude::*;
 use rspotify::{scopes, AuthCodeSpotify};
@@ -85,6 +86,16 @@ impl Editor {
     /// - Ensure that the `Editor` type being used is properly configured elsewhere in the codebase to handle the supplied IDs.
     pub async fn release_radar() -> Self {
         Editor::new(PlaylistType::StockRR.get_id(), PlaylistType::MyRR.get_id()).await
+    }
+    pub fn ref_pl_tracks(&self) -> Vec<FullTrack> {
+        self.ref_pl.tracks.items.iter()
+            .filter_map(|item| {
+                match item.track.clone() {
+                    Some(PlayableItem::Track(track)) => Some(track),
+                    _ => None, // Skip if not a track
+                }
+            })
+            .collect::<Vec<FullTrack>>()
     }
 
     /// Retrieves a full playlist from Spotify using the provided client and playlist ID.
@@ -632,13 +643,8 @@ impl Editor {
         let span = tracing::span!(Level::DEBUG, "Editor.wipe_reference_playlist");
         let _enter = span.enter();
         let xplorer = PlaylistXplr::new(self.ref_id.clone(), false).await;
-        let track_ids = xplorer.tracks
-                               .iter().map(|track| {
-            match PlayableItem::Track(track.clone()).id() {
-                None => { panic!("Track does not have an ID.") }
-                Some(id) => { id.into_static() }
-            }
-        }).collect::<Vec<PlayableId>>();
+        let track_ids = xplorer.playable_ids();
+
         for batch in track_ids.chunks(100) {
             match self.client.playlist_remove_all_occurrences_of_items(self.ref_id.clone(), batch.to_vec(), None).await {
                 Ok(_) => {
@@ -801,7 +807,7 @@ impl Editor {
     /// - The function preserves the order of elements:
     ///   - Elements in the `existing` vector retain their original order.
     ///   - Unique elements from the `new` slice are appended in the order they appear.
-    fn append_uniques<'a>(existing: &Vec<TrackId<'a>>, new: &[TrackId<'a>]) -> Vec<TrackId<'a>> {
+    fn append_uniques<'a>(existing: &Vec<TrackId<'a>>, new: &Vec<TrackId<'a>>) -> Vec<TrackId<'a>> {
         let mut extended = existing.to_owned();
         let intersection: Vec<TrackId> = existing
             .iter()

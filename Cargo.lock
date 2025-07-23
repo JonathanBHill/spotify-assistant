@@ -4521,6 +4521,7 @@ dependencies = [
  "serde",
  "serde_json",
  "term_size",
+ "thiserror 1.0.68",
  "tokio",
  "toml",
  "tracing",

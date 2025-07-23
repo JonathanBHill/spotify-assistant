@@ -108,6 +108,10 @@ impl Checks {
         self.day_of_week == Weekday::Sat || self.day_of_week == Weekday::Sun
     }
 
+    pub fn time_of_day(&self) -> TimeOfDay {
+        self.time_of_day.clone()
+    }
+
     /// Checks if a given date string is outdated based on a threshold duration.
     ///
     /// # Parameters
@@ -145,7 +149,7 @@ impl Checks {
         let formats = ["%m-%d-%Y", "%Y-%m-%d"];
         let correct_format = formats.iter().find(|format| {
             NaiveDate::parse_from_str(input, format).is_ok()
-        }).unwrap_or_else(|| &"%m-%d-%Y");
+        }).unwrap_or(&"%m-%d-%Y");
         let last_updated = NaiveDate::parse_from_str(input, correct_format).unwrap_or_default();
         let cutoff = self.now.date_naive() - threshold;
         debug!("Last updated: {} | Cutoff: {}", last_updated, cutoff);

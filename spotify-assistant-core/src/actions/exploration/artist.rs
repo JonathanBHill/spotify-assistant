@@ -151,7 +151,7 @@ impl ArtistXplorer {
         while let Some(albums_page) = paginated_albums.next().await {
             match albums_page {
                 Ok(album) => albums.push(album),
-                Err(error) => panic!("ERROR: Was not able to get album from the requested artist.\nError information: {:?}", error)
+                Err(error) => panic!("ERROR: Was not able to get album from the requested artist.\nError information: {error:?}")
             }
         }
         albums
@@ -553,7 +553,6 @@ impl ArtistXplorer {
         let _enter = span.enter();
 
         let albums = self.full_albums().await;
-        self.artist.name.clone();
         info!("{} albums queried for {}", albums.len(), self.artist.name.clone());
         albums.clone().iter().fold(0, |acc, album| {
             info!("Running total: {}", acc + album.tracks.total);
@@ -942,7 +941,7 @@ impl ArtistXplorer {
                 }
                 related
             }
-            Err(error) => panic!("ERROR: Was not able to get album from the requested artist.\nError information: {:?}", error)
+            Err(error) => panic!("ERROR: Was not able to get album from the requested artist.\nError information: {error:?}")
         }
     }
 

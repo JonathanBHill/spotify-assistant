@@ -1,5 +1,6 @@
 use crate::enums::fs::ProjectDirectories;
 use crate::traits::apis::Api;
+use futures::StreamExt;
 use rspotify::model::SavedTrack;
 use rspotify::prelude::{Id, OAuthClient};
 use rspotify::AuthCodeSpotify;
@@ -39,6 +40,15 @@ impl Api for UserLikedSongs {
         )
     }
 }
+impl Default for UserLikedSongs {
+    fn default() -> Self {
+        Self {
+            client: AuthCodeSpotify::default(),
+            tracks: Vec::new(),
+            saved_tracks_path: ProjectDirectories::Data.path().join("liked_songs.json"),
+        }
+    }
+}
 impl UserLikedSongs {
     /// Asynchronously constructs a new instance of the struct.
     ///
@@ -68,106 +78,47 @@ impl UserLikedSongs {
     /// }
     /// ```
     pub async fn new() -> Self {
-        let client = Self::set_up_client(false, Some(Self::select_scopes())).await;
-        let data_dir = ProjectDirectories::Data;
-        let saved_tracks_path = data_dir.path().join("liked_songs.json");
-        if let Ok(tracks) = Self::load_from_file() {
-            println!("Loaded liked songs from cache.");
-            Self { client, tracks, saved_tracks_path }
+        let mut self_obj = Self::default();
+
+        if self_obj.does_file_exist() {
+            self_obj.populate_tracks_from_file();
         } else {
-            let tracks = match Self::fetch_all(&client).await {
-                Ok(tracks) => {
-                    event!(tracing::Level::INFO, "Successfully fetched liked songs.");
-                    tracks
-                },
-                Err(err) => {
-                    event!(tracing::Level::ERROR, "Failed to fetch liked songs: {:?}", err);
-                    Vec::new()
-                },
-            };
-            let self_obj = Self {
-                client,
-                tracks,
-                saved_tracks_path,
-            };
-            match self_obj.save_to_file() {
-                Ok(_) => event!(tracing::Level::INFO, "Liked songs saved to cache."),
-                Err(err) => event!(tracing::Level::ERROR, "Failed to save liked songs to cache: {:?}", err),
-            };
-            // Self {client, tracks, saved_tracks_path}
-            self_obj
+            event!(Level::INFO, "No cached liked songs file found, fetching from Spotify.");
+            self_obj.update_library().await;
+            self_obj.save_to_file();
         }
+
+        self_obj
     }
 
-    /// Fetches all liked songs from the user's Spotify library.
-    ///
-    /// This asynchronous function retrieves saved (liked) songs for the current user in batches of 50
-    /// until all songs are retrieved or an error occurs. It utilizes the Spotify API through `AuthCodeSpotify`
-    /// client and handles pagination automatically. The function gathers all retrieved `SavedTrack`
-    /// instances into a single `Vec` and returns them upon successful completion.
-    ///
-    /// ### Parameters
-    /// - `client`: A reference to an initialized `AuthCodeSpotify` client, authenticated with proper
-    ///   user credentials to fetch the user's liked songs.
-    ///
-    /// ### Returns
-    /// - `Result<Vec<SavedTrack>, rspotify::ClientError>`:
-    ///     - On success, returns a vector containing all the user's liked songs (`SavedTrack`s).
-    ///     - On failure, returns a `ClientError` encapsulating details for why the operation failed.
-    ///
-    /// ### Behavior
-    /// - Fetches liked songs in pages of 50 items, supports Spotify's offset-based pagination.
-    /// - Logs events using the `tracing` crate at different levels:
-    ///     - `INFO` on successful page fetch or when all songs are retrieved.
-    ///     - `ERROR` if a request fails.
-    /// - Stops fetching if:
-    ///     - A page contains zero items (no more songs left to fetch).
-    ///     - The `next` link in the response is `None`, indicating the last page.
-    /// - Handles offset updates to ensure continuous fetching from where the last retrieval stopped.
-    ///
-    /// ### Notes
-    /// - This function relies on the Spotify API endpoint for fetching saved tracks. Ensure appropriate
-    ///   API permissions are granted for the user (scope: `user-library-read`).
-    /// - Performance depends on network latency and the size of the user's library.
-    /// - If no saved tracks are found, returns an empty vector.
-    ///
-    /// ### Errors
-    /// - Returns `ClientError` when:
-    ///     - The API client is not authenticated properly.
-    ///     - Network issues occur.
-    ///     - Spotify's API returns an error response.
-    async fn fetch_all(client: &AuthCodeSpotify) -> Result<Vec<SavedTrack>, rspotify::ClientError> {
-        let span = tracing::span!(tracing::Level::INFO, "UserLikedSongs.fetch_all");
+    async fn update_library(&mut self) {
+        let span = tracing::span!(Level::INFO, "UserLikedSongs.library");
         let _enter = span.enter();
-        let mut tracks = Vec::new();
-        let mut offset = 0;
 
-        loop {
-            let page = match client.current_user_saved_tracks_manual(
-                Some(Self::market()), Some(50), Some(offset)
-            ).await {
-                Ok(page) => {
-                    event!(tracing::Level::INFO, "Fetched page with {} items", page.items.len());
-                    page
-                },
-                Err(err) => {
-                    event!(tracing::Level::ERROR, "Failed to fetch liked songs: {:?}", err);
-                    return Err(err)
-                },
-            };
-            if page.items.is_empty() {
-                event!(tracing::Level::INFO, "No more liked songs to fetch.");
-                break;
-            }
-            offset += page.items.len() as u32;
-            tracks.extend(page.items);
-            if page.next.is_none() {
-                event!(tracing::Level::INFO, "Reached the end of liked songs.");
+        let mut liked_songs = self.client.current_user_saved_tracks(Some(Self::market()));
+        let mut saved_tracks: Vec<SavedTrack> = Vec::new();
+        let mut retries = 3;
+        while retries > 0 {
+            if let Some(page) = liked_songs.next().await {
+                match page {
+                    Ok(saved_track) => {
+                        event!(Level::INFO, "Saved track: {:?} | New vector length: {:?}", saved_track.track.name, saved_tracks.len() + 1);
+                        saved_tracks.push(saved_track);
+                    },
+                    Err(err) => {
+                        event!(Level::ERROR, "Error: {:?}", err);
+                        retries -= 1;
+                    }
+                }
+            } else {
                 break;
             }
         }
+        self.tracks = saved_tracks
+    }
 
-        Ok(tracks)
+    fn does_file_exist(&self) -> bool {
+        self.saved_tracks_path.exists()
     }
 
     /// Retrieves a list of saved tracks.
@@ -214,11 +165,29 @@ impl UserLikedSongs {
     /// # Returns
     ///
     /// - `Ok(())` if the save operation completes successfully.
-    fn save_to_file(&self) -> io::Result<()> {
-        let json = serde_json::to_string_pretty(&self.tracks)?;
-        let mut file = fs::File::create(self.saved_tracks_path.clone())?;
-        file.write_all(json.as_bytes())?;
-        Ok(())
+    fn save_to_file(&self) {
+        let json = match serde_json::to_string_pretty(&self.tracks) {
+            Ok(json) => json,
+            Err(err) => {
+                event!(Level::ERROR, "Failed to serialize liked songs: {err:?}");
+                return;
+            }
+        };
+        let mut file = match fs::File::create(self.saved_tracks_path.clone()) {
+            Ok(file) => file,
+            Err(err) => {
+                event!(Level::ERROR, "Failed to create liked songs file: {err:?}");
+                return;
+            }
+        };
+        match file.write_all(json.as_bytes()) {
+            Ok(_) => {
+                event!(Level::INFO, "Successfully saved liked songs to file.");
+            },
+            Err(err) => {
+                event!(Level::ERROR, "Failed to write liked songs to file: {err:?}");
+            }
+        };
     }
 
     /// Returns a clone of the path to the saved tracks.
@@ -288,35 +257,24 @@ impl UserLikedSongs {
         self.tracks.iter().map(|track| track.track.id.clone().unwrap().id().to_string()).collect()
     }
 
-    /// Loads a list of saved tracks from a JSON file located in the application data directory.
-    ///
-    /// This function retrieves the path to the data directory using the `ProjectDirectories` library,
-    /// appends the file name `liked_songs.json` to it, and attempts to read the file's contents.
-    /// The contents are then deserialized into a vector of `SavedTrack` objects using the `serde_json` library.
-    ///
-    /// # Returns
-    ///
-    /// - `Ok(Vec<SavedTrack>)`: A vector containing the deserialized `SavedTrack` objects if the file
-    ///   is read and parsed successfully.
-    /// - `Err(io::Error)`: An error if there is an issue reading the file or parsing the JSON content.
-    ///
-    /// # Errors
-    ///
-    /// This function will propagate errors if:
-    /// - The file `liked_songs.json` does not exist or cannot be accessed.
-    /// - The file contents cannot be read as a string.
-    /// - The JSON within the file cannot be deserialized into `Vec<SavedTrack>`.
-    ///
-    /// # Dependencies
-    ///
-    /// - This function uses the `ProjectDirectories` crate to determine the application's data directory.
-    /// - The `serde_json` crate is required for JSON parsing.
-    /// ```
-    fn load_from_file() -> io::Result<Vec<SavedTrack>> {
-        let data_dir = ProjectDirectories::Data;
-        let liked_songs_path = data_dir.path().join("liked_songs.json");
-        let contents = fs::read_to_string(liked_songs_path)?;
-        let tracks: Vec<SavedTrack> = serde_json::from_str(&contents)?;
-        Ok(tracks)
+
+    fn populate_tracks_from_file(&mut self) {
+        let contents = match fs::read_to_string(&self.saved_tracks_path) {
+            Ok(contents) => contents,
+            Err(err) => {
+                event!(Level::ERROR, "Failed to read liked songs file: {:?}", err);
+                return;
+            }
+        };
+        self.tracks = match serde_json::from_str(&contents) {
+            Ok(tracks) => {
+                event!(Level::INFO, "Successfully loaded liked songs from file.");
+                tracks
+            },
+            Err(err) => {
+                event!(Level::ERROR, "Failed to deserialize liked songs: {:?}", err);
+                Vec::new()
+            },
+        };
     }
 }

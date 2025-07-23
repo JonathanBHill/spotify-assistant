@@ -1,11 +1,10 @@
+use crate::traits::apis::Api;
 use futures::StreamExt;
 use rspotify::clients::{BaseClient, OAuthClient};
-use rspotify::model::{AlbumId, ArtistId, FullAlbum, FullPlaylist, FullTrack, PlayableItem, PlaylistId, SimplifiedAlbum, SimplifiedArtist, TrackId};
+use rspotify::model::{AlbumId, ArtistId, FullAlbum, FullPlaylist, FullTrack, PlayableId, PlayableItem, PlaylistId, SimplifiedAlbum, SimplifiedArtist, TrackId};
 use rspotify::{scopes, AuthCodeSpotify};
 use std::collections::{HashMap, HashSet};
 use tracing::{event, Level};
-
-use crate::traits::apis::Api;
 
 /// `PlaylistXplr` is a struct that provides functionality for exploring and managing
 /// Spotify playlists. It contains information about a specific playlist, its tracks,
@@ -14,22 +13,22 @@ use crate::traits::apis::Api;
 /// Fields:
 ///
 /// * `client` (`AuthCodeSpotify`): An authenticated Spotify client used to access and
-/// manage Spotify API resources. Requires proper authentication credentials for operation.
+///   manage Spotify API resources. Requires proper authentication credentials for operation.
 ///
 /// * `playlist_id` (`PlaylistId<'static>`): The unique identifier for the Spotify playlist
-/// that the struct refers to. This ID is used to query and perform actions on the playlist
-/// through the Spotify API.
+///   that the struct refers to. This ID is used to query and perform actions on the playlist
+///   through the Spotify API.
 ///
 /// * `full_playlist` (`FullPlaylist`): A complete representation of the playlist, including
-/// metadata, owner details, and any other associated information fetched from Spotify.
+///   metadata, owner details, and any other associated information fetched from Spotify.
 ///
 /// * `tracks` (`Vec<FullTrack>`): A vector containing detailed information about each track
-/// in the playlist. Each element provides metadata about a single track, such as its
-/// name, artist, album, and duration.
+///   in the playlist. Each element provides metadata about a single track, such as its
+///   name, artist, album, and duration.
 ///
 /// * `duplicates` (`bool`): A private field (not accessible outside this struct) that
-/// indicates whether the playlist contains duplicate tracks. This can be used internally
-/// for operations such as filtering or alerting the user of duplicate entries.
+///   indicates whether the playlist contains duplicate tracks. This can be used internally
+///   for operations such as filtering or alerting the user of duplicate entries.
 pub struct PlaylistXplr {
     pub client: AuthCodeSpotify,
     pub playlist_id: PlaylistId<'static>,
@@ -205,7 +204,7 @@ impl PlaylistXplr {
             },
             Err(err) => {
                 event!(Level::ERROR, "Could not retrieve playlist: {:?}", err);
-                panic!("Could not retrieve playlist: {:?}", err);
+                panic!("Could not retrieve playlist: {err:?}");
             }
         }
     }
@@ -254,7 +253,7 @@ impl PlaylistXplr {
     /// # Performance
     ///
     /// - The method iterates over all tracks and applies a mapping operation, which may impact performance
-    /// on large collections. The cloning operation may also introduce additional overhead when working with a large number of albums.
+    ///   on large collections. The cloning operation may also introduce additional overhead when working with a large number of albums.
     pub fn albums(&self) -> Vec<SimplifiedAlbum> {
         self.tracks()
             .iter()
@@ -757,7 +756,7 @@ impl PlaylistXplr {
                 Ok(albums) => albums,
                 Err(err) => {
                     event!(Level::ERROR, "Could not retrieve albums: {:?}", err);
-                    panic!("Could not retrieve albums: {:?}", err);
+                    panic!("Could not retrieve albums: {err:?}");
                 }
             };
             albums.iter().for_each(|album| {
@@ -846,5 +845,21 @@ impl PlaylistXplr {
                 None => panic!("Could not get track id from track")
             })
             .collect::<Vec<TrackId>>()
+    }
+    pub fn playable_ids(&self) -> Vec<PlayableId> {
+        let span = tracing::span!(Level::INFO, "ExplorePlaylist.playable_ids");
+        let _enter = span.enter();
+
+        let owned_tracks = self.tracks.iter()
+                               .filter_map(|track| track.id.clone())
+                               .map(PlayableId::Track)
+                               .collect::<Vec<_>>();
+
+        if owned_tracks.is_empty() {
+            event!(Level::ERROR, "Could not collect track IDs from reference playlist");
+            panic!("Could not collect track IDs from reference playlist");
+        } else {
+            owned_tracks
+        }
     }
 }
