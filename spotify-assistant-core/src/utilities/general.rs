@@ -71,6 +71,16 @@ pub fn print_separator() {
     }
 }
 
+pub fn format_duration(duration: chrono::TimeDelta) -> String {
+    let total_seconds = duration.num_seconds();
+    let minutes = total_seconds / 60;
+    let seconds = total_seconds % 60;
+    let dur = format!("{minutes:02}:{seconds:02}");
+    println!("Formatted Duration: {dur}");
+    dur
+}
+
+
 #[cfg(test)]
 mod tests {
     use super::*;

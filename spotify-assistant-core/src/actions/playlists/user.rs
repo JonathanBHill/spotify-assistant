@@ -172,6 +172,9 @@ impl LikedSongs {
         }
         saved_tracks
     }
+    pub fn total_tracks(&self) -> u32 {
+        self.total_tracks
+    }
 
 }
 
