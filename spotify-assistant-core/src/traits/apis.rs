@@ -1,9 +1,8 @@
-use std::collections::HashSet;
-use std::env;
-
 use rspotify::model::{Id, Market};
 use rspotify::prelude::OAuthClient;
 use rspotify::{AuthCodeSpotify, Config, Credentials, OAuth};
+use std::collections::HashSet;
+use std::env;
 use tracing::{error, event, span, trace, Level};
 
 use crate::enums::fs::{ProjectDirectories, ProjectFiles};

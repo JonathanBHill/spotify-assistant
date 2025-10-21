@@ -24,10 +24,10 @@ pub struct PlaylistQuery {
 impl Api for PlaylistQuery {
     fn select_scopes() -> HashSet<String> {
         scopes!(
-            "playlists-read-private",
-            "playlists-read-collaborative",
-            "playlists-modify-public",
-            "playlists-modify-private"
+            "playlist-read-private",
+            "playlist-read-collaborative",
+            "playlist-modify-public",
+            "playlist-modify-private"
         )
     }
 }
