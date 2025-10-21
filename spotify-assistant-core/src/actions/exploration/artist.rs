@@ -361,7 +361,7 @@ impl ArtistXplorer {
     /// let album_ids = artist.album_ids();
     /// assert_eq!(album_ids, vec![AlbumId(1), AlbumId(2)]);
     /// ```
-    pub fn album_ids(&self) -> Vec<AlbumId> {
+    pub fn album_ids(&self) -> Vec<AlbumId<'_>> {
         let span = tracing::span!(Level::INFO, "ArtistXplorer.album_ids");
         let _enter = span.enter();
         self.albums.clone().iter().map(|album| {
@@ -770,7 +770,7 @@ impl ArtistXplorer {
     ///
     /// Note: Ensure that `self.tracks()` is implemented correctly to return a list of tracks,
     /// where each track optionally has an ID.
-    pub async fn track_ids(&self) -> Vec<TrackId> {
+    pub async fn track_ids(&self) -> Vec<TrackId<'_>> {
         let span = tracing::span!(Level::INFO, "ArtistXplorer.track_ids");
         let _enter = span.enter();
 
@@ -870,7 +870,7 @@ impl ArtistXplorer {
     /// # Errors
     /// Although the function panics on errors, it is expected that this behavior will be managed
     /// by error handling in the calling context. Users may want to consider adding more resilient error handling.
-    pub async fn top_tracks_as_playable_ids(&self) -> Vec<PlayableId> {
+    pub async fn top_tracks_as_playable_ids(&self) -> Vec<PlayableId<'_>> {
         let span = tracing::span!(Level::INFO, "ArtistXplorer.top_tracks_as_playable_ids");
         let _enter = span.enter();
 
@@ -926,6 +926,10 @@ impl ArtistXplorer {
     ///
     /// # Errors
     /// This function does not handle errors gracefully; it panics if an error occurs. For production use, consider implementing proper error handling.
+    #[deprecated(
+        since = "0.14.0",
+        note = "The endpoint for the artist_related_artists client method is no longer supported by Spotify"
+    )]
     pub async fn related_artists(&self) -> Vec<FullArtist> {
         let span = tracing::span!(Level::INFO, "ArtistXplorer.related_artists");
         let _enter = span.enter();

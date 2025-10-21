@@ -42,7 +42,7 @@ impl TrackCollection {
             TrackCollection::TrackLink(tracks) => tracks.len(),
         }
     }
-    pub fn playable_ids(&self) -> Option<Vec<PlayableId>> {
+    pub fn playable_ids(&self) -> Option<Vec<PlayableId<'_>>> {
         match self {
             TrackCollection::SavedTracks(tracks) => {
                 Some(tracks.iter().filter_map(|track| {
@@ -82,7 +82,7 @@ impl TrackCollection {
             TrackCollection::TrackLink(_) => None
         }
     }
-    pub fn ids(&self) -> Option<Vec<TrackId>> {
+    pub fn ids(&self) -> Option<Vec<TrackId<'_>>> {
         let default_id = TrackId::from_id("unknown")
             .expect("Failed to create TrackId from unknown ID");
         match self {
@@ -473,7 +473,7 @@ impl TrackCollection {
             TrackCollection::TrackLink(_) => None
         }
     }
-    pub fn album_artist_ids(&self) -> Option<Vec<Vec<ArtistId>>> {
+    pub fn album_artist_ids(&self) -> Option<Vec<Vec<ArtistId<'_>>>> {
         let default_artist_id = ArtistId::from_id("unknown")
             .expect("Failed to create ArtistId from unknown ID");
         match self {
@@ -654,7 +654,7 @@ impl TrackCollection {
             TrackCollection::TrackLink(_) => None
         }
     }
-    pub fn album_ids(&self) -> Option<Vec<AlbumId>> {
+    pub fn album_ids(&self) -> Option<Vec<AlbumId<'_>>> {
         let default_album_id = AlbumId::from_id("unknown")
             .expect("Failed to create AlbumId from unknown ID");
         match self {
@@ -796,7 +796,7 @@ impl TrackCollection {
             TrackCollection::TrackLink(_) => None
         }
     }
-    pub fn artist_ids(&self) -> Option<Vec<Vec<ArtistId>>> {
+    pub fn artist_ids(&self) -> Option<Vec<Vec<ArtistId<'_>>>> {
         match self {
             TrackCollection::SavedTracks(tracks) => {
                 collect_track_field!(tracks, |track: &SavedTrack| {

@@ -309,7 +309,7 @@ impl Editor {
     ///
     /// Here, `reference_id` provides access to a cloned version of the
     /// playlist's `ref_id`.
-    pub fn reference_id(&self) -> PlaylistId {
+    pub fn reference_id(&self) -> PlaylistId<'_> {
         self.ref_id.clone()
     }
 
@@ -333,7 +333,7 @@ impl Editor {
     ///     println!("Target ID: {:?}", id);
     /// }
     /// ```
-    pub fn target_id(&self) -> PlaylistId {
+    pub fn target_id(&self) -> PlaylistId<'_> {
         self.target_id.clone()
     }
 
@@ -449,7 +449,7 @@ impl Editor {
     ///
     /// In the above example, the function successfully retrieves the album ID.
     /// If the `album.id` was `None`, the function would have panicked.
-    fn get_track_album_id(&self, full_track: &FullTrack) -> AlbumId {
+    fn get_track_album_id(&self, full_track: &FullTrack) -> AlbumId<'_> {
         match full_track.album.id.clone() {
             None => { panic!("Track does not have an album ID.") }
             Some(album_id) => { album_id }
@@ -496,7 +496,7 @@ impl Editor {
     ///
     /// # Notes
     ///
-    pub async fn get_reference_track_album_ids_filtered(&self) -> Vec<AlbumId> {
+    pub async fn get_reference_track_album_ids_filtered(&self) -> Vec<AlbumId<'_>> {
         let span = tracing::span!(Level::DEBUG, "Editor.get_reference_track_album_ids_filtered");
         let _enter = span.enter();
 
@@ -569,7 +569,7 @@ impl Editor {
     ///
     /// # Debugging
     /// - A debug statement is printed to the console showing the sizes of the return vector and the deduplicated track ID vector for verification.
-    pub async fn get_album_tracks_from_reference(&self) -> Vec<TrackId> {
+    pub async fn get_album_tracks_from_reference(&self) -> Vec<TrackId<'_>> {
         let album_ids = self.get_reference_track_album_ids_filtered().await;
         let mut return_vector = Vec::new();
         let mut album_track_ids = Vec::new();
