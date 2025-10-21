@@ -11,3 +11,5 @@ futures = "0.3.30"
 spotify-assistant-core = { version = "0.1.0", path = "../spotify-assistant-core" }
 rspotify = "0.14.0"
 tracing = "0.1.41"
+dialoguer = { version = "0.11.0", features = ["fuzzy-select"] }
+anyhow = "1.0.95"
