@@ -387,7 +387,7 @@ impl PlaylistXplr {
     ///     println!("{:?}", id);
     /// }
     /// ```
-    pub fn album_ids(&self) -> Vec<AlbumId> {
+    pub fn album_ids(&self) -> Vec<AlbumId<'_>> {
         self.tracks()
             .iter()
             .map(|track| {
@@ -431,11 +431,11 @@ impl PlaylistXplr {
     ///
     /// # Example
     /// ```no_run,ignore
-    /// let expanded_artist_ids = playlist.artist_ids_expanded().await;
+    /// let expanded_artist_ids = playlist.artist_ids_from_track_albums().await;
     /// println!("Expanded artist IDs: {:?}", expanded_artist_ids);
     /// ```
-    pub async fn artist_ids_expanded(&self) -> Vec<ArtistId> {
-        let span = tracing::span!(Level::INFO, "ExplorePlaylist.artist_ids_expanded");
+    pub async fn artist_ids_from_track_albums(&self) -> Vec<ArtistId<'_>> {
+        let span = tracing::span!(Level::INFO, "ExplorePlaylist.artist_ids_from_track_albums");
         let _enter = span.enter();
 
         let mut artist_ids = Vec::new();
@@ -480,7 +480,7 @@ impl PlaylistXplr {
     /// "Could not get artist id from track".
     ///
     /// A tracing span is created for logging purposes with the span name
-    /// "ExplorePlaylist.artist_ids_original".
+    /// "ExplorePlaylist.artist_ids_from_tracks".
     ///
     /// # Panics
     /// This function will panic if any artist in the tracks does not have an `id`.
@@ -491,17 +491,17 @@ impl PlaylistXplr {
     /// # Example
     /// ```no_run,ignore
     /// // Assuming `playlist` is an instance of ExplorePlaylist.
-    /// let artist_ids = playlist.artist_ids_original();
+    /// let artist_ids = playlist.artist_ids_from_tracks();
     /// for artist_id in artist_ids {
     ///     println!("{}", artist_id);
     /// }
     /// ```
-    pub fn artist_ids_original(&self) -> Vec<ArtistId> {
-        let span = tracing::span!(Level::INFO, "ExplorePlaylist.artist_ids_original");
+    pub fn artist_ids_from_tracks(&self) -> Vec<ArtistId<'_>> {
+        let span = tracing::span!(Level::INFO, "ExplorePlaylist.artist_ids_from_tracks");
         let _enter = span.enter();
-        self.tracks()
-            .iter()
-            .flat_map(|track| {
+        let mut artist_ids = self.tracks()
+                                 .iter()
+                                 .flat_map(|track| {
                 track
                     .artists
                     .iter()
@@ -515,7 +515,12 @@ impl PlaylistXplr {
                     })
                     .collect::<Vec<ArtistId>>()
             })
-            .collect::<Vec<ArtistId>>()
+                                 .collect::<Vec<ArtistId>>();
+
+        if !self.duplicates {
+            artist_ids = Self::clean_duplicate_id_vector(artist_ids);
+        };
+        artist_ids
     }
 
     /// Retrieves a collection of expanded track IDs by fetching tracks from albums.
@@ -552,7 +557,7 @@ impl PlaylistXplr {
     /// # Notes
     /// - This method relies on the `self.album_ids()` method to retrieve the list of album IDs.
     /// - The `clean_duplicate_id_vector` method is used to remove duplicate IDs if the `duplicates` flag is `false`.
-    pub async fn track_ids_expanded(&self) -> Vec<TrackId> {
+    pub async fn track_ids_expanded(&self) -> Vec<TrackId<'_>> {
         let span = tracing::span!(Level::INFO, "ExplorePlaylist.track_ids_expanded");
         let _enter = span.enter();
 
@@ -834,7 +839,7 @@ impl PlaylistXplr {
     /// # Notes
     /// Ensure that all tracks in the playlist have a valid ID before calling this function,
     /// as the presence of a `None` value for a track's ID will cause a panic.
-    pub fn track_ids(&self) -> Vec<TrackId> {
+    pub fn track_ids(&self) -> Vec<TrackId<'_>> {
         let span = tracing::span!(Level::INFO, "ExplorePlaylist.track_ids_original");
         let _enter = span.enter();
         event!(Level::INFO, "Retrieving track ids from the playlist. Track count: {:?}", self.tracks().len());
@@ -846,7 +851,7 @@ impl PlaylistXplr {
             })
             .collect::<Vec<TrackId>>()
     }
-    pub fn playable_ids(&self) -> Vec<PlayableId> {
+    pub fn playable_ids(&self) -> Vec<PlayableId<'_>> {
         let span = tracing::span!(Level::INFO, "ExplorePlaylist.playable_ids");
         let _enter = span.enter();
 

@@ -397,7 +397,7 @@ impl UserPlaylists {
     ///
     /// - Logs an error if playlist retrieval fails for any reason.
     /// - If all retry attempts fail, an empty map is returned without propagating the specific error.
-    pub async fn get_user_playlists(&self) -> HashMap<String, PlaylistId> {
+    pub async fn get_user_playlists(&self) -> HashMap<String, PlaylistId<'_>> {
         let span = tracing::span!(Level::INFO, "UserPlaylists.get_user_playlists");
         let _enter = span.enter();
 

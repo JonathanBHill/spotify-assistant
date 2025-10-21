@@ -122,7 +122,7 @@ impl AlbumXplr {
     /// # Note
     /// The returned `AlbumId` is a clone of the original to ensure the integrity
     /// of the data in the current instance remains unchanged.
-    pub fn album_id(&self) -> AlbumId {
+    pub fn album_id(&self) -> AlbumId<'_> {
         self.album_id.clone()
     }
 
@@ -173,7 +173,7 @@ impl AlbumXplr {
     ///
     /// # Note
     /// The method ensures the uniqueness of artist IDs when `for_tracks` is `true` by checking for duplicates before adding them to the resulting vector.
-    pub fn artist_ids(&self, for_tracks: bool) -> Vec<ArtistId> {
+    pub fn artist_ids(&self, for_tracks: bool) -> Vec<ArtistId<'_>> {
         match for_tracks {
             true => {
                 let tracks = self.simple_tracks();
@@ -302,7 +302,7 @@ impl AlbumXplr {
     /// let track_ids = explorer.track_ids();
     /// println!("{:?}", track_ids);
     /// ```
-    pub fn track_ids(&self) -> Vec<TrackId> {
+    pub fn track_ids(&self) -> Vec<TrackId<'_>> {
         self.simple_tracks()
             .iter()
             .map(|track| track.id.clone().expect("Could not get track ID"))
