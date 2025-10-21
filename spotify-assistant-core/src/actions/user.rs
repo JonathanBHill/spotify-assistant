@@ -1,11 +1,11 @@
-use std::collections::{HashMap, HashSet};
-
+use crate::enums::fs::ProjectDirectories;
+use crate::traits::apis::Api;
 use rspotify::clients::OAuthClient;
 use rspotify::model::{FullArtist, FullTrack, Id, PlayHistory, PrivateUser, SubscriptionLevel, TimeRange};
 use rspotify::{scopes, AuthCodeSpotify};
+use std::collections::{HashMap, HashSet};
+use std::path::PathBuf;
 use tracing::{event, info, Level};
-
-use crate::traits::apis::Api;
 
 /// `UserData` is a structure that holds information about a Spotify user and their authorized Spotify client.
 ///
@@ -654,5 +654,62 @@ impl UserData {
             Err(error) => panic!("Could not get artists: {error:?}"),
         }
         followed_artists
+    }
+    pub async fn update_followed_artists(&self) {
+        let span = tracing::span!(Level::INFO, "UserData.update-artists");
+        let _enter = span.enter();
+        let artists = self.artists().await;
+        let follower_length = artists.len();
+        let local_time = chrono::Local::now();
+        let local_time_string = local_time.format("%m-%d-%Y").to_string();
+        let file_name = format!("{}_followers-{}.json", follower_length, local_time_string);
+        let file_dir = Self::follower_file_directory();
+        let file_path = file_dir.join(file_name);
+        let artists_json = serde_json::to_string_pretty(&artists).unwrap();
+        std::fs::write(file_path.clone(), artists_json).unwrap();
+        info!("Stored {} artists to file path: {:?}", follower_length, file_path);
+    }
+    fn follower_file_directory() -> PathBuf {
+        let data_path = ProjectDirectories::Data.path();
+        data_path.join("followers")
+    }
+    pub async fn save_artists_locally_manual(&self, artists: Vec<FullArtist>) -> () {
+        let span = tracing::span!(Level::INFO, "UserData.store-artists");
+        let _enter = span.enter();
+        let follower_length = artists.len();
+        let local_time = chrono::Local::now();
+        let local_time_string = local_time.format("%m-%d-%Y").to_string();
+        let file_name = format!("{}_followers-{}.json", follower_length, local_time_string);
+        let file_dir = Self::follower_file_directory();
+        let file_path = file_dir.join(file_name);
+        let json = serde_json::to_string_pretty(&artists).unwrap();
+        std::fs::write(file_path.clone(), json).unwrap();
+        info!("Stored {} artists to file path: {:?}", follower_length, file_path);
+    }
+    pub fn read_artists_from_file(&self, file_name: &str) -> Vec<FullArtist> {
+        let span = tracing::span!(Level::INFO, "UserData.read-artists");
+        let _enter = span.enter();
+        let file_dir = Self::follower_file_directory();
+        let file_name = format!("{}.json", file_name);
+        let file_path = file_dir.join(file_name);
+        let json = std::fs::read_to_string(file_path.clone()).unwrap();
+        let artists: Vec<FullArtist> = serde_json::from_str(&json).unwrap();
+        info!("Read {} artists from file path: {:?}", artists.len(), file_path);
+        artists
+    }
+    fn artists_not_followed_from_playlist_directory() -> PathBuf {
+        let data_path = ProjectDirectories::Data.path();
+        data_path.join("playlist-artists")
+    }
+    pub fn save_unfollowed_artists_locally(&self, artists: Vec<FullArtist>, playlist_name: String) {
+        let span = tracing::span!(Level::INFO, "UserData.store-unfollowed-artists");
+        let _enter = span.enter();
+        let local_time = chrono::Local::now();
+        let local_time_string = local_time.format("%m-%d-%Y").to_string();
+        let file_name = format!("{}_artists_not_followed-{}.json", playlist_name, local_time_string);
+        let file_dir = Self::artists_not_followed_from_playlist_directory();
+        let file_path = file_dir.join(file_name);
+        let json = serde_json::to_string_pretty(&artists).unwrap();
+        std::fs::write(file_path.clone(), json).unwrap();
     }
 }
