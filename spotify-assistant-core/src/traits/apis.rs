@@ -156,7 +156,7 @@ pub trait Api {
     fn set_up_client(
         is_test: bool,
         scopes: Option<HashSet<String>>,
-    ) -> impl std::future::Future<Output = AuthCodeSpotify> + Send {
+    ) -> impl Future<Output = AuthCodeSpotify> + Send {
         async move {
             let suc_span = span!(Level::TRACE, "Api.set_up_client");
             let _enter = suc_span.enter();
@@ -184,6 +184,7 @@ pub trait Api {
                 None => {
                     let env_file = ProjectFiles::DotEnv.path();
                     if !env_file.exists() {
+                        let path = ProjectDirectories::Config.path().clone();
                         error!(
                             name: "credentials",
                             target: "api-setup",
@@ -191,7 +192,7 @@ pub trait Api {
                             env_directory =  ProjectDirectories::Config.path().to_str().unwrap(),
                             ".env file was not found on the system. This file should be created in your configuration directory {:?}",
                             // fixme <On message line above> Add terminology that aligns with the user's operating system (e.g. directory vs folder)
-                            { ProjectDirectories::Config.path().to_str().unwrap() }
+                            { path.to_str().unwrap() }
                         );
                     } else {
                         let _ = env::args().filter(|key| {
@@ -381,5 +382,5 @@ pub trait Api {
 /// }
 /// ```
 pub trait Querying {
-    fn new() -> impl std::future::Future<Output = Self> + Send;
+    fn new() -> impl Future<Output = Self> + Send;
 }

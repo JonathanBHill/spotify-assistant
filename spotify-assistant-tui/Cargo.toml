@@ -1,7 +1,6 @@
 [package]
 name = "spotify-assistant-tui"
-version = "0.1.0"
-resolver = "2"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
 
 [dependencies]

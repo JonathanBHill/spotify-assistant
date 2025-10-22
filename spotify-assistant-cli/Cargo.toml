@@ -1,15 +1,16 @@
 [package]
 name = "spotify-assistant-cli"
-version = "0.1.0"
-resolver = "2"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
+description = "Contains the spotify assistant utility's CLI logic"
 
 [dependencies]
-clap = { version = "4.5.24", features = ["derive"] }
-clap_complete = "4.5.41"
-futures = "0.3.30"
-spotify-assistant-core = { version = "0.1.0", path = "../spotify-assistant-core" }
-rspotify = "0.14.0"
-tracing = "0.1.41"
-dialoguer = { version = "0.11.0", features = ["fuzzy-select"] }
-anyhow = "1.0.95"
+tracing.workspace = true
+rspotify.workspace = true
+anyhow.workspace = true
+futures.workspace = true
+dialoguer.workspace = true
+spotify-assistant-core.workspace = true
+
+clap = { version = "4.5.50", features = ["derive"] }
+clap_complete = "4.5.59"

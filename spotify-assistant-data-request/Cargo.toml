@@ -1,9 +1,11 @@
 [package]
 name = "spotify-assistant-data-request"
-version = "0.1.0"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
+description = "Contains the spotify assistant utility's data analytics logic for handling user data that can be requested from Spotify"
 
 [dependencies]
-polars = { version = "0.44.2", features = ["lazy", "fmt", "temporal", "json", "polars-plan", "strings", "polars-io", "parquet", "cum_agg"] }
-tracing = "0.1.40"
-spotify-assistant-core = { path = "../spotify-assistant-core" }
+tracing.workspace = true
+spotify-assistant-core.workspace = true
+
+polars = { version = "0.51.0", features = ["lazy", "fmt", "temporal", "json", "polars-plan", "strings", "polars-io", "parquet", "cum_agg"] }
