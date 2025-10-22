@@ -1,5 +1,5 @@
 use crate::enums::fs::ProjectDirectories;
-use crate::paginators::PaginatorRunner;
+use crate::paginator::PaginatorRunner;
 use crate::traits::apis::Api;
 use rspotify::model::{FullTrack, SavedTrack};
 use rspotify::prelude::{Id, OAuthClient};

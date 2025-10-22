@@ -1,4 +1,4 @@
-use crate::paginators::PaginatorRunner;
+use crate::paginator::PaginatorRunner;
 use crate::traits::apis::Api;
 use rspotify::clients::{BaseClient, OAuthClient};
 use rspotify::model::{FullPlaylist, PlaylistId, SimplifiedPlaylist};
