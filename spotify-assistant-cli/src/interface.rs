@@ -14,8 +14,9 @@ use crate::commands::followed_artists::cmd_find_artists;
 use crate::enums::{BlacklistArgs, ConfigArgs, QueryArgs, ReleaseRadarArgs, ReleaseRadarCmds, ShellType};
 use spotify_assistant_core::actions::exploration::playlist::PlaylistXplr;
 use spotify_assistant_core::actions::general::FullProfiles;
+use spotify_assistant_core::actions::liked_songs::UserLibrary;
 use spotify_assistant_core::actions::playlists::query::PlaylistQuery;
-use spotify_assistant_core::actions::playlists::user::{LikedSongs, UserPlaylists};
+use spotify_assistant_core::actions::playlists::user::UserPlaylists;
 use spotify_assistant_core::actions::update::Editor;
 use spotify_assistant_core::actions::user::UserData;
 use spotify_assistant_core::enums::fs::ProjectDirectories;
@@ -298,7 +299,7 @@ impl TerminalApp {
             BlacklistArgs::AddFromPlaylist(playlist) => {
                 let normalized_input = playlist.clone().trim().to_lowercase();
                 let user_playlists = UserPlaylists::new().await;
-                let playlist_names_and_ids = user_playlists.get_user_playlists().await;
+                let playlist_names_and_ids = user_playlists.get_user_playlist_ids_as_hashmap().await;
                 let playlist_id = match playlist_names_and_ids.iter()
                                                               .find_map(|(name, id)| {
                                                                   event!(Level::DEBUG, "Testing input as name: {:?}", &playlist);
@@ -472,9 +473,8 @@ impl TerminalApp {
             }
             QueryArgs::QLibrary(playlists) => {
                 event!(Level::TRACE, "Querying user playlists: {:?}", playlists);
-                let liked = LikedSongs::new().await;
-                let library = liked.library().await;
-                println!("Library: {:?}", library.len());
+                let liked = UserLibrary::new().await;
+                println!("Library: {:?}", liked.total_tracks());
                 Ok(())
             }
             QueryArgs::Empty => {

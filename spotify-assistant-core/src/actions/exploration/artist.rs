@@ -2,15 +2,14 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 use chrono::{NaiveDate, NaiveDateTime};
-use futures::stream::StreamExt;
 use pbr::ProgressBar;
-use rspotify::clients::pagination::Paginator;
 use rspotify::clients::BaseClient;
 use rspotify::model::{AlbumId, ArtistId, FullAlbum, FullArtist, FullTrack, PlayableId, SimplifiedAlbum, SimplifiedTrack, TrackId};
 use rspotify::{scopes, AuthCodeSpotify, ClientError, ClientResult};
-use tracing::{error, info, Level};
+use tracing::{error, event, info, Level};
 
 use crate::enums::validation::BatchLimits;
+use crate::paginator::PaginatorRunner;
 use crate::traits::apis::Api;
 
 /// The `ArtistXplorer` struct is used to explore details about a specific artist and their albums
@@ -84,10 +83,7 @@ impl ArtistXplorer {
         let client = Self::set_up_client(false, Some(Self::select_scopes())).await;
         let artist = match client.artist(artist_id.clone()).await {
             Ok(artist) => {
-                info!(
-                    "Data has been retrieved for the artist, '{}'.",
-                    artist.name.clone()
-                );
+                info!("Data has been retrieved for the artist, '{}'.", artist.name.clone());
                 artist
             }
             Err(error) => {
@@ -95,7 +91,12 @@ impl ArtistXplorer {
                 return Err(error);
             }
         };
-        let albums = Self::albums(client.artist_albums(artist_id.clone(), None, Some(Self::market()))).await;
+        let albums_req = client.artist_albums(artist_id.clone(), None, Some(Self::market()));
+        let paginator = PaginatorRunner::new(albums_req, ());
+        let albums = paginator.run().await.unwrap_or_else(|err| {
+            event!(Level::ERROR, "Could not retrieve the artist's albums: {:?}", err);
+            Vec::new()
+        });
         info!("Data has been retrieved for the artist, '{}'.", artist.name);
         Ok(ArtistXplorer {
             client,
@@ -103,58 +104,6 @@ impl ArtistXplorer {
             artist,
             albums,
         })
-    }
-
-    /// Retrieves all albums from a paginated API response asynchronously.
-    ///
-    /// This function iterates through a paginated set of albums using a `Paginator`,
-    /// collects `SimplifiedAlbum` objects into a vector, and returns them. If an error
-    /// occurs while fetching a page, the function will panic and provide error details.
-    ///
-    /// # Arguments
-    ///
-    /// * `paginated_albums` - A `Paginator` instance that yields `ClientResult<SimplifiedAlbum>`
-    /// asynchronously.
-    ///
-    /// # Returns
-    ///
-    /// A `Vec<SimplifiedAlbum>` containing all albums retrieved from the paginated response.
-    ///
-    /// # Panics
-    ///
-    /// The function will panic if there is an error encountered while fetching a page of albums.
-    /// The panic message includes detailed error information.
-    ///
-    /// # Notes
-    ///
-    /// This function creates a tracing span labeled "ArtistXplorer.albums" to facilitate
-    /// structured logging and diagnostics.
-    ///
-    /// # Example
-    ///
-    /// ```no_run,ignore
-    ///
-    /// async fn fetch_albums() {
-    ///     let artist = ArtistXplorer::new(artist_id).await?;
-    ///     let paginator = Paginator::new(); // Assuming Paginator is properly initialized.
-    ///     let all_albums = artist.albums(paginator).await;
-    ///     for album in all_albums {
-    ///         println!("{:?}", album);
-    ///     }
-    /// }
-    /// ```
-    pub async fn albums(mut paginated_albums: Paginator<'_, ClientResult<SimplifiedAlbum>>) -> Vec<SimplifiedAlbum> {
-        let span = tracing::span!(Level::INFO, "ArtistXplorer.albums");
-        let _enter = span.enter();
-
-        let mut albums: Vec<SimplifiedAlbum> = Vec::new();
-        while let Some(albums_page) = paginated_albums.next().await {
-            match albums_page {
-                Ok(album) => albums.push(album),
-                Err(error) => panic!("ERROR: Was not able to get album from the requested artist.\nError information: {error:?}")
-            }
-        }
-        albums
     }
 
     /// Categorizes and groups albums based on their release date and the specified time unit.
@@ -828,15 +777,19 @@ impl ArtistXplorer {
         let mut album_tracks = Vec::new();
 
         for album_id in self.album_ids() {
-            let mut altracks = self.client.album_track(album_id.clone(), Some(Self::market()));
-
-            while let Some(tracks_page) = altracks.next().await {
-                match tracks_page {
-                    Ok(track) => album_tracks.push(track),
-                    Err(error) => panic!("ERROR: Was not able to get album from the requested artist.\nError information: {:?}", error)
+            let altracks = self.client.album_track(album_id.clone(), Some(Self::market()));
+            let paginator = PaginatorRunner::new(altracks, ());
+            match paginator.run().await {
+                Ok(tracks) => {
+                    tracks.into_iter().for_each(|track| {
+                        album_tracks.push(track)
+                    })
+                },
+                Err(err) => {
+                    panic!("ERROR: Was not able to get tracks from the requested artist.\nError information: {:?}", err)
                 }
             }
-        }
+        };
         album_tracks
     }
 

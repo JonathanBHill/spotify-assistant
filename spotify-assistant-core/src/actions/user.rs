@@ -1,7 +1,8 @@
 use crate::enums::fs::ProjectDirectories;
+use crate::paginator::PaginatorRunner;
 use crate::traits::apis::Api;
 use rspotify::clients::OAuthClient;
-use rspotify::model::{FullArtist, FullTrack, Id, PlayHistory, PrivateUser, SubscriptionLevel, TimeRange};
+use rspotify::model::{FullArtist, FullTrack, Id, PlayHistory, PrivateUser, SimplifiedPlaylist, SubscriptionLevel, TimeRange};
 use rspotify::{scopes, AuthCodeSpotify};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
@@ -441,60 +442,23 @@ impl UserData {
     /// - The function is scoped with a logging span (`UserData.top-tracks`) for consistent logging output.
     /// - Currently, commented-out functionality (`save_to_file`) exists for serialization of top tracks to a file.
     /// - Tracks are inserted into the vector at the correct positions based on their index to ensure order preservation.
-    pub async fn top_tracks(&self) -> Vec<FullTrack> {
+    pub async fn top_tracks(&self, term: &str) -> Vec<FullTrack> {
         let span = tracing::span!(Level::INFO, "UserData.top-tracks");
         let _enter = span.enter();
 
-        let total_top_tracks = match self
-            .client
-            .current_user_top_tracks_manual(Some(TimeRange::ShortTerm), Some(1), None)
-            .await
-        {
-            Ok(top_track) => top_track.total,
-            Err(error) => panic!("Could not get top tracks: {error:?}"),
+        let time_range = match term {
+            "short" => TimeRange::ShortTerm,
+            "medium" => TimeRange::MediumTerm,
+            "long" => TimeRange::LongTerm,
+            _ => TimeRange::ShortTerm,
         };
-        let mut top_vec = Vec::with_capacity(total_top_tracks as usize);
-        let page_size = 50;
-        let pages_no_remainder = (total_top_tracks / page_size) as i32;
-        let pages = if total_top_tracks % page_size > 0 {
-            info!("pages with remainder: {}", pages_no_remainder + 1);
-            pages_no_remainder + 1
-        } else {
-            info!("pages w/o remainder: {pages_no_remainder}");
-            pages_no_remainder
-        };
-        for page in 0..pages {
-            let offset = page_size * page as u32;
-            let multiplier = page_size as usize * page as usize;
-            let offset_top_tracks = match self
-                .client
-                .current_user_top_tracks_manual(
-                    Some(TimeRange::ShortTerm),
-                    Some(page_size),
-                    Some(offset),
-                )
-                .await
-            {
-                Ok(page) => page.items.into_iter(),
-                Err(error) => panic!("{error:?}"),
-            };
-            for (index, track) in offset_top_tracks.enumerate() {
-                let track_number = index + multiplier;
-                top_vec.insert(track_number, track);
-            }
-            info!("Page {}/{} appended", page + 1, pages)
-        }
-        info!(
-            "A total of {} top tracks have been collected.",
-            top_vec.len()
-        );
-        // if save_to_file {
-        //     let io = TracksIO::new("toptracks".to_string());
-        //     io.serialize(&top_vec);
-        // }
-        top_vec
+        let top_tracks = self.client.current_user_top_tracks(Some(time_range));
+        let paginator = PaginatorRunner::new(top_tracks, ());
+        paginator.run().await.unwrap_or_else(|err| {
+            event!(Level::ERROR, "Error retrieving top tracks: {:?}", err);
+            Vec::new()
+        })
     }
-
 
     /// Asynchronously retrieves and logs the current user's playlists.
     ///
@@ -538,21 +502,15 @@ impl UserData {
     /// # Errors
     /// - All errors will result in an immediate `panic!`, so error handling may
     ///   need to be revised for more robust applications.
-    pub async fn playlists(&self) {
+    pub async fn get_user_playlists(&self) -> Vec<SimplifiedPlaylist> {
         let span = tracing::span!(Level::INFO, "UserData.playlists");
         let _enter = span.enter();
-        let playlists = match self
-            .client
-            .current_user_playlists_manual(Some(1), None)
-            .await
-        {
-            Ok(playlists) => playlists,
-            Err(error) => panic!("Could not get playlists: {error:?}"),
-        };
-        playlists.items.iter().for_each(|playlist| {
-            info!("{:?}", playlist.name);
-        });
-        info!("Total playlists: {}", playlists.total);
+        let user_playlists = self.client.current_user_playlists();
+        let paginator = PaginatorRunner::new(user_playlists, ());
+        paginator.run().await.unwrap_or_else(|err| {
+            event!(Level::ERROR, "Error retrieving playlists: {:?}", err);
+            Vec::new()
+        })
     }
 
     /// Retrieves a list of artists followed by the current user.

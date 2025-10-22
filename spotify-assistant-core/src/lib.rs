@@ -5,3 +5,5 @@ pub mod models;
 pub mod traits;
 pub mod utilities;
 pub mod macros;
+pub mod paginator;
+pub mod extractors;
