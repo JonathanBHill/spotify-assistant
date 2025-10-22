@@ -1,26 +1,30 @@
 [package]
 name = "spotify-assistant-core"
-version = "0.1.0"
-resolver = "2"
-edition = "2021"
+version.workspace = true
+edition = "2024"
+description = "Contains the spotify assistant utility's core logic"
 
 [dependencies]
-rspotify = { version = "0.14.0", default-features = false, features = ["async-stream", "cli", "client-reqwest", "reqwest-default-tls", "env-file"] }
-tracing = { version = "0.1.40", features = ["max_level_trace", "release_max_level_info"] }
-tracing-subscriber = { version = "0.3.19", features = ["env-filter", "json", "default", "local-time", "chrono"] }
-dotenv = "0.15.0"
-chrono = "0.4.39"
-ansi_term = "0.12.1"
-directories = "5.0.1"
-tokio = { version = "1.42.0", features = ["full"] }
-futures = "0.3.31"
-anyhow = "1.0.95"
-pbr = "1.1.1"
-regex = "1.11.1"
-dialoguer = "0.11.0"
-toml = "0.8.19"
-serde = { version = "1.0.216", features = ["derive"] }
-term_size = "1.0.0-beta1"
-unicode-normalization = "0.1.24"
-serde_json = "1.0.132"
-thiserror = "1.0.68"
+tracing.workspace = true
+tracing-subscriber.workspace = true
+rspotify.workspace = true
+dotenv.workspace = true
+chrono.workspace = true
+tokio.workspace = true
+anyhow.workspace = true
+futures.workspace = true
+serde.workspace = true
+pbr.workspace = true
+dialoguer.workspace = true
+ansi_term.workspace = true
+directories.workspace = true
+regex.workspace = true
+toml.workspace = true
+term_size.workspace = true
+unicode-normalization.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+once_cell.workspace = true
+tempfile.workspace = true

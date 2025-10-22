@@ -34,8 +34,7 @@ pub struct ComparePlaylists {
 
 impl PartialEq for ComparePlaylists {
     fn eq(&self, other: &Self) -> bool {
-        let pl_ids = self.playlist.id == other.playlist.id;
-        pl_ids
+        self.playlist.id == other.playlist.id
     }
 }
 impl Api for ComparePlaylists {
@@ -82,18 +81,27 @@ impl ComparePlaylists {
     pub async fn new(playlist: FullPlaylist) -> Self {
         dotenv().ok();
         let client = Self::set_up_client(false, Some(Self::select_scopes())).await;
-        let tracks = playlist.tracks.items.iter().map(|track| {
-            match track.track.clone() {
+        let tracks = playlist
+            .tracks
+            .items
+            .iter()
+            .map(|track| match track.track.clone() {
                 Some(track) => match track {
                     PlayableItem::Track(track) => track,
                     PlayableItem::Episode(episode) => {
-                        eprintln!("Error: Incorrect item returned. An episode was provided: {:?}", episode.name);
+                        eprintln!(
+                            "Error: Incorrect item returned. An episode was provided: {:?}",
+                            episode.name
+                        );
                         panic!("Could not get full track")
-                    },
+                    }
+                    _ => {
+                        panic!("Could not get full track")
+                    }
                 },
                 None => panic!("Could not get track"),
-            }
-        }).collect::<Vec<FullTrack>>();
+            })
+            .collect::<Vec<FullTrack>>();
         ComparePlaylists {
             client,
             playlist: playlist.clone(),
@@ -129,7 +137,10 @@ impl ComparePlaylists {
     /// # Note
     /// This function assumes that the `playlist.tracks.total` field provides the accurate total number of tracks for both playlist objects.
     pub fn eq_len(&self, other: &Self) -> bool {
-        println!("Playlist lengths are equal: {:?}", self.playlist.tracks.total == other.playlist.tracks.total);
+        println!(
+            "Playlist lengths are equal: {:?}",
+            self.playlist.tracks.total == other.playlist.tracks.total
+        );
         println!("Playlist 1 length: {:?}", self.playlist.tracks.total);
         println!("Playlist 2 length: {:?}", other.playlist.tracks.total);
         self.playlist.tracks.total == other.playlist.tracks.total
@@ -144,7 +155,7 @@ impl ComparePlaylists {
     ///
     /// # Arguments
     /// - `other` - A reference to another instance of the same struct type that
-    ///             contains playlist metadata to be compared.
+    ///   contains playlist metadata to be compared.
     ///
     /// # Returns
     /// - `true` if the playlists' `id` fields are equal.
@@ -208,7 +219,13 @@ impl ComparePlaylists {
     /// A vector of tuples `(T, T, T)`, where each tuple contains one element from each of the input vectors
     /// (or the default value if the corresponding input vector is shorter). The first element in the resulting
     /// vector is always the provided `headers`.
-    fn combine_vectors<T: Clone>(v1: Vec<T>, v2: Vec<T>, v3: Vec<T>, headers: (T, T, T), default: T) -> Vec<(T, T, T)> {
+    fn combine_vectors<T: Clone>(
+        v1: Vec<T>,
+        v2: Vec<T>,
+        v3: Vec<T>,
+        headers: (T, T, T),
+        default: T,
+    ) -> Vec<(T, T, T)> {
         let first_len = std::cmp::max(v1.len(), v2.len());
         let len = std::cmp::max(first_len, v3.len());
         let mut combined = Vec::with_capacity(len);

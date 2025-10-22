@@ -1,7 +1,4 @@
 [package]
 name = "spotify-assistant-ai"
-version = "0.1.0"
-resolver = "2"
-edition = "2021"
-
-[dependencies]
+version.workspace = true
+edition.workspace = true
