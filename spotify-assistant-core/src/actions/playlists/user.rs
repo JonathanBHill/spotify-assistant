@@ -1,182 +1,10 @@
-use futures::StreamExt;
+use crate::paginators::PaginatorRunner;
+use crate::traits::apis::Api;
 use rspotify::clients::{BaseClient, OAuthClient};
-use rspotify::model::{FullPlaylist, PlaylistId, SavedTrack, SimplifiedPlaylist};
+use rspotify::model::{FullPlaylist, PlaylistId, SimplifiedPlaylist};
 use rspotify::{scopes, AuthCodeSpotify};
 use std::collections::{HashMap, HashSet};
-use tracing::{event, info, Level};
-
-use crate::traits::apis::Api;
-
-/// Represents a collection of liked songs for a user.
-///
-/// This struct is used to manage and interact with the "Liked Songs" playlist
-/// in a Spotify user's account. It provides the necessary client and metadata
-/// to access the user's liked songs.
-///
-/// # Fields
-/// - `client`:
-///   The `AuthCodeSpotify` instance used for authenticated interactions with
-///   the Spotify Web API.
-/// - `total_tracks`:
-///   The total number of tracks in the user's "Liked Songs" playlist.
-pub struct LikedSongs {
-    client: AuthCodeSpotify,
-    total_tracks: u32,
-}
-
-impl Api for LikedSongs {
-    fn select_scopes() -> HashSet<String> {
-        scopes!("user-library-read", "user-library-modify")
-    }
-}
-impl LikedSongs {
-    /// Initializes a new instance of the `LikedSongs` struct asynchronously.
-    ///
-    /// This method performs the following steps:
-    /// 1. Creates a tracing span for logging purposes with the level set to `INFO` and name `"LikedSongs.new"`.
-    /// 2. Sets up an HTTP client for interacting with the API by calling `set_up_client`,
-    ///    passing `false` for token refreshment and scopes returned by `select_scopes`.
-    /// 3. Uses the client to fetch the total number of saved tracks for the current user by
-    ///    making a call to `current_user_saved_tracks_manual`. This fetch is done using the current market
-    ///    (retrieved from `Self::market()`), and without any additional parameters for offset or limit.
-    ///    - If the call is successful, the total number of saved tracks is stored.
-    ///    - If the call results in an error, the error is logged, and the function will panic with an appropriate
-    ///      error message.
-    /// 4. Returns a `LikedSongs` instance initialized with the created client and retrieved total track count.
-    ///
-    /// # Returns
-    /// A `LikedSongs` struct.
-    ///
-    /// # Panics
-    /// This function will panic if there is an error while retrieving the user's saved tracks.
-    ///
-    /// # Examples
-    /// ```ignore
-    /// let liked_songs = LikedSongs::new().await;
-    /// ```
-    pub async fn new() -> Self {
-        let span = tracing::span!(Level::INFO, "LikedSongs.new");
-        let _enter = span.enter();
-        let client = Self::set_up_client(false, Some(Self::select_scopes())).await;
-        let total_tracks = match client.current_user_saved_tracks_manual(
-            Some(Self::market()),
-            None,
-            None
-        ).await {
-            Ok(tracks) => { tracks.total }
-            Err(err) => {
-                event!(Level::ERROR, "Error: {:?}", err);
-                panic!("Could not retrieve saved tracks.");
-            }
-        };
-        LikedSongs {
-            client,
-            total_tracks,
-        }
-    }
-
-    /// Returns a clone of the `AuthCodeSpotify` client.
-    ///
-    /// This function provides access to the `AuthCodeSpotify` client instance, allowing
-    /// interaction with the Spotify API. The instance is cloned to ensure the original
-    /// remains unaltered.
-    ///
-    /// # Returns
-    ///
-    /// A cloned instance of `AuthCodeSpotify`.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use spotify_assistant_core::actions::playlists::user::LikedSongs;
-    /// async fn main() {
-    ///     let liked_songs = LikedSongs::new().await;
-    ///     let spotify_client = liked_songs.client();
-    ///     // Use `spotify_client` to perform operations with the Spotify API.
-    /// }
-    /// ```
-    pub fn client(&self) -> AuthCodeSpotify {
-        self.client.clone()
-    }
-
-    /// Retrieves the user's saved (liked) tracks from the library.
-    ///
-    /// This asynchronous function communicates with the Spotify API to fetch the current user's
-    /// saved tracks. It attempts to load all tracks while handling potential errors and retries. The
-    /// fetched tracks are collected into a vector, which is returned to the caller.
-    ///
-    /// # Returns
-    /// A `Vec<SavedTrack>` containing the user's saved tracks, where each track is represented as
-    /// a `SavedTrack` struct.
-    ///
-    /// # Functionality
-    /// - Creates a tracing span for logging and diagnostic purposes.
-    /// - Fetches the current user's saved tracks, paginated via the Spotify API.
-    /// - Handles errors by retrying up to three times before exhausting further retrieval attempts.
-    /// - Logs detailed information about each saved track and any errors encountered.
-    ///
-    /// # Behavior
-    /// - If a saved track is successfully retrieved, it is pushed into the `saved_tracks` vector.
-    /// - If an error occurs while fetching a page of saved tracks, it is logged, and the function retries until
-    ///   the retry limit is reached or the process ends.
-    ///
-    /// # Example Usage
-    /// ```rust
-    /// use spotify_assistant_core::actions::playlists::user::LikedSongs;
-    /// async fn main() {
-    ///     let liked_songs = LikedSongs::new().await;
-    ///     let saved_tracks = liked_songs.library().await;
-    ///     for track in saved_tracks {
-    ///         println!("Liked track: {}", track.track.name);
-    ///     }
-    /// }
-    /// ```
-    ///
-    /// # Note
-    /// - Uses tracing events for detailed output of the function's processing steps.
-    /// - The maximum retries count is hardcoded to `3`.
-    /// - The `Self::market()` method is used to specify the market parameter if applicable, which should
-    ///   return an appropriate string.
-    ///
-    /// # Errors
-    /// - Errors encountered during the fetching process are logged, but after three retry attempts,
-    ///   the function ceases further error handling. Depending on the API behavior or network state, this
-    ///   could result in an incomplete list being returned.
-    ///
-    /// # Dependencies
-    /// - This function assumes the existence of a `client` with a `current_user_saved_tracks` method that
-    ///   supports asynchronous iteration.
-    /// - Requires importing the `tracing` crate for logging and diagnostics.
-    pub async fn library(&self) -> Vec<SavedTrack> {
-        let span = tracing::span!(Level::INFO, "LikedSongs.library");
-        let _enter = span.enter();
-
-        let mut liked_songs = self.client.current_user_saved_tracks(Some(Self::market()));
-        let mut saved_tracks: Vec<SavedTrack> = Vec::new();
-        let mut retries = 3;
-        while retries > 0 {
-            if let Some(page) = liked_songs.next().await {
-                match page {
-                    Ok(saved_track) => {
-                        event!(Level::INFO, "Saved track: {:?} | New vector length: {:?}", saved_track.track.name, saved_tracks.len() + 1);
-                        saved_tracks.push(saved_track);
-                    },
-                    Err(err) => {
-                        event!(Level::ERROR, "Error: {:?}", err);
-                        retries -= 1;
-                    }
-                }
-            } else {
-                break;
-            }
-        }
-        saved_tracks
-    }
-    pub fn total_tracks(&self) -> u32 {
-        self.total_tracks
-    }
-
-}
+use tracing::{event, Level};
 
 /// The `UserPlaylists` struct is a representation of user playlists
 /// within the Spotify API integration. It enables interaction with
@@ -386,7 +214,7 @@ impl UserPlaylists {
     /// use spotify_assistant_core::actions::playlists::user::UserPlaylists;
     /// async fn main() {
     ///     let user_playlists = UserPlaylists::new().await;
-    ///     let playlists = user_playlists.get_user_playlists().await;
+    ///     let playlists = user_playlists.get_user_playlist_ids_as_hashmap().await;
     ///     for (name, id) in playlists {
     ///         println!("Playlist Name: {}, ID: {:?}", name, id);
     ///     }
@@ -397,34 +225,25 @@ impl UserPlaylists {
     ///
     /// - Logs an error if playlist retrieval fails for any reason.
     /// - If all retry attempts fail, an empty map is returned without propagating the specific error.
-    pub async fn get_user_playlists(&self) -> HashMap<String, PlaylistId<'_>> {
+    pub async fn get_user_playlist_ids_as_hashmap(&self) -> HashMap<String, PlaylistId<'_>> {
         let span = tracing::span!(Level::INFO, "UserPlaylists.get_user_playlists");
         let _enter = span.enter();
 
-        let mut user_playlists = self
-            .client
-            .current_user_playlists();
+        let user_playlists = self.client.current_user_playlists();
         let mut playlists = HashMap::new();
-        let mut retries = 3;
-        while retries > 0 {
-            if let Some(pl) = user_playlists.next().await {
-                match pl {
-                    Ok(simp) => {
-                        playlists.insert(simp.name, simp.id);
-                    },
-                    Err(err) => {
-                        event!(Level::ERROR, "Error retrieving playlist: {:?}", err);
-                        retries -= 1;
-                    }
-                }
-            } else {
-                break;
+        let paginator = PaginatorRunner::new(user_playlists, ());
+        match paginator.run().await {
+            Ok(vec) => {
+                vec.into_iter().for_each(|playlist| {
+                    playlists.insert(playlist.name, playlist.id);
+                });
+            },
+            Err(err) => {
+                event!(Level::ERROR, "Error retrieving playlists: {:?}", err);
+                return HashMap::new();
             }
-        }
-        if retries == 0 {
-            event!(Level::ERROR, "Failed to retrieve playlists after multiple attempts.");
-        }
-        playlists.clone()
+        };
+        playlists
     }
 
     /// Fetches all playlists of the current user asynchronously.
@@ -463,7 +282,7 @@ impl UserPlaylists {
     /// use spotify_assistant_core::actions::playlists::user::UserPlaylists;
     /// async fn main() {
     ///     let user_playlists = UserPlaylists::new().await;
-    ///     let playlists = user_playlists.get_user_playlists_old().await;
+    ///     let playlists = user_playlists.get_user_playlists().await;
     ///     for playlist in playlists {
     ///         println!("Playlist: {} | Public: {}", playlist.name, playlist.public.unwrap_or(false));
     ///     }
@@ -484,54 +303,14 @@ impl UserPlaylists {
     ///   to the API, assuming this method supports query parameters for page size and offset.
     /// - The function clones some data for processing (`pl_vec.clone()`), which might have performance
     ///   implications for very large datasets.
-    pub async fn get_user_playlists_old(&self) -> Vec<SimplifiedPlaylist> {
+    pub async fn get_user_playlists(&self) -> Vec<SimplifiedPlaylist> {
         let span = tracing::span!(Level::INFO, "UserData.playlists");
         let _enter = span.enter();
-        let playlists = match self.client.current_user_playlists_manual(Some(50), None).await {
-            Ok(playlists) => playlists,
-            Err(error) => panic!("Could not get playlists: {}", error),
-        };
-
-        let page_size = 50;
-        let total_pl = playlists.total;
-        let mut pl_vec = Vec::with_capacity(total_pl as usize);
-        let pages_no_remainder = (total_pl / page_size) as i32;
-        let pages = if total_pl % page_size > 0 {
-            info!("pages with remainder: {}", pages_no_remainder + 1);
-            pages_no_remainder + 1
-        } else {
-            info!("pages w/o remainder: {pages_no_remainder}");
-            pages_no_remainder
-        };
-
-        for page in 0..pages {
-            let offset = page_size * page as u32;
-            let multiplier = page_size as usize * page as usize;
-            let offset_playlists = match self
-                .client
-                .current_user_playlists_manual(Some(page_size), Some(offset))
-                .await
-            {
-                Ok(page) => page.items.into_iter(),
-                Err(error) => panic!("{:?}", error),
-            };
-            for (index, playlist) in offset_playlists.enumerate() {
-                let playlist_number = index + multiplier;
-                pl_vec.insert(playlist_number, playlist);
-            }
-            info!("Page {}/{} appended", page + 1, pages)
-        }
-        pl_vec
-            .clone()
-            .iter()
-            .enumerate()
-            .for_each(|(index, playlist)| {
-                info!(
-                    "{index}: Name: {:?} | Public: {:?}",
-                    playlist.name, playlist.public
-                );
-            });
-        info!("Total playlists: {}", playlists.total);
-        pl_vec
+        let user_playlists = self.client.current_user_playlists();
+        let paginator = PaginatorRunner::new(user_playlists, ());
+        paginator.run().await.unwrap_or_else(|err| {
+            event!(Level::ERROR, "Error retrieving playlists: {:?}", err);
+            Vec::new()
+        })
     }
 }

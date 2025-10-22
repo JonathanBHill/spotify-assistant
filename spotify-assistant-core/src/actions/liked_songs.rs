@@ -1,13 +1,13 @@
 use crate::enums::fs::ProjectDirectories;
+use crate::paginators::PaginatorRunner;
 use crate::traits::apis::Api;
-use futures::StreamExt;
-use rspotify::model::SavedTrack;
+use rspotify::model::{FullTrack, SavedTrack};
 use rspotify::prelude::{Id, OAuthClient};
 use rspotify::AuthCodeSpotify;
+use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
-use std::{fs, io};
-use tracing::event;
+use tracing::{event, Level};
 
 /// Represents the structure that handles a user's liked songs.
 ///
@@ -28,28 +28,26 @@ use tracing::event;
 ///   where saved tracks data will be stored or retrieved. This can be used
 ///   to persist the user's liked song data locally for offline access or
 ///   caching purposes.
-pub struct UserLikedSongs {
+pub struct UserLibrary {
     client: AuthCodeSpotify,
-    tracks: Vec<SavedTrack>,
+    saved_tracks: Vec<SavedTrack>,
     saved_tracks_path: PathBuf,
 }
-impl Api for UserLikedSongs {
+impl Api for UserLibrary {
     fn select_scopes() -> std::collections::HashSet<String> {
-        rspotify::scopes!(
-            "user-library-read"
-        )
+        rspotify::scopes!("user-library-read", "user-library-modify")
     }
 }
-impl Default for UserLikedSongs {
+impl Default for UserLibrary {
     fn default() -> Self {
         Self {
             client: AuthCodeSpotify::default(),
-            tracks: Vec::new(),
+            saved_tracks: Vec::new(),
             saved_tracks_path: ProjectDirectories::Data.path().join("liked_songs.json"),
         }
     }
 }
-impl UserLikedSongs {
+impl UserLibrary {
     /// Asynchronously constructs a new instance of the struct.
     ///
     /// This function performs the following operations:
@@ -72,18 +70,37 @@ impl UserLikedSongs {
     ///
     /// # Example
     /// ```rust
-    /// use spotify_assistant_core::actions::liked_songs::UserLikedSongs;
+    /// use spotify_assistant_core::actions::liked_songs::UserLibrary;
     /// async fn main() {
-    ///     let instance = UserLikedSongs::new().await;
+    ///     let instance = UserLibrary::new().await;
     /// }
     /// ```
     pub async fn new() -> Self {
         let mut self_obj = Self::default();
 
         if self_obj.does_file_exist() {
+            event!(
+                Level::TRACE,
+                "Liked songs file found locally, attempting to load tracks."
+            );
             self_obj.populate_tracks_from_file();
+            let first_length = self_obj.total_tracks();
+            event!(
+                Level::INFO,
+                "Loaded {} liked songs from file.",
+                first_length
+            );
+            self_obj.update_library().await;
+            let second_length = self_obj.total_tracks();
+            if first_length < second_length {
+                event!(Level::INFO, "Updating liked songs file with new tracks because the cached file is outdated.");
+                self_obj.save_to_file();
+            }
         } else {
-            event!(Level::INFO, "No cached liked songs file found, fetching from Spotify.");
+            event!(
+                Level::INFO,
+                "No cached liked songs file found, fetching from Spotify."
+            );
             self_obj.update_library().await;
             self_obj.save_to_file();
         }
@@ -91,30 +108,31 @@ impl UserLikedSongs {
         self_obj
     }
 
+    pub fn full_tracks(&self) -> Vec<FullTrack> {
+        self.saved_tracks
+            .iter()
+            .map(|saved_track| saved_track.track.clone())
+            .collect::<Vec<FullTrack>>()
+    }
+
     async fn update_library(&mut self) {
         let span = tracing::span!(Level::INFO, "UserLikedSongs.library");
         let _enter = span.enter();
 
-        let mut liked_songs = self.client.current_user_saved_tracks(Some(Self::market()));
-        let mut saved_tracks: Vec<SavedTrack> = Vec::new();
-        let mut retries = 3;
-        while retries > 0 {
-            if let Some(page) = liked_songs.next().await {
-                match page {
-                    Ok(saved_track) => {
-                        event!(Level::INFO, "Saved track: {:?} | New vector length: {:?}", saved_track.track.name, saved_tracks.len() + 1);
-                        saved_tracks.push(saved_track);
-                    },
-                    Err(err) => {
-                        event!(Level::ERROR, "Error: {:?}", err);
-                        retries -= 1;
-                    }
-                }
-            } else {
-                break;
-            }
-        }
-        self.tracks = saved_tracks
+        let liked_songs = self.client.current_user_saved_tracks(Some(Self::market()));
+        let paginator = PaginatorRunner::new(liked_songs, ());
+        match paginator.run().await {
+            Ok(library) => self.saved_tracks = library,
+            Err(err) => event!(
+                Level::ERROR,
+                "Could not retrieve your saved tracks: {:?}",
+                err
+            ),
+        };
+    }
+
+    pub fn total_tracks(&self) -> usize {
+        self.saved_tracks.len()
     }
 
     fn does_file_exist(&self) -> bool {
@@ -135,9 +153,9 @@ impl UserLikedSongs {
     /// # Example
     ///
     /// ```
-    /// use spotify_assistant_core::actions::liked_songs::UserLikedSongs;
+    /// use spotify_assistant_core::actions::liked_songs::UserLibrary;
     /// async fn main() {
-    ///     let my_instance = UserLikedSongs::new().await;
+    ///     let my_instance = UserLibrary::new().await;
     ///     let saved_tracks = my_instance.tracks();
     ///     for track in saved_tracks {
     ///         println!("Track: {:?}", track);
@@ -145,7 +163,7 @@ impl UserLikedSongs {
     /// }
     /// ```
     pub fn tracks(&self) -> Vec<SavedTrack> {
-        self.tracks.clone()
+        self.saved_tracks.clone()
     }
 
     /// Saves the current state of the `tracks` field to a file in JSON format.
@@ -166,7 +184,7 @@ impl UserLikedSongs {
     ///
     /// - `Ok(())` if the save operation completes successfully.
     fn save_to_file(&self) {
-        let json = match serde_json::to_string_pretty(&self.tracks) {
+        let json = match serde_json::to_string_pretty(&self.saved_tracks) {
             Ok(json) => json,
             Err(err) => {
                 event!(Level::ERROR, "Failed to serialize liked songs: {err:?}");
@@ -183,7 +201,7 @@ impl UserLikedSongs {
         match file.write_all(json.as_bytes()) {
             Ok(_) => {
                 event!(Level::INFO, "Successfully saved liked songs to file.");
-            },
+            }
             Err(err) => {
                 event!(Level::ERROR, "Failed to write liked songs to file: {err:?}");
             }
@@ -197,13 +215,13 @@ impl UserLikedSongs {
     ///
     /// # Example
     /// ```
-    /// use spotify_assistant_core::actions::liked_songs::UserLikedSongs;
+    /// use spotify_assistant_core::actions::liked_songs::UserLibrary;
     /// use std::path::PathBuf;
     /// use spotify_assistant_core::enums::fs::ProjectDirectories;
     /// async fn main() {
     ///     let data_dir = ProjectDirectories::Data;
     ///     let saved_tracks_path = data_dir.path().join("liked_songs.json");
-    ///     let configuration = UserLikedSongs::new().await; 
+    ///     let configuration = UserLibrary::new().await;
     ///     let path = configuration.saved_tracks_path();
     ///     assert_eq!(path, PathBuf::from("/music/saved_tracks"));
     /// }
@@ -219,9 +237,9 @@ impl UserLikedSongs {
     ///
     /// # Example
     /// ```
-    /// use spotify_assistant_core::actions::liked_songs::UserLikedSongs;
+    /// use spotify_assistant_core::actions::liked_songs::UserLibrary;
     /// async fn main() {
-    /// let collection = UserLikedSongs::new().await;
+    /// let collection = UserLibrary::new().await;
     /// assert_eq!(collection.number_of_tracks(), 3);
     /// }
     /// ```
@@ -229,7 +247,7 @@ impl UserLikedSongs {
     /// # Returns
     /// * `usize` - The total count of tracks in the collection.
     pub fn number_of_tracks(&self) -> usize {
-        self.tracks.len()
+        self.saved_tracks.len()
     }
 
     /// Retrieves a list of track IDs from the current object.
@@ -246,17 +264,19 @@ impl UserLikedSongs {
     ///
     /// # Example
     /// ```rust
-    /// use spotify_assistant_core::actions::liked_songs::UserLikedSongs;
+    /// use spotify_assistant_core::actions::liked_songs::UserLibrary;
     /// async fn main() {
-    ///     let my_object = UserLikedSongs::new().await;
+    ///     let my_object = UserLibrary::new().await;
     ///     let track_ids = my_object.track_ids();
     ///     println!("{:?}", track_ids);
     /// }
     /// ```
     pub fn track_ids(&self) -> Vec<String> {
-        self.tracks.iter().map(|track| track.track.id.clone().unwrap().id().to_string()).collect()
+        self.saved_tracks
+            .iter()
+            .map(|track| track.track.id.clone().unwrap().id().to_string())
+            .collect()
     }
-
 
     fn populate_tracks_from_file(&mut self) {
         let contents = match fs::read_to_string(&self.saved_tracks_path) {
@@ -266,15 +286,15 @@ impl UserLikedSongs {
                 return;
             }
         };
-        self.tracks = match serde_json::from_str(&contents) {
+        self.saved_tracks = match serde_json::from_str(&contents) {
             Ok(tracks) => {
                 event!(Level::INFO, "Successfully loaded liked songs from file.");
                 tracks
-            },
+            }
             Err(err) => {
                 event!(Level::ERROR, "Failed to deserialize liked songs: {:?}", err);
                 Vec::new()
-            },
+            }
         };
     }
 }
