@@ -147,9 +147,10 @@ impl Checks {
         let _enter = span.enter();
 
         let formats = ["%m-%d-%Y", "%Y-%m-%d"];
-        let correct_format = formats.iter().find(|format| {
-            NaiveDate::parse_from_str(input, format).is_ok()
-        }).unwrap_or(&"%m-%d-%Y");
+        let correct_format = formats
+            .iter()
+            .find(|format| NaiveDate::parse_from_str(input, format).is_ok())
+            .unwrap_or(&"%m-%d-%Y");
         let last_updated = NaiveDate::parse_from_str(input, correct_format).unwrap_or_default();
         let cutoff = self.now.date_naive() - threshold;
         debug!("Last updated: {} | Cutoff: {}", last_updated, cutoff);
@@ -158,27 +159,71 @@ impl Checks {
 }
 
 #[cfg(test)]
+impl Checks {
+    pub(crate) fn from_datetime(now: DateTime<Local>) -> Self {
+        let day_of_week = now.weekday();
+        let time_of_day = TimeOfDay::from_hour(now.hour());
+        Checks {
+            now,
+            day_of_week,
+            time_of_day,
+        }
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::{NaiveDate, NaiveTime, TimeZone};
 
-    #[test]
-    fn test_checks() {
-        let checks = Checks::default();
-        assert!(!checks.is_weekend());
-        assert_eq!(checks.time_of_day, TimeOfDay::Morning);
+    fn build_checks(year: i32, month: u32, day: u32, hour: u32) -> Checks {
+        let date = NaiveDate::from_ymd_opt(year, month, day).expect("valid date");
+        let time = NaiveTime::from_hms_opt(hour, 0, 0).expect("valid time");
+        let naive = date.and_time(time);
+        let now = Local.from_local_datetime(&naive).unwrap();
+        Checks::from_datetime(now)
     }
 
     #[test]
-    fn test_is_outdated() {
-        let checks = Checks::default();
-        let input_outdated = "11-08-2023";
-        let input_outdated_2 = "2023-11-08";
-        let input_not_outdated = "11-10-2024";
+    fn is_weekend_reports_true_for_saturday() {
+        let checks = build_checks(2024, 11, 9, 9); // Saturday
+        assert!(checks.is_weekend());
+    }
+
+    #[test]
+    fn is_weekend_reports_false_for_weekday() {
+        let checks = build_checks(2024, 11, 7, 9); // Thursday
+        assert!(!checks.is_weekend());
+    }
+
+    #[test]
+    fn is_outdated_respects_threshold() {
+        let checks = build_checks(2024, 11, 10, 10);
         let threshold = Duration::weeks(52);
-        let threshold_2 = Duration::weeks(60);
-        assert!(checks.is_outdated(input_outdated, threshold));
-        assert!(!checks.is_outdated(input_outdated, threshold_2));
-        assert!(checks.is_outdated(input_outdated_2, threshold));
-        assert!(!checks.is_outdated(input_not_outdated, threshold));
+        assert!(checks.is_outdated("11-08-2023", threshold));
+        assert!(checks.is_outdated("2023-11-08", threshold));
+        assert!(!checks.is_outdated("11-11-2024", threshold));
+    }
+
+    #[test]
+    fn time_of_day_transitions_cover_all_ranges() {
+        let cases = vec![
+            (0, TimeOfDay::Night),
+            (6, TimeOfDay::Morning),
+            (12, TimeOfDay::Afternoon),
+            (18, TimeOfDay::Evening),
+            (23, TimeOfDay::Evening),
+            (5, TimeOfDay::Night),
+            (11, TimeOfDay::Morning),
+            (16, TimeOfDay::Afternoon),
+        ];
+
+        for (hour, expected) in cases {
+            let checks = build_checks(2024, 11, 7, hour);
+            assert_eq!(
+                checks.time_of_day, expected,
+                "hour {hour} should map correctly"
+            );
+        }
     }
 }
