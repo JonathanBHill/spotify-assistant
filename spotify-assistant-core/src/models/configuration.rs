@@ -59,10 +59,9 @@ impl Default for Configuration {
     /// - Consider handling the errors gracefully if the possibility of the file being missing or corrupted exists.
     fn default() -> Configuration {
         match fs::read_to_string(Self::configuration_file_path()) {
-            Ok(string) => match toml::from_str(&string) {
-                Ok(configuration) => configuration,
-                Err(err) => panic!("Error deserializing toml string into a usable configuration: {err:?}"),
-            },
+            Ok(string) => toml::from_str(&string).unwrap_or_else(|err| {
+                panic!("Error deserializing toml string into a usable configuration: {err:?}")
+            }),
             Err(err) => panic!("Error reading the configuratino file: {err:?}"),
         }
     }
@@ -568,9 +567,60 @@ pub struct ContentIDs {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_support::{
+        configuration_toml, invalid_configuration_toml, TestEnvironment, ENV_MUTEX,
+    };
+
+    fn configuration_fixture(env: &TestEnvironment) -> Configuration {
+        let toml = configuration_toml(env);
+        toml::from_str(&toml).expect("fixture configuration should deserialize")
+    }
+
     #[test]
-    fn test_read() {
-        let x = Configuration::default();
-        println!("{x:#?}")
+    fn configuration_serializes_and_deserializes_round_trip() {
+        let env = unsafe { TestEnvironment::new() };
+        let configuration = configuration_fixture(&env);
+
+        let serialized =
+            toml::to_string_pretty(&configuration).expect("serialization should succeed");
+        let deserialized: Configuration =
+            toml::from_str(&serialized).expect("round-trip deserialization should succeed");
+
+        assert_eq!(
+            toml::to_string_pretty(&deserialized).unwrap(),
+            serialized,
+            "Round-trip serialization should be lossless"
+        );
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn configuration_default_reads_from_temp_environment() {
+        let _guard = ENV_MUTEX.lock().unwrap_or_else(|err| err.into_inner());
+        let env = unsafe { TestEnvironment::new() };
+        let toml = configuration_toml(&env);
+        fs::write(env.config_file("config.toml"), &toml)
+            .expect("failed to write configuration fixture");
+
+        let expected = configuration_fixture(&env);
+        let loaded = Configuration::default();
+
+        assert_eq!(
+            toml::to_string_pretty(&loaded).unwrap(),
+            toml::to_string_pretty(&expected).unwrap(),
+            "Loaded configuration should match fixture"
+        );
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn configuration_default_panics_on_malformed_toml() {
+        let _guard = ENV_MUTEX.lock().unwrap_or_else(|err| err.into_inner());
+        let env = unsafe { TestEnvironment::new() };
+        fs::write(env.config_file("config.toml"), invalid_configuration_toml())
+            .expect("failed to write malformed configuration fixture");
+
+        let result = std::panic::catch_unwind(Configuration::default);
+        assert!(result.is_err(), "Malformed TOML should trigger a panic");
     }
 }

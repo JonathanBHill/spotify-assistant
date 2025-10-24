@@ -7,3 +7,6 @@ pub mod utilities;
 pub mod macros;
 pub mod paginator;
 pub mod extractors;
+
+#[cfg(test)]
+pub mod test_support;
