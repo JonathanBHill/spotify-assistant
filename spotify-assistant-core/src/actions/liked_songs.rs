@@ -4,9 +4,9 @@ use crate::traits::apis::Api;
 use rspotify::model::{FullTrack, SavedTrack};
 use rspotify::prelude::{Id, OAuthClient};
 use rspotify::AuthCodeSpotify;
-use std::fs;
 use std::io::Write;
 use std::path::PathBuf;
+use std::{fs, io};
 use tracing::{event, Level};
 
 /// Represents the structure that handles a user's liked songs.
@@ -38,15 +38,6 @@ impl Api for UserLibrary {
         rspotify::scopes!("user-library-read", "user-library-modify")
     }
 }
-impl Default for UserLibrary {
-    fn default() -> Self {
-        Self {
-            client: AuthCodeSpotify::default(),
-            saved_tracks: Vec::new(),
-            saved_tracks_path: ProjectDirectories::Data.path().join("liked_songs.json"),
-        }
-    }
-}
 impl UserLibrary {
     /// Asynchronously constructs a new instance of the struct.
     ///
@@ -76,36 +67,54 @@ impl UserLibrary {
     /// }
     /// ```
     pub async fn new() -> Self {
-        let mut self_obj = Self::default();
-
-        if self_obj.does_file_exist() {
-            event!(
-                Level::TRACE,
-                "Liked songs file found locally, attempting to load tracks."
-            );
-            self_obj.populate_tracks_from_file();
-            let first_length = self_obj.total_tracks();
-            event!(
-                Level::INFO,
-                "Loaded {} liked songs from file.",
-                first_length
-            );
-            self_obj.update_library().await;
-            let second_length = self_obj.total_tracks();
-            if first_length < second_length {
-                event!(Level::INFO, "Updating liked songs file with new tracks because the cached file is outdated.");
-                self_obj.save_to_file();
+        let client = Self::set_up_client(false, Some(Self::select_scopes())).await;
+        let data_dir = ProjectDirectories::Data;
+        let saved_tracks_path = data_dir.path().join("liked_songs.json");
+        if let Ok(saved_tracks) = Self::load_from_file() {
+            println!("Loaded liked songs from cache.");
+            Self {
+                client,
+                saved_tracks,
+                saved_tracks_path,
             }
         } else {
-            event!(
-                Level::INFO,
-                "No cached liked songs file found, fetching from Spotify."
-            );
-            self_obj.update_library().await;
-            self_obj.save_to_file();
+            let saved_tracks = match Self::update_library(&client).await {
+                Ok(tracks) => {
+                    event!(tracing::Level::INFO, "Successfully fetched liked songs.");
+                    tracks
+                }
+                Err(err) => {
+                    event!(
+                        tracing::Level::ERROR,
+                        "Failed to fetch liked songs: {:?}",
+                        err
+                    );
+                    Vec::new()
+                }
+            };
+            let self_obj = Self {
+                client,
+                saved_tracks,
+                saved_tracks_path,
+            };
+            match self_obj.save_to_file() {
+                Ok(_) => event!(tracing::Level::INFO, "Liked songs saved to cache."),
+                Err(err) => event!(
+                    tracing::Level::ERROR,
+                    "Failed to save liked songs to cache: {:?}",
+                    err
+                ),
+            };
+            self_obj
         }
+    }
 
-        self_obj
+    fn load_from_file() -> io::Result<Vec<SavedTrack>> {
+        let data_dir = ProjectDirectories::Data;
+        let liked_songs_path = data_dir.path().join("liked_songs.json");
+        let contents = fs::read_to_string(liked_songs_path)?;
+        let tracks: Vec<SavedTrack> = serde_json::from_str(&contents)?;
+        Ok(tracks)
     }
 
     pub fn full_tracks(&self) -> Vec<FullTrack> {
@@ -115,28 +124,30 @@ impl UserLibrary {
             .collect::<Vec<FullTrack>>()
     }
 
-    async fn update_library(&mut self) {
-        let span = tracing::span!(Level::INFO, "UserLikedSongs.library");
+    async fn update_library(
+        client: &AuthCodeSpotify,
+    ) -> Result<Vec<SavedTrack>, rspotify::ClientError> {
+        let span = tracing::span!(Level::INFO, "UserLibrary.library");
         let _enter = span.enter();
 
-        let liked_songs = self.client.current_user_saved_tracks(Some(Self::market()));
+        let liked_songs = client.current_user_saved_tracks(Some(Self::market()));
         let paginator = PaginatorRunner::new(liked_songs, ());
-        match paginator.run().await {
-            Ok(library) => self.saved_tracks = library,
-            Err(err) => event!(
-                Level::ERROR,
-                "Could not retrieve your saved tracks: {:?}",
-                err
-            ),
+        let library = match paginator.run().await {
+            Ok(library) => library,
+            Err(err) => {
+                event!(
+                    Level::ERROR,
+                    "Could not retrieve your saved tracks: {:?}",
+                    err
+                );
+                Vec::new()
+            }
         };
+        Ok(library)
     }
 
     pub fn total_tracks(&self) -> usize {
         self.saved_tracks.len()
-    }
-
-    fn does_file_exist(&self) -> bool {
-        self.saved_tracks_path.exists()
     }
 
     /// Retrieves a list of saved tracks.
@@ -183,30 +194,36 @@ impl UserLibrary {
     /// # Returns
     ///
     /// - `Ok(())` if the save operation completes successfully.
-    fn save_to_file(&self) {
-        let json = match serde_json::to_string_pretty(&self.saved_tracks) {
-            Ok(json) => json,
-            Err(err) => {
-                event!(Level::ERROR, "Failed to serialize liked songs: {err:?}");
-                return;
-            }
-        };
-        let mut file = match fs::File::create(self.saved_tracks_path.clone()) {
-            Ok(file) => file,
-            Err(err) => {
-                event!(Level::ERROR, "Failed to create liked songs file: {err:?}");
-                return;
-            }
-        };
-        match file.write_all(json.as_bytes()) {
-            Ok(_) => {
-                event!(Level::INFO, "Successfully saved liked songs to file.");
-            }
-            Err(err) => {
-                event!(Level::ERROR, "Failed to write liked songs to file: {err:?}");
-            }
-        };
+    fn save_to_file(&self) -> io::Result<()> {
+        let json = serde_json::to_string_pretty(&self.saved_tracks)?;
+        let mut file = fs::File::create(self.saved_tracks_path.clone())?;
+        file.write_all(json.as_bytes())?;
+        Ok(())
     }
+    // fn save_to_file(&self) {
+    //     let json = match serde_json::to_string_pretty(&self.saved_tracks) {
+    //         Ok(json) => json,
+    //         Err(err) => {
+    //             event!(Level::ERROR, "Failed to serialize liked songs: {err:?}");
+    //             return;
+    //         }
+    //     };
+    //     let mut file = match fs::File::create(self.saved_tracks_path.clone()) {
+    //         Ok(file) => file,
+    //         Err(err) => {
+    //             event!(Level::ERROR, "Failed to create liked songs file: {err:?}");
+    //             return;
+    //         }
+    //     };
+    //     match file.write_all(json.as_bytes()) {
+    //         Ok(_) => {
+    //             event!(Level::INFO, "Successfully saved liked songs to file.");
+    //         }
+    //         Err(err) => {
+    //             event!(Level::ERROR, "Failed to write liked songs to file: {err:?}");
+    //         }
+    //     };
+    // }
 
     /// Returns a clone of the path to the saved tracks.
     ///
@@ -277,24 +294,246 @@ impl UserLibrary {
             .map(|track| track.track.id.clone().unwrap().id().to_string())
             .collect()
     }
+}
 
-    fn populate_tracks_from_file(&mut self) {
-        let contents = match fs::read_to_string(&self.saved_tracks_path) {
-            Ok(contents) => contents,
-            Err(err) => {
-                event!(Level::ERROR, "Failed to read liked songs file: {:?}", err);
-                return;
-            }
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+    use std::sync::{Mutex, OnceLock};
+    use tempfile::tempdir;
+
+    fn sample_saved_track(label: &str) -> SavedTrack {
+        let (track_id, artist_id, album_id) = match label {
+            "one" => (
+                "AAAAAAAAAAAAAAAAAAAAAA",
+                "BBBBBBBBBBBBBBBBBBBBBB",
+                "CCCCCCCCCCCCCCCCCCCCCC",
+            ),
+            "two" => (
+                "DDDDDDDDDDDDDDDDDDDDDD",
+                "EEEEEEEEEEEEEEEEEEEEEE",
+                "FFFFFFFFFFFFFFFFFFFFFF",
+            ),
+            _ => (
+                "GGGGGGGGGGGGGGGGGGGGGG",
+                "HHHHHHHHHHHHHHHHHHHHHH",
+                "IIIIIIIIIIIIIIIIIIIIII",
+            ),
         };
-        self.saved_tracks = match serde_json::from_str(&contents) {
-            Ok(tracks) => {
-                event!(Level::INFO, "Successfully loaded liked songs from file.");
-                tracks
+        let track_id = track_id.to_string();
+        let artist_id = artist_id.to_string();
+        let album_id = album_id.to_string();
+        let artist_href = format!("https://api.spotify.com/v1/artists/{artist_id}");
+        let album_href = format!("https://api.spotify.com/v1/albums/{album_id}");
+        let track_href = format!("https://api.spotify.com/v1/tracks/{track_id}");
+        let track_name = format!("Example Track {label}");
+
+        serde_json::from_value(json!({
+            "added_at": "2024-01-01T00:00:00Z",
+            "track": {
+                "album": {
+                    "album_group": null,
+                    "album_type": "album",
+                    "artists": [
+                        {
+                            "external_urls": {"spotify": "https://example.com/artist"},
+                            "href": artist_href,
+                            "id": artist_id,
+                            "name": "Example Artist"
+                        }
+                    ],
+                    "available_markets": [],
+                    "external_urls": {"spotify": "https://example.com/album"},
+                    "href": album_href,
+                    "id": album_id,
+                    "images": [],
+                    "name": "Example Album",
+                    "release_date": "2024-01-01",
+                    "release_date_precision": "day",
+                    "restrictions": null
+                },
+                "artists": [
+                    {
+                        "external_urls": {"spotify": "https://example.com/artist"},
+                        "href": artist_href,
+                        "id": artist_id,
+                        "name": "Example Artist"
+                    }
+                ],
+                "available_markets": [],
+                "disc_number": 1,
+                "duration_ms": 180000,
+                "explicit": false,
+                "external_ids": {"isrc": "USS1Z2400001"},
+                "external_urls": {"spotify": "https://example.com/track"},
+                "href": track_href,
+                "id": track_id,
+                "is_local": false,
+                "is_playable": true,
+                "linked_from": null,
+                "restrictions": null,
+                "name": track_name,
+                "popularity": 42,
+                "preview_url": null,
+                "track_number": 1,
+                "type": "track",
             }
-            Err(err) => {
-                event!(Level::ERROR, "Failed to deserialize liked songs: {:?}", err);
-                Vec::new()
-            }
+        }))
+            .expect("valid saved track JSON")
+    }
+
+    fn sample_tracks() -> Vec<SavedTrack> {
+        vec![sample_saved_track("one"), sample_saved_track("two")]
+    }
+
+    fn env_mutex() -> &'static Mutex<()> {
+        static ENV_MUTEX: OnceLock<Mutex<()>> = OnceLock::new();
+        ENV_MUTEX.get_or_init(|| Mutex::new(()))
+    }
+
+    #[test]
+    fn tracks_returns_clone_of_internal_state() {
+        let temp_dir = tempdir().expect("temporary directory");
+        let file_path = temp_dir.path().join("liked_songs.json");
+        let tracks = sample_tracks();
+        let liked_songs = UserLibrary {
+            client: AuthCodeSpotify::default(),
+            saved_tracks: tracks.clone(),
+            saved_tracks_path: file_path,
         };
+
+        let mut cloned_tracks = liked_songs.tracks();
+        cloned_tracks.clear();
+
+        assert_eq!(liked_songs.saved_tracks.len(), tracks.len());
+        assert_ne!(liked_songs.saved_tracks.len(), cloned_tracks.len());
+    }
+
+    #[test]
+    fn number_of_tracks_matches_len() {
+        let temp_dir = tempdir().expect("temporary directory");
+        let file_path = temp_dir.path().join("liked_songs.json");
+        let tracks = sample_tracks();
+        let liked_songs = UserLibrary {
+            client: AuthCodeSpotify::default(),
+            saved_tracks: tracks.clone(),
+            saved_tracks_path: file_path,
+        };
+
+        assert_eq!(liked_songs.number_of_tracks(), tracks.len());
+    }
+
+    #[test]
+    fn track_ids_extracts_ids() {
+        let temp_dir = tempdir().expect("temporary directory");
+        let file_path = temp_dir.path().join("liked_songs.json");
+        let saved_tracks = sample_tracks();
+        let liked_songs = UserLibrary {
+            client: AuthCodeSpotify::default(),
+            saved_tracks,
+            saved_tracks_path: file_path,
+        };
+
+        assert_eq!(
+            liked_songs.track_ids(),
+            vec![
+                "AAAAAAAAAAAAAAAAAAAAAA".to_string(),
+                "DDDDDDDDDDDDDDDDDDDDDD".to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn saved_tracks_path_returns_clone() {
+        let temp_dir = tempdir().expect("temporary directory");
+        let file_path = temp_dir.path().join("liked_songs.json");
+        let saved_tracks = sample_tracks();
+        let liked_songs = UserLibrary {
+            client: AuthCodeSpotify::default(),
+            saved_tracks,
+            saved_tracks_path: file_path.clone(),
+        };
+
+        let mut returned_path = liked_songs.saved_tracks_path();
+        assert_eq!(returned_path, file_path);
+        returned_path.push("extra");
+        assert_ne!(returned_path, liked_songs.saved_tracks_path);
+    }
+
+    #[test]
+    fn save_to_file_persists_tracks() {
+        let temp_dir = tempdir().expect("temporary directory");
+        let file_path = temp_dir.path().join("liked_songs.json");
+        let tracks = sample_tracks();
+        let liked_songs = UserLibrary {
+            client: AuthCodeSpotify::default(),
+            saved_tracks: tracks.clone(),
+            saved_tracks_path: file_path.clone(),
+        };
+
+        if let Some(parent) = file_path.parent() {
+            fs::create_dir_all(parent).expect("create parent directory");
+        }
+
+        liked_songs.save_to_file().expect("save liked songs");
+
+        let persisted = fs::read_to_string(&file_path).expect("read persisted file");
+        let parsed_tracks: Vec<SavedTrack> =
+            serde_json::from_str(&persisted).expect("parse persisted tracks");
+        assert_eq!(parsed_tracks, tracks);
+    }
+
+    struct EnvVarGuard {
+        key: &'static str,
+        original: Option<String>,
+    }
+
+    impl EnvVarGuard {
+        unsafe fn set(key: &'static str, value: &str) -> Self {
+            let original = std::env::var(key).ok();
+            std::env::set_var(key, value);
+            Self { key, original }
+        }
+    }
+
+    impl Drop for EnvVarGuard {
+        fn drop(&mut self) {
+            if let Some(ref value) = self.original {
+                unsafe {
+                    std::env::set_var(self.key, value);
+                }
+            } else {
+                unsafe {
+                    std::env::remove_var(self.key);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn load_from_file_reads_tracks_from_cache() {
+        let _guard = env_mutex().lock().expect("lock environment mutex");
+        let temp_dir = tempdir().expect("temporary directory");
+        let env_guard = unsafe {
+            EnvVarGuard::set(
+                "XDG_DATA_HOME",
+                temp_dir.path().to_str().expect("utf-8 path"),
+            )
+        };
+        let data_dir = ProjectDirectories::Data.path();
+        fs::create_dir_all(&data_dir).expect("create data directory");
+        let file_path = data_dir.join("liked_songs.json");
+        let tracks = sample_tracks();
+        fs::write(
+            &file_path,
+            serde_json::to_string(&tracks).expect("serialize tracks"),
+        )
+            .expect("write tracks to cache");
+
+        let loaded = UserLibrary::load_from_file().expect("load tracks from cache");
+        assert_eq!(loaded, tracks);
+
+        drop(env_guard);
     }
 }
