@@ -7,7 +7,7 @@ use rspotify::AuthCodeSpotify;
 use std::io::Write;
 use std::path::PathBuf;
 use std::{fs, io};
-use tracing::{event, Level};
+use tracing::{event, span, Level};
 
 /// Represents the structure that handles a user's liked songs.
 ///
@@ -80,12 +80,12 @@ impl UserLibrary {
         } else {
             let saved_tracks = match Self::update_library(&client).await {
                 Ok(tracks) => {
-                    event!(tracing::Level::INFO, "Successfully fetched liked songs.");
+                    event!(Level::INFO, "Successfully fetched liked songs.");
                     tracks
                 }
                 Err(err) => {
                     event!(
-                        tracing::Level::ERROR,
+                        Level::ERROR,
                         "Failed to fetch liked songs: {:?}",
                         err
                     );
@@ -98,9 +98,9 @@ impl UserLibrary {
                 saved_tracks_path,
             };
             match self_obj.save_to_file() {
-                Ok(_) => event!(tracing::Level::INFO, "Liked songs saved to cache."),
+                Ok(_) => event!(Level::INFO, "Liked songs saved to cache."),
                 Err(err) => event!(
-                    tracing::Level::ERROR,
+                    Level::ERROR,
                     "Failed to save liked songs to cache: {:?}",
                     err
                 ),
@@ -127,22 +127,19 @@ impl UserLibrary {
     async fn update_library(
         client: &AuthCodeSpotify,
     ) -> Result<Vec<SavedTrack>, rspotify::ClientError> {
-        let span = tracing::span!(Level::INFO, "UserLibrary.library");
+        let span = span!(Level::INFO, "UserLibrary.library");
         let _enter = span.enter();
 
         let liked_songs = client.current_user_saved_tracks(Some(Self::market()));
         let paginator = PaginatorRunner::new(liked_songs, ());
-        let library = match paginator.run().await {
-            Ok(library) => library,
-            Err(err) => {
-                event!(
+        let library = paginator.run().await.unwrap_or_else(|err| {
+            event!(
                     Level::ERROR,
                     "Could not retrieve your saved tracks: {:?}",
                     err
                 );
-                Vec::new()
-            }
-        };
+            Vec::new()
+        });
         Ok(library)
     }
 
@@ -200,30 +197,6 @@ impl UserLibrary {
         file.write_all(json.as_bytes())?;
         Ok(())
     }
-    // fn save_to_file(&self) {
-    //     let json = match serde_json::to_string_pretty(&self.saved_tracks) {
-    //         Ok(json) => json,
-    //         Err(err) => {
-    //             event!(Level::ERROR, "Failed to serialize liked songs: {err:?}");
-    //             return;
-    //         }
-    //     };
-    //     let mut file = match fs::File::create(self.saved_tracks_path.clone()) {
-    //         Ok(file) => file,
-    //         Err(err) => {
-    //             event!(Level::ERROR, "Failed to create liked songs file: {err:?}");
-    //             return;
-    //         }
-    //     };
-    //     match file.write_all(json.as_bytes()) {
-    //         Ok(_) => {
-    //             event!(Level::INFO, "Successfully saved liked songs to file.");
-    //         }
-    //         Err(err) => {
-    //             event!(Level::ERROR, "Failed to write liked songs to file: {err:?}");
-    //         }
-    //     };
-    // }
 
     /// Returns a clone of the path to the saved tracks.
     ///
