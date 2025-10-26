@@ -4,7 +4,10 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use chrono::{NaiveDate, NaiveDateTime};
 use pbr::ProgressBar;
 use rspotify::clients::BaseClient;
-use rspotify::model::{AlbumId, ArtistId, FullAlbum, FullArtist, FullTrack, PlayableId, SimplifiedAlbum, SimplifiedTrack, TrackId};
+use rspotify::model::{
+    AlbumId, ArtistId, FullAlbum, FullArtist, FullTrack, PlayableId, SimplifiedAlbum,
+    SimplifiedTrack, TrackId,
+};
 use rspotify::{scopes, AuthCodeSpotify, ClientError, ClientResult};
 use tracing::{error, event, info, Level};
 
@@ -83,7 +86,10 @@ impl ArtistXplorer {
         let client = Self::set_up_client(false, Some(Self::select_scopes())).await;
         let artist = match client.artist(artist_id.clone()).await {
             Ok(artist) => {
-                info!("Data has been retrieved for the artist, '{}'.", artist.name.clone());
+                info!(
+                    "Data has been retrieved for the artist, '{}'.",
+                    artist.name.clone()
+                );
                 artist
             }
             Err(error) => {
@@ -94,7 +100,11 @@ impl ArtistXplorer {
         let albums_req = client.artist_albums(artist_id.clone(), None, Some(Self::market()));
         let paginator = PaginatorRunner::new(albums_req, ());
         let albums = paginator.run().await.unwrap_or_else(|err| {
-            event!(Level::ERROR, "Could not retrieve the artist's albums: {:?}", err);
+            event!(
+                Level::ERROR,
+                "Could not retrieve the artist's albums: {:?}",
+                err
+            );
             Vec::new()
         });
         info!("Data has been retrieved for the artist, '{}'.", artist.name);
@@ -171,23 +181,24 @@ impl ArtistXplorer {
         let mut annual_album_group: Vec<SimplifiedAlbum> = Vec::new();
         self.albums.clone().iter().for_each(|album| {
             let release_date = match album.release_date.clone() {
-                Some(date) => date.split("-").map(|s| s.to_string()).collect::<Vec<String>>(),
-                None => panic!("Could not get release date for album {}", album.name)
+                Some(date) => date
+                    .split("-")
+                    .map(|s| s.to_string())
+                    .collect::<Vec<String>>(),
+                None => panic!("Could not get release date for album {}", album.name),
             };
             info!("Name: {:?} | Release Date: {:?}", album.name, release_date);
             let btree_key = match unit {
                 Some("month") => {
                     let key = release_date[1].to_string();
                     key
-                },
+                }
                 Some("yearmonth") | Some("monthyear") => {
                     let year = release_date[0].to_string();
                     let month = release_date[1].to_string();
                     format!("{}_{}", year, month)
-                },
-                _ => {
-                    release_date[0].to_string()
-                },
+                }
+                _ => release_date[0].to_string(),
             };
             match final_hash.get_mut::<str>(&btree_key) {
                 Some(albums) => albums.push(album.clone()),
@@ -255,38 +266,43 @@ impl ArtistXplorer {
         self.albums.clone().iter().for_each(|album| {
             info!("{:?}", album.name);
             let alb_type = match album.album_type.clone() {
-                None => { "n/a".to_string() }
-                Some(typeofalbum) => { typeofalbum }
+                None => "n/a".to_string(),
+                Some(typeofalbum) => typeofalbum,
             };
             match alb_type.as_str() {
                 "album" => {
                     albums.push(album.clone());
-                },
+                }
                 "single" => {
                     singles.push(album.clone());
-                },
+                }
                 "compilation" => {
                     compilations.push(album.clone());
-                },
+                }
                 "appears_on" => {
                     appears_on.push(album.clone());
-                },
+                }
                 _ => {
                     error!("Album type is not available for album: {:?}", album.name);
-                },
+                }
             };
             if !no_print {
                 info!("Name: {:?} | Type: {:?}", album.name, alb_type);
             }
         });
-        HashMap::from([("album", albums), ("single", singles), ("compilation", compilations), ("appears_on", appears_on)])
+        HashMap::from([
+            ("album", albums),
+            ("single", singles),
+            ("compilation", compilations),
+            ("appears_on", appears_on),
+        ])
     }
 
     /// Retrieves a list of album IDs associated with the artist's albums.
     ///
-    /// This method iterates over all albums stored in the current instance, logging the name of each album 
-    /// using the `tracing` crate. For each album, it checks if an ID exists. If the ID exists, it is cloned 
-    /// and added to the resulting list. If an album does not have an ID, the method will panic with a message 
+    /// This method iterates over all albums stored in the current instance, logging the name of each album
+    /// using the `tracing` crate. For each album, it checks if an ID exists. If the ID exists, it is cloned
+    /// and added to the resulting list. If an album does not have an ID, the method will panic with a message
     /// indicating the missing ID and the album name.
     ///
     /// # Returns
@@ -295,7 +311,7 @@ impl ArtistXplorer {
     ///
     /// # Panics
     ///
-    /// This function will panic if any album does not have an `id`, providing the name of the album 
+    /// This function will panic if any album does not have an `id`, providing the name of the album
     /// in the panic message.
     ///
     /// # Logging
@@ -313,13 +329,17 @@ impl ArtistXplorer {
     pub fn album_ids(&self) -> Vec<AlbumId<'_>> {
         let span = tracing::span!(Level::INFO, "ArtistXplorer.album_ids");
         let _enter = span.enter();
-        self.albums.clone().iter().map(|album| {
-            info!("{:?}", album.name);
-            match album.id.clone() {
-                Some(id) => id,
-                None => panic!("Could not get album ID for album {}", album.name)
-            }
-        }).collect::<Vec<AlbumId>>()
+        self.albums
+            .clone()
+            .iter()
+            .map(|album| {
+                info!("{:?}", album.name);
+                match album.id.clone() {
+                    Some(id) => id,
+                    None => panic!("Could not get album ID for album {}", album.name),
+                }
+            })
+            .collect::<Vec<AlbumId>>()
     }
 
     /// Filters the albums of an artist based on a cutoff date. If a cutoff date is not provided, defaults to one year ago from the current date.
@@ -383,23 +403,28 @@ impl ArtistXplorer {
             }
         };
 
-        let final_vec = self.albums.clone().iter().filter_map(|album| {
-            info!("{:?}", album.name);
-            let release_date = match album.release_date.clone() {
-                Some(date) => {
-                    match NaiveDate::parse_from_str(date.as_str(), "%Y-%m-%d") {
-                        Ok(dttime) => { dttime }
-                        Err(e) => { panic!("Could not parse date: {:?}", e) }
-                    }
-                },
-                None => panic!("Could not get release date for album {}", album.name)
-            };
-            if release_date > cutoff {
-                Some(album.clone())
-            } else {
-                None
-            }
-        }).collect::<Vec<SimplifiedAlbum>>();
+        let final_vec = self
+            .albums
+            .clone()
+            .iter()
+            .filter_map(|album| {
+                info!("{:?}", album.name);
+                let release_date = match album.release_date.clone() {
+                    Some(date) => match NaiveDate::parse_from_str(date.as_str(), "%Y-%m-%d") {
+                        Ok(dttime) => dttime,
+                        Err(e) => {
+                            panic!("Could not parse date: {:?}", e)
+                        }
+                    },
+                    None => panic!("Could not get release date for album {}", album.name),
+                };
+                if release_date > cutoff {
+                    Some(album.clone())
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<SimplifiedAlbum>>();
         let test = ArtistXplorer {
             client: self.client.clone(),
             artist_id: self.artist_id.clone(),
@@ -450,12 +475,19 @@ impl ArtistXplorer {
         let mut full_albums = Vec::new();
         let limit = BatchLimits::Albums.get_limit();
         for album_id_chunk in self.album_ids().chunks(limit) {
-            let full_album = match self.client.albums(album_id_chunk.to_vec(), Some(Self::market())).await {
+            let full_album = match self
+                .client
+                .albums(album_id_chunk.to_vec(), Some(Self::market()))
+                .await
+            {
                 Ok(full_albums) => {
                     info!("{} albums have been requested.", full_albums.len());
                     full_albums
                 }
-                Err(error) => panic!("ERROR: Was not able to get album from the requested artist.\nError information: {:?}", error)
+                Err(error) => panic!(
+                    "ERROR: Was not able to get album from the requested artist.\nError information: {:?}",
+                    error
+                ),
             };
             full_albums.extend(full_album);
         }
@@ -464,8 +496,8 @@ impl ArtistXplorer {
 
     /// Calculates the total number of tracks across all the albums for the current artist.
     ///
-    /// This asynchronous function first retrieves all the full albums related to the artist, 
-    /// then iterates through the albums and sums up the total number of tracks. 
+    /// This asynchronous function first retrieves all the full albums related to the artist,
+    /// then iterates through the albums and sums up the total number of tracks.
     /// Debugging and informational messages are logged during the process for tracing and analysis.
     ///
     /// # Returns
@@ -487,7 +519,7 @@ impl ArtistXplorer {
     ///
     /// # Errors
     ///
-    /// This function assumes that the `full_albums` method correctly fetches album data 
+    /// This function assumes that the `full_albums` method correctly fetches album data
     /// and does not directly handle any errors that might occur during the asynchronous call.
     /// Ensure error handling is implemented where `total_tracks` is called.
     ///
@@ -502,7 +534,11 @@ impl ArtistXplorer {
         let _enter = span.enter();
 
         let albums = self.full_albums().await;
-        info!("{} albums queried for {}", albums.len(), self.artist.name.clone());
+        info!(
+            "{} albums queried for {}",
+            albums.len(),
+            self.artist.name.clone()
+        );
         albums.clone().iter().fold(0, |acc, album| {
             info!("Running total: {}", acc + album.tracks.total);
             acc + album.tracks.total
@@ -511,9 +547,9 @@ impl ArtistXplorer {
 
     /// Asynchronously retrieves the complete list of tracks for an artist, including their detailed information.
     ///
-    /// This method fetches all the tracks associated with the artist by iterating 
-    /// through the albums, collecting the track IDs, and then making batch API 
-    /// requests to retrieve full track details. The batching is necessary to comply 
+    /// This method fetches all the tracks associated with the artist by iterating
+    /// through the albums, collecting the track IDs, and then making batch API
+    /// requests to retrieve full track details. The batching is necessary to comply
     /// with API limitations on the number of items that can be fetched per request.
     ///
     /// # Implementation Details
@@ -524,21 +560,21 @@ impl ArtistXplorer {
     /// - An optional progress bar is used to indicate the progress in case a large number of tracks are involved.
     ///
     /// # Error Handling
-    /// - If any track does not have an ID, the function will use `panic!`, causing the application to terminate 
+    /// - If any track does not have an ID, the function will use `panic!`, causing the application to terminate
     ///   with a message identifying the track missing an ID.
     /// - If there is an error in the API request, the function will also `panic!`, printing the error details.
     ///
     /// # Throttling
-    /// To avoid overwhelming the API and to introduce delays for longer lists, a 
-    /// simulated wait time is applied if the total number of tracks exceeds the defined 
+    /// To avoid overwhelming the API and to introduce delays for longer lists, a
+    /// simulated wait time is applied if the total number of tracks exceeds the defined
     /// threshold (`wait_threshold`).
     ///
     /// # Progress Bar
-    /// For scenarios with many tracks, a progress bar is displayed in the terminal 
+    /// For scenarios with many tracks, a progress bar is displayed in the terminal
     /// to visually inform the user of request progress.
     ///
     /// # Returns
-    /// Returns a vector containing `FullTrack` objects, each of which represents the detailed 
+    /// Returns a vector containing `FullTrack` objects, each of which represents the detailed
     /// information for a track associated with the artist.
     ///
     /// # Panics
@@ -555,9 +591,9 @@ impl ArtistXplorer {
     /// ```
     ///
     /// # Notes
-    /// - The function uses a static method `Self::market()` to pass the market 
+    /// - The function uses a static method `Self::market()` to pass the market
     ///   parameter for API requests. Ensure it is properly implemented.
-    /// - ProgressBar is used for UI-related functionality. Ensure the `indicatif` 
+    /// - ProgressBar is used for UI-related functionality. Ensure the `indicatif`
     ///   crate is included in your dependencies if this method is needed.
     ///
     /// # Dependencies
@@ -571,27 +607,46 @@ impl ArtistXplorer {
         let mut full_tracks = Vec::new();
         let limit = BatchLimits::Tracks.get_limit();
         let albums = self.full_albums().await;
-        let track_ids = albums.clone().iter().flat_map(|album| {
-            album.tracks.items.clone().iter().map(|track| {
-                match track.id.clone() {
-                    Some(id) => id,
-                    None => panic!("Could not get track ID for track {}", track.name)
-                }
-            }).collect::<Vec<TrackId>>()
-        }).collect::<Vec<TrackId>>();
+        let track_ids = albums
+            .clone()
+            .iter()
+            .flat_map(|album| {
+                album
+                    .tracks
+                    .items
+                    .clone()
+                    .iter()
+                    .map(|track| match track.id.clone() {
+                        Some(id) => id,
+                        None => panic!("Could not get track ID for track {}", track.name),
+                    })
+                    .collect::<Vec<TrackId>>()
+            })
+            .collect::<Vec<TrackId>>();
         let chunked_ids = track_ids.chunks(limit);
         let loops = chunked_ids.len();
         let wait_threshold = 200;
         let count = 25;
         for (index, track_id_chunk) in track_ids.chunks(limit).enumerate() {
-            let full_track = match self.client.tracks(track_id_chunk.to_vec(), Some(Self::market())).await {
+            let full_track = match self
+                .client
+                .tracks(track_id_chunk.to_vec(), Some(Self::market()))
+                .await
+            {
                 Ok(full_tracks) => {
                     let remaining = (loops - (index + 1)) * limit;
-                    info!("{} tracks have been requested. {} remaining tracks", full_tracks.len(), remaining);
+                    info!(
+                        "{} tracks have been requested. {} remaining tracks",
+                        full_tracks.len(),
+                        remaining
+                    );
                     full_tracks
                 }
                 Err(error) => {
-                    panic!("ERROR: Was not able to get album from the requested artist.\nError information: {:?}", error)
+                    panic!(
+                        "ERROR: Was not able to get album from the requested artist.\nError information: {:?}",
+                        error
+                    )
                 }
             };
             full_tracks.extend(full_track);
@@ -610,8 +665,8 @@ impl ArtistXplorer {
 
     /// Asynchronously fetches and returns a list of collaborators (artists) for a given main artist.
     ///
-    /// This function uses the artist's albums to extract all associated artists who collaborated 
-    /// on those albums, filters out duplicates, removes the main artist from the list, and finally 
+    /// This function uses the artist's albums to extract all associated artists who collaborated
+    /// on those albums, filters out duplicates, removes the main artist from the list, and finally
     /// retrieves the full artist data using chunks of artist IDs.
     ///
     /// # Returns
@@ -633,7 +688,7 @@ impl ArtistXplorer {
     /// 4. Retrieves full details of the remaining unique artist collaborators by processing them in chunks.
     ///
     /// # Performance
-    /// This function uses batch processing (based on `BatchLimits::Artists`) to minimize API calls 
+    /// This function uses batch processing (based on `BatchLimits::Artists`) to minimize API calls
     /// when fetching artists' full details, improving the performance by dividing IDs into smaller groups.
     ///
     /// # Panics
@@ -657,14 +712,22 @@ impl ArtistXplorer {
         let _enter = span.enter();
 
         let mut collaborations = Vec::new();
-        let mut artists = self.albums.clone().iter().flat_map(|album| {
-            album.artists.clone().iter().map(|artist| {
-                match artist.id.clone() {
-                    None => panic!("Could not get artist ID for artist {}", artist.name),
-                    Some(id) => id
-                }
-            }).collect::<Vec<ArtistId>>()
-        }).collect::<Vec<ArtistId>>();
+        let mut artists = self
+            .albums
+            .clone()
+            .iter()
+            .flat_map(|album| {
+                album
+                    .artists
+                    .clone()
+                    .iter()
+                    .map(|artist| match artist.id.clone() {
+                        None => panic!("Could not get artist ID for artist {}", artist.name),
+                        Some(id) => id,
+                    })
+                    .collect::<Vec<ArtistId>>()
+            })
+            .collect::<Vec<ArtistId>>();
         info!("Artist length: {:?}", artists.len());
         artists = Self::clean_duplicate_id_vector(artists);
         artists.retain(|artist| *artist != self.artist_id.clone());
@@ -674,10 +737,19 @@ impl ArtistXplorer {
             let full_artists_vec = match self.client.artists(artist_id_chunk.to_vec()).await {
                 Ok(full_artists) => {
                     info!("{} artists have been requested.", full_artists.len());
-                    info!("{:?}", full_artists.iter().map(|artist| artist.name.clone()).collect::<Vec<String>>());
+                    info!(
+                        "{:?}",
+                        full_artists
+                            .iter()
+                            .map(|artist| artist.name.clone())
+                            .collect::<Vec<String>>()
+                    );
                     full_artists
                 }
-                Err(error) => panic!("ERROR: Was not able to get album from the requested artist.\nError information: {:?}", error)
+                Err(error) => panic!(
+                    "ERROR: Was not able to get album from the requested artist.\nError information: {:?}",
+                    error
+                ),
             };
             collaborations.extend(full_artists_vec);
         }
@@ -686,12 +758,12 @@ impl ArtistXplorer {
 
     /// Asynchronously fetches and returns a list of track IDs associated with the current instance.
     ///
-    /// This method retrieves the tracks related to the instance using `self.tracks()` 
+    /// This method retrieves the tracks related to the instance using `self.tracks()`
     /// and collects their IDs into a `Vec<TrackId>`. If a track does not have an ID,
-    /// the method panics with an appropriate error message. 
+    /// the method panics with an appropriate error message.
     ///
-    /// A tracing span is created to log the operation at the `INFO` level, ensuring better 
-    /// observability of the function's execution. Additionally, track names are logged at the 
+    /// A tracing span is created to log the operation at the `INFO` level, ensuring better
+    /// observability of the function's execution. Additionally, track names are logged at the
     /// `INFO` level during the process of collecting track IDs.
     ///
     /// # Returns
@@ -700,7 +772,7 @@ impl ArtistXplorer {
     ///
     /// # Panics
     ///
-    /// Panics if a track does not contain an ID. The panic message includes the name of the track 
+    /// Panics if a track does not contain an ID. The panic message includes the name of the track
     /// for which the ID could not be retrieved.
     ///
     /// # Examples
@@ -728,7 +800,7 @@ impl ArtistXplorer {
             info!("{:?}", track.name);
             match track.id.clone() {
                 Some(id) => track_ids.push(id),
-                None => panic!("Could not get track ID for track {}", track.name)
+                None => panic!("Could not get track ID for track {}", track.name),
             }
         }
         track_ids
@@ -736,18 +808,18 @@ impl ArtistXplorer {
 
     /// Asynchronously retrieves the tracks associated with the albums of an artist.
     ///
-    /// This function fetches all the tracks belonging to the albums of a specific artist. 
+    /// This function fetches all the tracks belonging to the albums of a specific artist.
     /// It uses the `album_ids` associated with the artist to fetch the tracks page by page
     /// and aggregates them into a vector of `SimplifiedTrack`s.
     ///
     /// # Returns
     ///
-    /// A `Vec` containing `SimplifiedTrack` objects, which represent the tracks associated 
+    /// A `Vec` containing `SimplifiedTrack` objects, which represent the tracks associated
     /// with the artist's albums.
     ///
     /// # Errors
     ///
-    /// If an error occurs during the retrieval of track data for an album, the function 
+    /// If an error occurs during the retrieval of track data for an album, the function
     /// will panic with an error message indicating the issue.
     ///
     /// # Example
@@ -768,7 +840,7 @@ impl ArtistXplorer {
     ///
     /// # Tracing
     ///
-    /// A `tracing::span` is created for logging and observing the process of fetching tracks for debugging 
+    /// A `tracing::span` is created for logging and observing the process of fetching tracks for debugging
     /// purposes. The span is entered at the start of the method.
     pub async fn tracks(&self) -> Vec<SimplifiedTrack> {
         let span = tracing::span!(Level::INFO, "ArtistXplorer.tracks");
@@ -777,19 +849,22 @@ impl ArtistXplorer {
         let mut album_tracks = Vec::new();
 
         for album_id in self.album_ids() {
-            let altracks = self.client.album_track(album_id.clone(), Some(Self::market()));
+            let altracks = self
+                .client
+                .album_track(album_id.clone(), Some(Self::market()));
             let paginator = PaginatorRunner::new(altracks, ());
             match paginator.run().await {
-                Ok(tracks) => {
-                    tracks.into_iter().for_each(|track| {
-                        album_tracks.push(track)
-                    })
-                },
+                Ok(tracks) => tracks
+                    .into_iter()
+                    .for_each(|track| album_tracks.push(track)),
                 Err(err) => {
-                    panic!("ERROR: Was not able to get tracks from the requested artist.\nError information: {:?}", err)
+                    panic!(
+                        "ERROR: Was not able to get tracks from the requested artist.\nError information: {:?}",
+                        err
+                    )
                 }
             }
-        };
+        }
         album_tracks
     }
 
@@ -827,18 +902,26 @@ impl ArtistXplorer {
         let span = tracing::span!(Level::INFO, "ArtistXplorer.top_tracks_as_playable_ids");
         let _enter = span.enter();
 
-        match self.client.artist_top_tracks(self.artist_id.clone(), Some(Self::market())).await {
-            Ok(top_tracks) => {
-                top_tracks.iter().map(|track| {
+        match self
+            .client
+            .artist_top_tracks(self.artist_id.clone(), Some(Self::market()))
+            .await
+        {
+            Ok(top_tracks) => top_tracks
+                .iter()
+                .map(|track| {
                     info!("{:?}", track.name);
                     let track_id = match track.id.clone() {
                         Some(id) => id,
-                        None => panic!("Could not get track ID for track {}", track.name)
+                        None => panic!("Could not get track ID for track {}", track.name),
                     };
                     PlayableId::Track(track_id)
-                }).collect::<Vec<PlayableId>>()
-            }
-            Err(error) => panic!("ERROR: Was not able to get album from the requested artist.\nError information: {:?}", error)
+                })
+                .collect::<Vec<PlayableId>>(),
+            Err(error) => panic!(
+                "ERROR: Was not able to get album from the requested artist.\nError information: {:?}",
+                error
+            ),
         }
     }
 
@@ -887,18 +970,27 @@ impl ArtistXplorer {
         let span = tracing::span!(Level::INFO, "ArtistXplorer.related_artists");
         let _enter = span.enter();
 
-        match self.client.artist_related_artists(self.artist_id.clone()).await {
+        match self
+            .client
+            .artist_related_artists(self.artist_id.clone())
+            .await
+        {
             Ok(related) => {
                 for (index, artist) in related.iter().enumerate() {
                     info!(
                         "{}). {} - genres: {:?} | {} followers | {} popularity",
-                        index, artist.name, artist.genres, artist.followers.total,
+                        index,
+                        artist.name,
+                        artist.genres,
+                        artist.followers.total,
                         artist.popularity
                     );
                 }
                 related
             }
-            Err(error) => panic!("ERROR: Was not able to get album from the requested artist.\nError information: {error:?}")
+            Err(error) => panic!(
+                "ERROR: Was not able to get album from the requested artist.\nError information: {error:?}"
+            ),
         }
     }
 
@@ -937,7 +1029,7 @@ mod tests {
     async fn test_artist_xplr() {
         let artist_id = ArtistId::from_id("7u160I5qtBYZTQMLEIJmyz").unwrap();
         let artist_xplr = match ArtistXplorer::new(artist_id.clone()).await {
-            Ok(xplorer) => { xplorer }
+            Ok(xplorer) => xplorer,
             Err(err) => {
                 eprintln!("Client Error: {:?}", err);
                 return;
@@ -951,7 +1043,7 @@ mod tests {
     async fn test_album_methods() {
         let artist_id = ArtistId::from_id("7u160I5qtBYZTQMLEIJmyz").unwrap();
         let artist_xplr = match ArtistXplorer::new(artist_id.clone()).await {
-            Ok(xplorer) => { xplorer }
+            Ok(xplorer) => xplorer,
             Err(err) => {
                 eprintln!("Client Error: {:?}", err);
                 return;

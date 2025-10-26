@@ -73,7 +73,11 @@ impl DataFrameLoader {
             .map(|s| (s.name().to_string(), s.dtype().clone()))
             .collect()
     }
-    fn is_equal_width(&self, self_cols: Vec<(String, DataType)>, other_cols: Vec<(String, DataType)>) -> bool {
+    fn is_equal_width(
+        &self,
+        self_cols: Vec<(String, DataType)>,
+        other_cols: Vec<(String, DataType)>,
+    ) -> bool {
         if self_cols.len() != other_cols.len() {
             tracing::debug!(
                 "Column count mismatch: self={} other={}",
