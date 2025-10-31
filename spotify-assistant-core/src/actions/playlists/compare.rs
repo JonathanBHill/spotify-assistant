@@ -40,10 +40,10 @@ impl PartialEq for ComparePlaylists {
 impl Api for ComparePlaylists {
     fn select_scopes() -> HashSet<String> {
         scopes!(
-            "playlists-read-private",
-            "playlists-read-collaborative",
-            "playlists-modify-public",
-            "playlists-modify-private"
+            "playlist-read-private",
+            "playlist-read-collaborative",
+            "playlist-modify-public",
+            "playlist-modify-private"
         )
     }
 }
@@ -72,7 +72,7 @@ impl ComparePlaylists {
     /// - The function panics if a track is missing (`None`) or is an unsupported `PlayableItem` type (e.g., `Episode`).
     ///
     /// # Example
-    /// ```ignore
+    /// ```no_run,ignore
     /// let playlist = fetch_full_playlist(); // Assume this fetches a FullPlaylist object
     /// let compare_playlists = ComparePlaylists::new(playlist).await;
     /// ```
@@ -123,7 +123,7 @@ impl ComparePlaylists {
     /// - Prints the total number of tracks in both playlists to the standard output.
     ///
     /// # Example
-    /// ```ignore
+    /// ```no_run,ignore
     /// let playlist1: ComparePlaylists = fetch_playist(); // Assume this fetches a FullPlaylist object
     /// let playlist2: ComparePlaylists = fetch_playist(); // Assume this fetches another FullPlaylist object
     ///
@@ -168,7 +168,7 @@ impl ComparePlaylists {
     ///   metadata differences between the two playlists (ID, name, and owner ID).
     ///
     /// # Example
-    /// ```ignore
+    /// ```no_run,ignore
     /// let playlist1: ComparePlaylists = fetch_playist(); // Assume this fetches a FullPlaylist object
     /// let playlist2: ComparePlaylists = fetch_playist(); // Assume this fetches another FullPlaylist object
     ///

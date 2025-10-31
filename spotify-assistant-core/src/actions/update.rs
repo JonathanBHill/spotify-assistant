@@ -73,7 +73,7 @@ impl Editor {
     /// A future that resolves to an instance of the calling type configured with the above playlist information.
     ///
     /// # Example
-    /// ```rust
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::update::Editor;
     ///
     /// async fn main() {
@@ -160,8 +160,7 @@ impl Editor {
     /// - Playlist information cannot be fetched using the specified IDs.
     ///
     /// # Examples
-    ///
-    /// ```
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::update::Editor;
     /// use spotify_assistant_core::enums::pl::PlaylistType;
     ///
@@ -212,7 +211,7 @@ impl Editor {
     /// - Processes liked songs in chunks of 100 to comply with API restrictions and manage network resources.
     ///
     /// ## Example Usage:
-    /// ```
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::update::Editor;
     /// use spotify_assistant_core::enums::pl::PlaylistType;
     ///
@@ -295,8 +294,7 @@ impl Editor {
     /// needs to be accessed or reused without modifying the original value.
     ///
     /// # Example
-    ///
-    /// ```rust
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::update::Editor;
     /// use spotify_assistant_core::enums::pl::PlaylistType;
     ///
@@ -323,7 +321,7 @@ impl Editor {
     /// A `PlaylistId` that is a clone of the `target_id`.
     ///
     /// # Examples
-    /// ```rust
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::update::Editor;
     /// use spotify_assistant_core::enums::pl::PlaylistType;
     ///
@@ -348,7 +346,7 @@ impl Editor {
     /// A `FullPlaylist` object that is a clone of the `ref_pl` field.
     ///
     /// # Examples
-    /// ```rust
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::update::Editor;
     /// use spotify_assistant_core::enums::pl::PlaylistType;
     ///
@@ -375,8 +373,7 @@ impl Editor {
     /// * `FullPlaylist` - A cloned instance of the target playlist.
     ///
     /// # Example
-    ///
-    /// ```rust
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::update::Editor;
     /// use spotify_assistant_core::enums::pl::PlaylistType;
     ///
@@ -407,7 +404,7 @@ impl Editor {
     /// * `String` - The cloned snapshot ID.
     ///
     /// # Example
-    /// ```rust
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::update::Editor;
     /// use spotify_assistant_core::enums::pl::PlaylistType;
     ///
@@ -477,7 +474,7 @@ impl Editor {
     ///   Ensure that all artist records in the playlist contain valid and clonable IDs.
     ///
     /// # Example
-    /// ```rust
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::update::Editor;
     /// use spotify_assistant_core::enums::pl::PlaylistType;
     ///
@@ -556,7 +553,7 @@ impl Editor {
     /// - Another internal helper method `Self::clean_duplicate_id_vector` is used to remove any duplicate track IDs inadvertently introduced.
     ///
     /// # Examples
-    /// ```rust
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::update::Editor;
     /// use spotify_assistant_core::enums::pl::PlaylistType;
     ///
@@ -627,7 +624,7 @@ impl Editor {
     /// - Each API request batch handles a maximum of 100 tracks at a time.
     ///
     /// # Example Usage
-    /// ```rust
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::update::Editor;
     /// use spotify_assistant_core::enums::pl::PlaylistType;
     ///
@@ -740,7 +737,7 @@ impl Editor {
     /// - If adding items to the playlist from subsequent chunks fails.
     ///
     /// # Example
-    /// ```rust
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::update::Editor;
     /// use spotify_assistant_core::enums::pl::PlaylistType;
     ///

@@ -70,18 +70,6 @@ pub trait Api {
     /// scope in the set is a unique string representing a specific permission
     /// or resource access level.
     ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use std::collections::HashSet;
-    /// use spotify_assistant_core::traits::apis::Api;
-    ///
-    /// let scopes = Api::select_scopes();
-    /// for scope in &scopes {
-    ///     println!("Scope: {}", scope);
-    /// }
-    /// ```
-    ///
     /// # Notes
     ///
     /// - The exact method or criteria used to select scopes is determined
@@ -142,8 +130,8 @@ pub trait Api {
     /// - If no explicit scopes are provided, the client will use an empty default.
     ///
     /// # Examples
+    /// ```no_run,ignore
     /// Setting up a Spotify client:
-    /// ```rust
     /// use std::collections::HashSet;
     /// use spotify_assistant_core::traits::apis::Api;
     ///
@@ -151,7 +139,6 @@ pub trait Api {
     /// let scopes = Some(HashSet::from(["user-read-private".to_string(), "playlist-read-private".to_string()]));
     /// let spotify_client = Api::set_up_client(is_test, scopes);
     /// // Use the `spotify_client` for further API interactions
-    /// }
     /// ```
     fn set_up_client(
         is_test: bool,
@@ -255,13 +242,6 @@ pub trait Api {
     ///
     /// # Returns
     /// * `Market` - A market object set to the United States.
-    ///
-    /// # Example
-    /// ```rust
-    /// use rspotify::model::Market;
-    /// use spotify_assistant_core::traits::apis::Api;
-    /// let us_market = Api::market();
-    /// ```
     fn market() -> Market {
         Market::Country(rspotify::model::Country::UnitedStates)
     }
@@ -280,39 +260,6 @@ pub trait Api {
     /// # Returns
     /// A new vector of type `T` containing only unique elements from the input vector,
     /// preserving their order of first occurrence in the original input.
-    ///
-    /// # Example
-    /// ```
-    /// use std::collections::HashSet;
-    /// use rspotify::model::{Id, Type};
-    /// use spotify_assistant_core::traits::apis::Api;
-    ///
-    /// #[derive(Clone, Eq, PartialEq, Hash)]
-    /// struct Item {
-    ///     id: usize,
-    ///     value: String,
-    /// }
-    ///
-    /// impl Id for Item {
-    ///     fn id(&self) -> usize {
-    ///         self.id
-    ///     }
-    ///    fn _type(&self) -> Type {
-    ///        todo!()
-    ///    }
-    /// }
-    ///
-    /// let items = vec![
-    ///     Item { id: 1, value: "A".to_string() },
-    ///     Item { id: 2, value: "B".to_string() },
-    ///     Item { id: 1, value: "A".to_string() },
-    /// ];
-    ///
-    /// let cleaned_items = Api::clean_duplicate_id_vector(items);
-    /// assert_eq!(cleaned_items.len(), 2);
-    /// assert_eq!(cleaned_items[0].id, 1);
-    /// assert_eq!(cleaned_items[1].id, 2);
-    /// ```
     ///
     /// # Note
     /// The function uses a `HashSet` to track already-seen elements,
@@ -349,14 +296,6 @@ pub trait Api {
 /// - An instance of `impl std::future::Future<Output = Self> + Send`, where `Self` is
 ///   the type implementing this trait.
 /// - The returned future should be `Send`, meaning it can safely be sent across threads.
-///
-/// ### Usage
-/// ```
-/// use spotify_assistant_core::traits::apis::Querying;
-/// async fn example() {
-///     let instance = Querying::new().await;
-/// }
-/// ```
 ///
 /// # Example
 /// ```

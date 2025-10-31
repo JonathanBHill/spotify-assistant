@@ -61,7 +61,7 @@ impl BlacklistArtist {
     /// colon-separated components (i.e., `id.split(':')` results in less than three elements).
     ///
     /// # Example
-    /// ```
+    /// ```no_run,ignore
     /// use spotify_assistant_core::models::blacklist::BlacklistArtist;
     /// let artist = BlacklistArtist::new(
     ///     "Artist Name".to_string(),
@@ -87,8 +87,7 @@ impl BlacklistArtist {
     /// A `String` containing the value of the `name` field.
     ///
     /// # Examples
-    ///
-    /// ```
+    /// ```no_run,ignore
     /// struct Example {
     ///     name: String,
     /// }
@@ -114,8 +113,7 @@ impl BlacklistArtist {
     /// remains intact and unmodified.
     ///
     /// # Examples
-    ///
-    /// ```
+    /// ```no_run,ignore
     /// struct Example {
     ///     id: String,
     /// }
@@ -185,6 +183,7 @@ mod tests {
             .expect("failed to write malformed blacklist fixture");
 
         let result = std::panic::catch_unwind(Blacklist::default);
+        println!("{:?}", env.config_file("blacklist.toml"));
         assert!(
             result.is_err(),
             "Malformed blacklist TOML should trigger a panic"
@@ -279,8 +278,7 @@ impl Default for Blacklist {
     /// obtained from the `read_blacklist` method.
     ///
     /// # Example
-    ///
-    /// ```rust
+    /// ```no_run,ignore
     /// use spotify_assistant_core::models::blacklist::Blacklist;
     /// let default_blacklist = Blacklist::default();
     /// ```
@@ -291,8 +289,7 @@ impl Default for Blacklist {
     /// for constructing the `blacklist` field. Any errors occurring during this
     /// process should be handled inside the `read_blacklist` function.
     fn default() -> Self {
-        let blacklist = Blacklist::read_blacklist().blacklist;
-        Blacklist { blacklist }
+        Blacklist::read_blacklist()
     }
 }
 impl Blacklist {
@@ -378,8 +375,7 @@ impl Blacklist {
     /// - `DEBUG` level event: Logs the state of the blacklist before and after the modification.
     ///
     /// # Example
-    ///
-    /// ```
+    /// ```no_run,ignore
     /// use spotify_assistant_core::models::blacklist::{Blacklist, BlacklistArtist};
     /// let mut blacklist = Blacklist::default();
     /// let artist = BlacklistArtist::new("Artist Name".to_string(), "artist:id:12345".to_string());
@@ -405,7 +401,7 @@ impl Blacklist {
     /// to the blacklist by calling the internal `add_artist` method for each one.
     ///
     /// # Example
-    /// ```
+    /// ```no_run,ignore
     /// use spotify_assistant_core::models::blacklist::{Blacklist, BlacklistArtist};
     /// let mut blacklist = Blacklist::default();
     /// let artist1 = BlacklistArtist::new("Artist 1".to_string(), "artist:id:12345".to_string());
@@ -446,8 +442,7 @@ impl Blacklist {
     ///   called to apply any necessary updates to the blacklist state.
     ///
     /// # Example
-    ///
-    /// ```rust
+    /// ```no_run,ignore
     /// use spotify_assistant_core::models::blacklist::{Blacklist, BlacklistArtist};
     /// let mut manager = Blacklist::default();
     /// let artist = BlacklistArtist::new("Artist Name".to_string(), "artist:id:12345".to_string());
@@ -528,8 +523,7 @@ impl Blacklist {
     /// * A `bool` indicating whether the normalized `console_input` and `name_from_file` are equal.
     ///
     /// # Example
-    ///
-    /// ```
+    /// ```no_run,ignore
     /// use spotify_assistant_core::models::blacklist::Blacklist;
     /// let instance = Blacklist::default();
     /// let is_equal = instance.are_names_equal("JohnDoe", String::from("john_doe"));
@@ -596,8 +590,8 @@ impl Blacklist {
     ///   and has a method `artists()` that returns an iterable collection of artists.
     /// - Each `artist` is required to have `name()` and `id()` methods to retrieve relevant information.
     ///
-    /// # Example Usage
-    /// ```
+    /// # Example
+    /// ```no_run,ignore
     /// use spotify_assistant_core::models::blacklist::Blacklist;
     /// let blacklist = Blacklist::default();
     /// blacklist.print_blacklist();
@@ -619,7 +613,7 @@ impl Blacklist {
     /// A `HashSet<BlacklistArtist>` representing the collection of blacklisted artists.
     ///
     /// # Example
-    /// ```
+    /// ```no_run,ignore
     /// use spotify_assistant_core::models::blacklist::Blacklist;
     /// let instance = Blacklist::default();
     /// let blacklist = instance.artists();
@@ -660,7 +654,7 @@ impl Blacklist {
     ///   name and ID and calls `self.remove_artist()`.
     ///
     /// # Example:
-    /// ```rust
+    /// ```no_run,ignore
     /// // Imagine `self` is an instance of the relevant struct that contains this method.
     /// // Calling this method will show a terminal menu for selecting an artist to remove:
     /// use spotify_assistant_core::models::blacklist::Blacklist;

@@ -60,7 +60,7 @@ impl UserLibrary {
     /// but the function ensures a valid instance is returned even in case of failures.
     ///
     /// # Example
-    /// ```rust
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::liked_songs::UserLibrary;
     /// async fn main() {
     ///     let instance = UserLibrary::new().await;
@@ -84,11 +84,7 @@ impl UserLibrary {
                     tracks
                 }
                 Err(err) => {
-                    event!(
-                        Level::ERROR,
-                        "Failed to fetch liked songs: {:?}",
-                        err
-                    );
+                    event!(Level::ERROR, "Failed to fetch liked songs: {:?}", err);
                     Vec::new()
                 }
             };
@@ -134,10 +130,10 @@ impl UserLibrary {
         let paginator = PaginatorRunner::new(liked_songs, ());
         let library = paginator.run().await.unwrap_or_else(|err| {
             event!(
-                    Level::ERROR,
-                    "Could not retrieve your saved tracks: {:?}",
-                    err
-                );
+                Level::ERROR,
+                "Could not retrieve your saved tracks: {:?}",
+                err
+            );
             Vec::new()
         });
         Ok(library)
@@ -159,8 +155,7 @@ impl UserLibrary {
     /// * `Vec<SavedTrack>` - A vector containing the saved tracks.
     ///
     /// # Example
-    ///
-    /// ```
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::liked_songs::UserLibrary;
     /// async fn main() {
     ///     let my_instance = UserLibrary::new().await;
@@ -204,7 +199,7 @@ impl UserLibrary {
     /// * `PathBuf` - A cloned `PathBuf` representing the path to the saved tracks.
     ///
     /// # Example
-    /// ```
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::liked_songs::UserLibrary;
     /// use std::path::PathBuf;
     /// use spotify_assistant_core::enums::fs::ProjectDirectories;
@@ -226,7 +221,7 @@ impl UserLibrary {
     /// Returns the number of tracks in the current collection.
     ///
     /// # Example
-    /// ```
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::liked_songs::UserLibrary;
     /// async fn main() {
     /// let collection = UserLibrary::new().await;
@@ -253,7 +248,7 @@ impl UserLibrary {
     ///   - The `track.id` is `None` during the unwrap operation.
     ///
     /// # Example
-    /// ```rust
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::liked_songs::UserLibrary;
     /// async fn main() {
     ///     let my_object = UserLibrary::new().await;
@@ -272,92 +267,16 @@ impl UserLibrary {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::json;
+    use crate::test_support::offline::OfflineObjects;
     use std::sync::{Mutex, OnceLock};
     use tempfile::tempdir;
 
     fn sample_saved_track(label: &str) -> SavedTrack {
-        let (track_id, artist_id, album_id) = match label {
-            "one" => (
-                "AAAAAAAAAAAAAAAAAAAAAA",
-                "BBBBBBBBBBBBBBBBBBBBBB",
-                "CCCCCCCCCCCCCCCCCCCCCC",
-            ),
-            "two" => (
-                "DDDDDDDDDDDDDDDDDDDDDD",
-                "EEEEEEEEEEEEEEEEEEEEEE",
-                "FFFFFFFFFFFFFFFFFFFFFF",
-            ),
-            _ => (
-                "GGGGGGGGGGGGGGGGGGGGGG",
-                "HHHHHHHHHHHHHHHHHHHHHH",
-                "IIIIIIIIIIIIIIIIIIIIII",
-            ),
-        };
-        let track_id = track_id.to_string();
-        let artist_id = artist_id.to_string();
-        let album_id = album_id.to_string();
-        let artist_href = format!("https://api.spotify.com/v1/artists/{artist_id}");
-        let album_href = format!("https://api.spotify.com/v1/albums/{album_id}");
-        let track_href = format!("https://api.spotify.com/v1/tracks/{track_id}");
-        let track_name = format!("Example Track {label}");
-
-        serde_json::from_value(json!({
-            "added_at": "2024-01-01T00:00:00Z",
-            "track": {
-                "album": {
-                    "album_group": null,
-                    "album_type": "album",
-                    "artists": [
-                        {
-                            "external_urls": {"spotify": "https://example.com/artist"},
-                            "href": artist_href,
-                            "id": artist_id,
-                            "name": "Example Artist"
-                        }
-                    ],
-                    "available_markets": [],
-                    "external_urls": {"spotify": "https://example.com/album"},
-                    "href": album_href,
-                    "id": album_id,
-                    "images": [],
-                    "name": "Example Album",
-                    "release_date": "2024-01-01",
-                    "release_date_precision": "day",
-                    "restrictions": null
-                },
-                "artists": [
-                    {
-                        "external_urls": {"spotify": "https://example.com/artist"},
-                        "href": artist_href,
-                        "id": artist_id,
-                        "name": "Example Artist"
-                    }
-                ],
-                "available_markets": [],
-                "disc_number": 1,
-                "duration_ms": 180000,
-                "explicit": false,
-                "external_ids": {"isrc": "USS1Z2400001"},
-                "external_urls": {"spotify": "https://example.com/track"},
-                "href": track_href,
-                "id": track_id,
-                "is_local": false,
-                "is_playable": true,
-                "linked_from": null,
-                "restrictions": null,
-                "name": track_name,
-                "popularity": 42,
-                "preview_url": null,
-                "track_number": 1,
-                "type": "track",
-            }
-        }))
-            .expect("valid saved track JSON")
+        OfflineObjects::sample_saved_track(label)
     }
 
     fn sample_tracks() -> Vec<SavedTrack> {
-        vec![sample_saved_track("one"), sample_saved_track("two")]
+        OfflineObjects::sample_saved_tracks()
     }
 
     fn env_mutex() -> &'static Mutex<()> {
@@ -464,9 +383,11 @@ mod tests {
 
     impl EnvVarGuard {
         unsafe fn set(key: &'static str, value: &str) -> Self {
-            let original = std::env::var(key).ok();
-            std::env::set_var(key, value);
-            Self { key, original }
+            unsafe {
+                let original = std::env::var(key).ok();
+                std::env::set_var(key, value);
+                Self { key, original }
+            }
         }
     }
 

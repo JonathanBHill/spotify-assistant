@@ -118,8 +118,7 @@ impl<C: FullProfilesClient> FullProfiles<C> {
     ///   the corresponding error message.
     ///
     /// # Example
-    ///
-    /// ```rust
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::general::FullProfiles;
     /// async fn main() {
     ///     let full_profiles = FullProfiles::new().await;
@@ -161,8 +160,7 @@ impl<C: FullProfilesClient> FullProfiles<C> {
     ///   the API, returns a `ClientError`.
     ///
     /// # Example
-    ///
-    /// ```ignore
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::general::FullProfiles;
     /// async fn main() {
     ///     let full_profiles = FullProfiles::new().await;
@@ -214,7 +212,7 @@ impl<C: FullProfilesClient> FullProfiles<C> {
     /// - The request is scoped with a specific market, which is determined by `Self::market()`.
     ///
     /// # Example
-    /// ```ignore
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::general::FullProfiles;
     /// async fn main() {
     ///     use rspotify::model::TrackId;
@@ -253,7 +251,7 @@ impl<C: FullProfilesClient> FullProfiles<C> {
     /// - If an error occurs, returns a `ClientError`.
     ///
     /// # Example
-    /// ```ignore
+    /// ```no_run,ignore
     /// use rspotify::model::PlaylistId;
     /// use spotify_assistant_core::actions::general::FullProfiles;
     /// async fn main() {

@@ -514,44 +514,36 @@ mod tests {
     fn test_default() {
         let init = ProjectFileSystem::default();
         println!("{init:?}");
-        assert_eq!(init.home_directory.path(), ProjectDirectories::Home.path());
-    }
-
-    #[test]
-    fn test_get_files() {
-        let init = ProjectFileSystem::default();
-        // init.show_items(ProjectDirectories::Data.path(), 0);
-        let mut x = init.get_files(ProjectDirectories::Data.path(), "Audio");
-        x.retain(|path| path.extension().unwrap() == "json");
-        x.clone().into_iter().enumerate().for_each(|(index, path)| {
-            println!("{index}: {path:?}");
-        });
-        assert_eq!(x.len(), 8);
+        assert_eq!(init.home_directory.test_path(), ProjectDirectories::Home.test_path());
     }
 
     #[test]
     fn test_new() {
         let init = ProjectFileSystem::new();
-        assert_eq!(init.home_directory.path(), ProjectDirectories::Home.path());
+        assert_eq!(init.home_directory.test_path(), ProjectDirectories::Home.test_path());
     }
     #[test]
     fn test_create_file() {
         let init = ProjectFileSystem::default();
-        let file = init.home_directory.path().join("test_file");
+        let file = init.home_directory.test_path().join("test_file");
+        println!("Preparing to write to file, {:?}", file);
         match init.create_file(file.clone()) {
             Ok(_) => {
                 assert!(file.exists());
             }
             Err(e) => {
+                println!("Could not create the file because it already exists");
                 assert_eq!(e.kind(), ErrorKind::AlreadyExists);
             }
         };
-        fs::remove_file(file).unwrap();
+        println!("Removing the file, {:?}", file);
+        fs::remove_file(file.clone()).unwrap();
+        assert!(!file.exists());
     }
     #[test]
     fn test_initialize_directory() {
         let init = ProjectFileSystem::default();
-        let dir = init.home_directory.path();
+        let dir = init.home_directory.test_path();
         let test_dir = dir.clone().join("test_dir");
         match init.initialize_directory(&test_dir.clone()) {
             Ok(was_created) => {

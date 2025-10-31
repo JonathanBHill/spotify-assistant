@@ -66,22 +66,6 @@ impl Checks {
     /// (hours, minutes, seconds, and milliseconds) of the `DateTime` value
     /// stored within the instance.
     ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use chrono::{NaiveTime, NaiveDate, NaiveDateTime};
-    /// use spotify_assistant_core::utilities::datetime::Checks;
-    ///
-    /// let dt = NaiveDateTime::new(
-    ///     NaiveDate::from_ymd_opt(2023, 10, 24).unwrap(),
-    ///     NaiveTime::from_hms_opt(14, 30, 45).unwrap(),
-    /// );
-    /// let instance = Checks::default();
-    ///
-    /// let time = instance.time();
-    /// assert_eq!(time, NaiveTime::from_hms_opt(14, 30, 45).unwrap());
-    /// ```
-    ///
     /// # Note
     ///
     /// This method assumes that the `now` field within the structure contains

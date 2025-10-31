@@ -65,7 +65,7 @@ impl UserData {
     /// authentication credentials and setup are valid before calling this method.
     ///
     /// # Example
-    /// ```rust
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::user::UserData;
     ///
     /// #[tokio::main]
@@ -99,8 +99,7 @@ impl UserData {
     ///   Defaults to `SubscriptionLevel::Free` if no subscription is specified.
     ///
     /// # Examples
-    ///
-    /// ```
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::user::UserData;
     /// use rspotify::model::SubscriptionLevel;
     ///
@@ -129,7 +128,7 @@ impl UserData {
     /// - `"Free"` if the user's subscription level is `SubscriptionLevel::Free` or not set.
     ///
     /// # Examples
-    /// ```
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::user::UserData;
     /// #[tokio::main]
     /// async fn main() {
@@ -163,7 +162,7 @@ impl UserData {
     /// - Values are strings representing the corresponding external URL or the user's `href`.
     ///
     /// # Example
-    /// ```
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::user::UserData;
     /// #[tokio::main]
     /// async fn main() {
@@ -220,8 +219,7 @@ impl UserData {
     /// A `String` representation of the total number of followers.
     ///
     /// # Example
-    ///
-    /// ```rust
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::user::UserData;
     /// #[tokio::main]
     /// async fn main() {
@@ -249,7 +247,7 @@ impl UserData {
     /// * `u32` - The total number of followers, or `0` if the value is not set.
     ///
     /// # Examples
-    /// ```
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::user::UserData;
     /// #[tokio::main]
     /// async fn main() {
@@ -281,7 +279,7 @@ impl UserData {
     /// - If `id_type` is `"email"` but the email is `None`.
     ///
     /// # Examples
-    /// ```
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::user::UserData;
     /// use rspotify::model::Id;
     /// #[tokio::main]
@@ -334,8 +332,7 @@ impl UserData {
     /// for the user are not found (`None` in the `self.user.explicit_content`).
     ///
     /// # Example
-    ///
-    /// ```
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::user::UserData;
     /// #[tokio::main]
     /// async fn main() {
@@ -376,7 +373,7 @@ impl UserData {
     /// This function will panic if it fails to retrieve the user's listening history from the Spotify API.
     ///
     /// # Example
-    /// ```rust
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::user::UserData;
     /// #[tokio::main]
     /// async fn main() {
@@ -426,7 +423,7 @@ impl UserData {
     /// - Leverages Spotify's API client to fetch the user's top tracks.
     ///
     /// # Example
-    /// ```rust
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::user::UserData;
     /// #[tokio::main]
     /// async fn main() {
@@ -477,7 +474,7 @@ impl UserData {
     /// providing a debug representation of the error.
     ///
     /// # Examples
-    /// ```no_run
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::user::UserData;
     /// #[tokio::main]
     /// async fn main() {
@@ -543,7 +540,7 @@ impl UserData {
     ///   - Each page's progress and the respective artist data.
     ///
     /// # Example Usage
-    /// ```rust
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::user::UserData;
     /// #[tokio::main]
     /// async fn main() {

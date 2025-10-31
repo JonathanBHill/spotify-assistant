@@ -1,7 +1,7 @@
 use futures::future::LocalBoxFuture;
 use futures::StreamExt;
 use rspotify::clients::pagination::Paginator;
-use rspotify::model::{FullTrack, SavedTrack};
+use rspotify::model::FullTrack;
 use rspotify::ClientResult;
 use tracing::Level;
 

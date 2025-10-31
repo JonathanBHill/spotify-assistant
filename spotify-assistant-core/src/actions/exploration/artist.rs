@@ -8,7 +8,7 @@ use rspotify::model::{
     AlbumId, ArtistId, FullAlbum, FullArtist, FullTrack, PlayableId, SimplifiedAlbum,
     SimplifiedTrack, TrackId,
 };
-use rspotify::{scopes, AuthCodeSpotify, ClientError, ClientResult};
+use rspotify::{scopes, AuthCodeSpotify, ClientError};
 use tracing::{error, event, info, Level};
 
 use crate::enums::validation::BatchLimits;
@@ -970,6 +970,7 @@ impl ArtistXplorer {
         let span = tracing::span!(Level::INFO, "ArtistXplorer.related_artists");
         let _enter = span.enter();
 
+        #[allow(deprecated)]
         match self
             .client
             .artist_related_artists(self.artist_id.clone())
@@ -1021,37 +1022,57 @@ impl ArtistXplorer {
 
 #[cfg(test)]
 mod tests {
-    use rspotify::model::ArtistId;
-
     use super::*;
+    use crate::test_support::offline::OfflineObjects;
+    use chrono::NaiveDate;
+    use rspotify::model::{ArtistId, FullArtist, SimplifiedAlbum};
+    use rspotify::prelude::Id;
 
-    #[tokio::test]
-    async fn test_artist_xplr() {
-        let artist_id = ArtistId::from_id("7u160I5qtBYZTQMLEIJmyz").unwrap();
-        let artist_xplr = match ArtistXplorer::new(artist_id.clone()).await {
-            Ok(xplorer) => xplorer,
-            Err(err) => {
-                eprintln!("Client Error: {:?}", err);
-                return;
+    // Test-only constructor to avoid network
+    impl ArtistXplorer {
+        fn new_offline(
+            artist_id: ArtistId<'static>,
+            artist: FullArtist,
+            albums: Vec<SimplifiedAlbum>,
+        ) -> Self {
+            Self {
+                client: OfflineObjects::dummy_client(),
+                artist_id,
+                artist,
+                albums,
             }
-        };
-        println!("{:?}", artist_xplr.genres());
-        assert_eq!(artist_xplr.artist_id, artist_id);
+        }
     }
 
-    #[tokio::test]
-    async fn test_album_methods() {
-        let artist_id = ArtistId::from_id("7u160I5qtBYZTQMLEIJmyz").unwrap();
-        let artist_xplr = match ArtistXplorer::new(artist_id.clone()).await {
-            Ok(xplorer) => xplorer,
-            Err(err) => {
-                eprintln!("Client Error: {:?}", err);
-                return;
-            }
-        };
-        let albums = artist_xplr.full_albums().await;
-        let artists = albums[0].artists.clone();
-        let main_artist_id = artists[0].clone().id.unwrap();
-        assert_eq!(main_artist_id, artist_id);
+    // Build an offline ArtistXplorer with minimal album data
+    fn build_offline() -> ArtistXplorer {
+        let artist_id = ArtistId::from_id("ARTIST1234567890123456").unwrap();
+        let artist = OfflineObjects::sample_full_artist();
+        let albums = OfflineObjects::sample_simplified_album_for(artist_id.id(), "Example Artist");
+        ArtistXplorer::new_offline(artist_id, artist, albums)
     }
+
+    #[test]
+    fn test_offline_albums_by_type_and_ids() {
+        let x = build_offline();
+        let by_type = x.albums_by_type(true);
+        assert_eq!(by_type.get("album").unwrap().len(), 1);
+        assert_eq!(by_type.get("single").unwrap().len(), 1);
+        let ids = x.album_ids();
+        assert_eq!(ids.len(), 2);
+    }
+
+    #[test]
+    fn test_offline_album_slice_and_genres() {
+        let x = build_offline();
+        // cutoff after 2023 so only the 2024 album remains
+        let cutoff_dt = NaiveDate::from_ymd_opt(2023, 12, 31).unwrap().and_hms_opt(0, 0, 0).unwrap();
+        let sliced = x.album_slice(Some(cutoff_dt));
+        assert_eq!(sliced.albums.len(), 1);
+        assert_eq!(sliced.albums[0].name, "Example Album");
+        let genres = x.genres();
+        assert_eq!(genres, vec!["Rock".to_string(), "Alt".to_string()]);
+    }
+
+    // Offline test for collaborators() would require network; we will test track_ids and tracks equivalents via album data only.
 }

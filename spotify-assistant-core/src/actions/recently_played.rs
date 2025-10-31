@@ -66,7 +66,7 @@ impl UserListeningHistory {
     /// A new `UserListeningHistory` object, structured with the fetched data.
     ///
     /// # Example
-    /// ```rust
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::recently_played::UserListeningHistory;
     /// async fn main() {
     ///     let user_history = UserListeningHistory::new().await;
@@ -109,8 +109,7 @@ impl UserListeningHistory {
     /// A `Vec<PlayHistory>` that contains the play history tracks.
     ///
     /// # Examples
-    ///
-    /// ```
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::recently_played::UserListeningHistory;
     /// async fn main() {
     ///     let user_history = UserListeningHistory::new().await;
@@ -143,8 +142,7 @@ impl UserListeningHistory {
     /// - If the API call fails, the function will `panic!` with an error message containing the details of the error.
     ///
     /// # Example
-    ///
-    /// ```rust
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::recently_played::UserListeningHistory;
     /// async fn main() {
     ///     let user_history = UserListeningHistory::new().await;
@@ -220,7 +218,7 @@ impl UserListeningHistory {
     /// Call this method when you want to extend the current play history with more records.
     ///
     /// # Example
-    /// ```rust
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::recently_played::UserListeningHistory;
     /// async fn main() {
     ///     let mut user_history = UserListeningHistory::new().await;

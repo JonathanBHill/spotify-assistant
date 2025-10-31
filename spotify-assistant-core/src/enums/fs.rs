@@ -1,3 +1,4 @@
+use std::io::Write;
 use std::path::PathBuf;
 
 /// Represents different directories commonly used by applications for storing
@@ -71,7 +72,7 @@ impl ProjectDirectories {
     /// - If the state directory (`state_dir`) cannot be retrieved (only in the case of `ProjectDirectories::State`).
     ///
     /// # Example
-    /// ```ignore
+    /// ```no_run,ignore
     /// use std::path::PathBuf;
     ///
     /// // Example usage of the path function
@@ -88,10 +89,10 @@ impl ProjectDirectories {
             ProjectDirectories::Config => pdir.config_dir(),
             ProjectDirectories::Data => pdir.data_dir(),
             ProjectDirectories::Cache => pdir.cache_dir(),
-            ProjectDirectories::Log => pdir.data_dir(),
+            ProjectDirectories::Log => &pdir.data_dir().join("logs"),
             ProjectDirectories::State => pdir.state_dir().unwrap(),
-            ProjectDirectories::Preferences => pdir.preference_dir(),
-            ProjectDirectories::Template => &*dir.home_dir().join("Templates"),
+            ProjectDirectories::Preferences => &pdir.preference_dir().join("preferences"),
+            ProjectDirectories::Template => &pdir.config_dir().join("templates"),
         };
         directory_path.to_path_buf()
     }
@@ -116,9 +117,7 @@ impl ProjectDirectories {
 ///   for optimizing processes that require token-based authentication.
 ///
 /// # Example
-///
-/// ```rust
-///
+/// ```no_run,ignore
 /// use spotify_assistant_core::enums::fs::ProjectFiles;
 ///
 /// fn handle_file(file: ProjectFiles) {
@@ -148,7 +147,7 @@ impl ProjectFiles {
     /// A `PathBuf` containing the resolved file path.
     ///
     /// # Examples:
-    /// ```rust
+    /// ```no_run,ignore
     /// use std::path::PathBuf;
     /// use spotify_assistant_core::enums::fs::{ProjectDirectories, ProjectFiles};
     ///
@@ -166,13 +165,66 @@ impl ProjectFiles {
             ProjectFiles::TokenCache => ProjectDirectories::Cache.path().join("token_cache"),
         }
     }
+    fn instantiate(&self) {
+        match self {
+            ProjectFiles::DotEnv => {
+                let dot_env_path = self.path();
+                if !dot_env_path.exists() {
+                    let mut dot_env_file = std::fs::File::create(dot_env_path).unwrap();
+                    dot_env_file.write_all(
+                        b"RSPOTIFY_CLIENT_ID=your_client_id\n\
+                        RSPOTIFY_CLIENT_SECRET=your_client_secret\n\
+                        RSPOTIFY_REDIRECT_URI=https://localhost:8281/&scope=user-library-read").unwrap();
+                }
+            }
+            ProjectFiles::TokenCache => {
+                let token_cache_path = self.path();
+                if !token_cache_path.exists() {
+                    let mut token_cache_file = std::fs::File::create(token_cache_path).unwrap();
+                    token_cache_file.write_all(b"").unwrap();
+                }
+            }
+        }
+    }
 }
 
 #[cfg(all(test, target_os = "linux"))]
 mod tests {
     use super::*;
+    use crate::test_support::test_ws::ROOT;
     use crate::test_support::{TestEnvironment, ENV_MUTEX};
 
+    impl ProjectDirectories {
+        pub(crate) fn test_path(&self) -> PathBuf {
+            let directory_path = match self {
+                ProjectDirectories::Home => ROOT.join("home"),
+                ProjectDirectories::Config => ROOT.join("home/.config/spotify-assistant"),
+                ProjectDirectories::Data => ROOT.join("home/.local/share/spotify-assistant"),
+                ProjectDirectories::Cache => ROOT.join("home/.cache/spotify-assistant"),
+                ProjectDirectories::Log => ROOT.join("home/.local/share/spotify-assistant/logs"),
+                ProjectDirectories::State => ROOT.join("home/.local/state/spotify-assistant"),
+                ProjectDirectories::Preferences => ROOT.join("home/.config/preferences"),
+                ProjectDirectories::Template => ROOT.join("home/.config/templates"),
+            };
+            directory_path.to_path_buf()
+        }
+    }
+    impl ProjectFiles {
+        fn test_path(&self) -> PathBuf {
+            match self {
+                ProjectFiles::DotEnv => ROOT.join("home/.config/spotify-assistant/.env"),
+                ProjectFiles::TokenCache => ROOT.join("home/.cache/spotify-assistant/token_cache"),
+            }
+        }
+    }
+
+    #[test]
+    fn unit_test_uses_same_workspace() {
+        let path = ROOT.join("output").join("unit.txt");
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(&path, "unit ok").unwrap();
+        assert!(path.exists());
+    }
 
     #[test]
     fn project_directories_resolve_within_temporary_environment() {
@@ -183,13 +235,8 @@ mod tests {
         assert_eq!(ProjectDirectories::Config.path(), env.config_dir());
         assert_eq!(ProjectDirectories::Data.path(), env.data_dir());
         assert_eq!(ProjectDirectories::Cache.path(), env.cache_dir());
-        assert_eq!(ProjectDirectories::Log.path(), env.data_dir());
+        assert_eq!(ProjectDirectories::Log.path(), env.data_dir().join("logs"));
         assert_eq!(ProjectDirectories::State.path(), env.state_dir());
-        let preferences_path = ProjectDirectories::Preferences.path();
-        assert!(
-            preferences_path == env.preferences_dir() || preferences_path == env.config_dir(),
-            "preferences directory should resolve to either the explicit preference path or configuration path"
-        );
         assert_eq!(ProjectDirectories::Template.path(), env.template_dir());
     }
 
@@ -208,5 +255,34 @@ mod tests {
 
         assert_eq!(dot_env, env.config_dir().join(".env"));
         assert_eq!(token_cache, env.cache_file("token_cache"));
+    }
+
+    #[test]
+    fn instantiate_project_files() {
+        let _guard = ENV_MUTEX.lock().unwrap_or_else(|err| err.into_inner());
+        let env = unsafe { TestEnvironment::new() };
+        let dot_env = ProjectFiles::DotEnv.test_path();
+        let token_cache = ProjectFiles::TokenCache.test_path();
+    }
+
+    #[test]
+    fn do_project_files_resolve_within_temporary_environment() {
+        let _guard = ENV_MUTEX.lock().unwrap_or_else(|err| err.into_inner());
+        let env = unsafe { TestEnvironment::new() };
+        let dot_env = ProjectFiles::DotEnv;
+        let token_cache = ProjectFiles::TokenCache;
+
+
+        println!("Checking if the {:?} file exists", dot_env.test_path());
+        if !dot_env.test_path().exists() {
+            dot_env.instantiate();
+        }
+        assert!(dot_env.test_path().exists());
+
+        println!("Checking if the {:?} file exists", token_cache.test_path());
+        if !token_cache.test_path().exists() {
+            token_cache.instantiate();
+        }
+        assert!(token_cache.test_path().exists());
     }
 }

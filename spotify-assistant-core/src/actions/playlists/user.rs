@@ -54,7 +54,7 @@ impl UserPlaylists {
     /// - Tracing is utilized for logging purposes to help with debugging and monitoring.
     ///
     /// # Example
-    /// ```rust
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::playlists::user::UserPlaylists;
     /// async fn main() {
     ///     let playlists = UserPlaylists::new().await;
@@ -96,8 +96,7 @@ impl UserPlaylists {
     /// - The playlist retrieval fails for any reason (e.g., network issues or invalid credentials).
     ///
     /// # Example
-    ///
-    /// ```rust
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::playlists::user::UserPlaylists;
     /// async fn main() {
     ///     let playlists = UserPlaylists::new().await;
@@ -145,7 +144,7 @@ impl UserPlaylists {
     /// - Logs error events and their details if playlist ID parsing or playlist retrieval fails.
     ///
     /// # Examples
-    /// ```no_run
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::playlists::user::UserPlaylists;
     /// async fn main() {
     ///     let playlists = UserPlaylists::new().await;
@@ -209,8 +208,7 @@ impl UserPlaylists {
     /// which provides access to current user playlists via `current_user_playlists`.
     ///
     /// # Example Usage
-    ///
-    /// ```rust
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::playlists::user::UserPlaylists;
     /// async fn main() {
     ///     let user_playlists = UserPlaylists::new().await;
@@ -277,8 +275,7 @@ impl UserPlaylists {
     ///   are logged.
     ///
     /// # Example
-    ///
-    /// ```rust
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::playlists::user::UserPlaylists;
     /// async fn main() {
     ///     let user_playlists = UserPlaylists::new().await;

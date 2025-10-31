@@ -24,7 +24,5 @@ term_size.workspace = true
 unicode-normalization.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
-
-[dev-dependencies]
 once_cell.workspace = true
 tempfile.workspace = true
