@@ -19,5 +19,5 @@ once_cell = { version = "1.21.3", optional = true }
 polars = { version = "0.51.0", optional = true }
 
 [features]
-default = []
-data = ["polars", "once_cell"]
+default = ["spotify-assistant-database"]
+data = ["polars", "once_cell", "spotify-assistant-database"]

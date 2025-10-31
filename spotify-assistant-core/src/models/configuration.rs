@@ -29,6 +29,7 @@ pub struct Configuration {
     paths: Paths,
     preferences: Preferences,
     spotify: Spotify,
+    utility: Utility,
 }
 impl Default for Configuration {
     /// Provides the default implementation for the `Configuration` struct by attempting to load it
@@ -327,7 +328,7 @@ pub struct Cli {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Paths {
     files: Files,
-    folders: Folders,
+    directories: Directories,
 }
 impl Paths {
     /// Returns a clone of the `Files` instance associated with the current object.
@@ -352,8 +353,8 @@ impl Paths {
     ///
     /// # Returns
     /// * `Folders` - A cloned copy of the `folders` object contained within the instance.
-    pub fn folders(&self) -> Folders {
-        self.folders.clone()
+    pub fn directories(&self) -> Directories {
+        self.directories.clone()
     }
 }
 
@@ -405,7 +406,7 @@ pub struct Files {
     env: PathBuf,
     blacklist: PathBuf,
     config: PathBuf,
-    top_tracks: PathBuf,
+    constants: PathBuf,
 }
 
 /// The `Folders` struct represents the directory paths used by the application.
@@ -448,7 +449,7 @@ pub struct Files {
 /// println!("{:?}", folders);
 /// ```
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Folders {
+pub struct Directories {
     databases: PathBuf,
     listening_history: PathBuf,
     spotify_account_data: PathBuf,
@@ -474,6 +475,7 @@ pub struct Folders {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Preferences {
     length_of_recently_played: i32,
+    timeout: usize
 }
 
 /// The `Spotify` struct represents a configuration or data structure related to Spotify.
@@ -564,6 +566,11 @@ pub struct ContentIDs {
     custom_release_radar: String,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Utility {
+    log_level: String,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -622,5 +629,8 @@ mod tests {
 
         let result = std::panic::catch_unwind(Configuration::default);
         assert!(result.is_err(), "Malformed TOML should trigger a panic");
+        fs::write(env.config_file("config.toml"), configuration_toml(&env))
+            .expect("failed to write valid configuration fixture");
+
     }
 }

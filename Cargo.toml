@@ -53,10 +53,12 @@ term_size = { version = "1.0.0-beta1" }
 unicode-normalization = { version = "0.1.24" }
 serde_json = { version = "1.0.145" }
 thiserror = { version = "2.0.17" }
+keyring = { version = "3.6.3" }
 
 # internal dependencies
 spotify-assistant-core = { path = "spotify-assistant-core" }
 spotify-assistant-data-request = { path = "spotify-assistant-data-request" }
+spotify-assistant-database = { path = "spotify-assistant-database" }
 spotify-assistant-cli = { path = "spotify-assistant-cli" }
 
 [profile.dev]
@@ -77,3 +79,7 @@ panic = "abort"
 inherits = "release"
 opt-level = "s"
 strip = "debuginfo"
+
+[alias]
+# Run all tests across every crate in the workspace
+test-all = "test --workspace"

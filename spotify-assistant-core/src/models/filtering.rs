@@ -32,7 +32,7 @@ struct Followers {
 }
 
 #[derive(Debug, Deserialize, Clone, Default)]
-struct ExternalUrls {
+pub struct ExternalUrls {
     #[serde(default)] spotify: String
 }
 
@@ -42,6 +42,7 @@ pub fn load_artists_from_json(path: PathBuf) -> anyhow::Result<Vec<ArtistLite>> 
     Ok(artists)
 }
 
+#[allow(dead_code)]
 fn filter_by_query<'a>(artists: &'a [ArtistLite], q: &str) -> Vec<&'a ArtistLite> {
     if q.is_empty() { return artists.iter().collect(); }
     let q = q.to_lowercase();
@@ -51,6 +52,7 @@ fn filter_by_query<'a>(artists: &'a [ArtistLite], q: &str) -> Vec<&'a ArtistLite
 }
 
 // example of difference: keep A \ B by id
+#[allow(dead_code)]
 fn difference_by_id(a: &[ArtistLite], b: &[ArtistLite]) -> Vec<ArtistLite> {
     let b_ids: HashSet<&str> = b.iter().map(|x| x.id.as_str()).collect();
     a.iter().filter(|x| !b_ids.contains(x.id.as_str())).cloned().collect()
