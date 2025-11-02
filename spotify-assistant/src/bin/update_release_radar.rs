@@ -10,5 +10,5 @@ async fn main() {
     let _enter = span.enter();
 
     let my_release_radar = Editor::release_radar().await;
-    my_release_radar.update_playlist().await
+    my_release_radar.update_rr_from_xplorer().await
 }

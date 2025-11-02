@@ -1,5 +1,6 @@
 use crate::enums::duplication::DuplicatePolicy;
 use crate::extractors::artist::{artists_entry_for_album, artists_for_album};
+use crate::models::full_track_fingerprint::FullTrackFingerprint;
 use crate::paginator::PaginatorRunner;
 use crate::traits::apis::Api;
 use rspotify::clients::{BaseClient, OAuthClient};
@@ -611,6 +612,59 @@ impl PlaylistXplr {
         track_ids
     }
 
+    pub async fn full_tracks_expanded(&self) -> Vec<FullTrack> {
+        let span = tracing::span!(Level::INFO, "ExplorePlaylist.full_tracks_expanded");
+        let _enter = span.enter();
+        let track_ids = self.track_ids_expanded().await;
+        let mut full_tracks = Vec::new();
+        for track_chunk in track_ids.chunks(50) {
+            let tracks = self
+                .client
+                .tracks(track_chunk.to_vec(), Some(Self::market()))
+                .await
+                .expect("Couldn't retrieve tracks");
+            full_tracks.push(tracks);
+        }
+        full_tracks.concat()
+    }
+    pub async fn set_tracks_to_expanded(&mut self) {
+        let span = tracing::span!(Level::INFO, "ExplorePlaylist.set_tracks_to_expanded");
+        let _enter = span.enter();
+        let full_tracks = self.full_tracks_expanded().await;
+        self.tracks = full_tracks;
+    }
+    pub fn set_tracks(&mut self, tracks: Vec<FullTrack>) {
+        let span = tracing::span!(Level::INFO, "ExplorePlaylist.set_tracks");
+        let _enter = span.enter();
+        self.tracks = tracks;
+    }
+    pub async fn set_tracks_to_unique_from_expanded(&mut self) {
+        let span = tracing::span!(Level::INFO, "ExplorePlaylist.set_tracks_to_unique");
+        let _enter = span.enter();
+        self.tracks = self.deduplicate_tracks();
+    }
+    pub fn unique_tracks(&mut self) -> Vec<FullTrack> {
+        let span = tracing::span!(Level::INFO, "ExplorePlaylist.unique_tracks");
+        let _enter = span.enter();
+        self.deduplicate_tracks()
+    }
+    fn deduplicate_tracks(&mut self) -> Vec<FullTrack> {
+        let mut track_dup_keys: HashSet<FullTrackFingerprint> = HashSet::new();
+        let mut unique_tracks = Vec::new();
+        let mut dup_counter = 0;
+        for track in &self.tracks {
+            let fingerprint = FullTrackFingerprint::new(track);
+            if track_dup_keys.insert(fingerprint) {
+                unique_tracks.push(track.clone());
+            } else {
+                dup_counter += 1;
+                event!(Level::DEBUG, "Duplicate track found: {:?}", track.name);
+            }
+        }
+        event!(Level::INFO, "{} duplicate tracks skipped", dup_counter);
+        unique_tracks
+    }
+
     /// Asynchronously finds and categorizes the user's liked and not liked songs.
     ///
     /// This function interacts with the Spotify API to determine which songs from the user's
@@ -870,6 +924,19 @@ impl PlaylistXplr {
                 None => panic!("Could not get track id from track"),
             })
             .collect::<Vec<TrackId>>()
+    }
+    pub fn track_fingerprint(&self) -> Vec<FullTrackFingerprint> {
+        let span = tracing::span!(Level::INFO, "ExplorePlaylist.track_ids_original");
+        let _enter = span.enter();
+        event!(
+            Level::INFO,
+            "Retrieving track ids from the playlist. Track count: {:?}",
+            self.tracks().len()
+        );
+        self.tracks()
+            .iter()
+            .map(FullTrackFingerprint::new)
+            .collect::<Vec<FullTrackFingerprint>>()
     }
     pub fn playable_ids(&self) -> Vec<PlayableId<'_>> {
         let span = tracing::span!(Level::INFO, "ExplorePlaylist.playable_ids");
