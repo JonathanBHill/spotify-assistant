@@ -13,6 +13,7 @@ tokio.workspace = true
 pbr.workspace = true
 spotify-assistant-core.workspace = true
 spotify-assistant-cli.workspace = true
+serde_json.workspace = true
 
 spotify-assistant-database = { path = "../spotify-assistant-database", features = ["alldb"], optional = true }
 once_cell = { version = "1.21.3", optional = true }
