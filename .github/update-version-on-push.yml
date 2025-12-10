@@ -1,0 +1,83 @@
+name: Update Cargo version from commit
+
+on:
+  push:
+    branches:
+      - main
+      - master
+
+permissions:
+  contents: write
+
+jobs:
+  update-version:
+    runs-on: ubuntu-latest
+
+    if: >
+      github.event.head_commit.message != 'chore: update Cargo.toml version from commit message'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-edit
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-edit
+
+      - name: Extract version from commit message
+        id: version
+        run: |
+          # Extract the full commit title
+          commit_body=$(git log -1 --pretty=%B)
+          echo "Full commit body:"
+          echo "$commit_body"
+          
+          first_line=$(printf "%s" "$commit_body" | head -n 1)
+          echo "Commit version: $first_line"
+
+          # Semver regex:
+          # 1.2.3
+          # 1.2.3-alpha
+          # 1.2.3-alpha.1
+          # 1.2.3+build.10
+          # 1.2.3-alpha.1+build.5
+          semver_regex='^Version: ([0-9]+\.[0-9]+\.[0-9]+([-.][A-Za-z0-9\.]+)?)$'
+
+          if [[ "$first_line" =~ $semver_regex ]]; then
+            version="${BASH_REMATCH[1]}"
+            echo "Detected version: $version"
+            echo "VERSION=$version" >> $GITHUB_ENV
+          else
+            echo "No valid semver version found. Skipping."
+            echo "SKIP_VERSION=1" >> $GITHUB_ENV
+          fi
+
+      - name: Update Cargo.toml version
+        if: env.SKIP_VERSION != '1'
+        run: |
+          echo "Setting Cargo.toml version to $VERSION"
+          cargo set-version "$VERSION"
+
+      - name: Commit and push changes
+        if: env.SKIP_VERSION != '1'
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+          # Stage updated files
+          git add Cargo.toml Cargo.lock
+
+          # Check whether anything is staged
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+
+          git commit -m "chore: update Cargo.toml version from commit message"
+          git push
