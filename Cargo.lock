@@ -4665,7 +4665,7 @@ checksum = "6980e8d7511241f8acf4aebddbb1ff938df5eebe98691418c4468d0b72a96a67"
 
 [[package]]
 name = "spotify-assistant"
-version = "0.3.28"
+version = "0.3.29"
 dependencies = [
  "chrono",
  "dotenv",
@@ -4683,11 +4683,11 @@ dependencies = [
 
 [[package]]
 name = "spotify-assistant-ai"
-version = "0.3.28"
+version = "0.3.29"
 
 [[package]]
 name = "spotify-assistant-cli"
-version = "0.3.28"
+version = "0.3.29"
 dependencies = [
  "anyhow",
  "clap",
@@ -4701,7 +4701,7 @@ dependencies = [
 
 [[package]]
 name = "spotify-assistant-core"
-version = "0.3.28"
+version = "0.3.29"
 dependencies = [
  "ansi_term",
  "anyhow",
@@ -4730,7 +4730,7 @@ dependencies = [
 
 [[package]]
 name = "spotify-assistant-data-request"
-version = "0.3.28"
+version = "0.3.29"
 dependencies = [
  "polars",
  "spotify-assistant-core",
@@ -4739,7 +4739,7 @@ dependencies = [
 
 [[package]]
 name = "spotify-assistant-database"
-version = "0.3.28"
+version = "0.3.29"
 dependencies = [
  "chrono",
  "dotenv",
@@ -4757,7 +4757,7 @@ dependencies = [
 
 [[package]]
 name = "spotify-assistant-tui"
-version = "0.3.28"
+version = "0.3.29"
 
 [[package]]
 name = "sqlparser"
