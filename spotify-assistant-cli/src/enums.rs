@@ -228,6 +228,7 @@ pub enum ConfigArgs {
     Unset(String),
     Shell(ShellType),
     Blacklist(ArgMatches),
+    Unfollowed(String),
     Empty,
 }
 impl ConfigArgs {
@@ -242,6 +243,8 @@ impl ConfigArgs {
             ConfigArgs::Shell(shell_value.clone())
         } else if let Some(blacklist_argument) = matches.subcommand_matches("blacklist") {
             ConfigArgs::Blacklist(blacklist_argument.to_owned())
+        } else if let Some(unfollowed_argument) = matches.get_one::<String>("cnofollow") {
+            ConfigArgs::Unfollowed(unfollowed_argument.to_owned())
         } else {
             ConfigArgs::Empty
         }

@@ -1,19 +1,23 @@
 [package]
 name = "spotify-assistant"
-version = "0.1.0"
-resolver = "2"
-edition = "2021"
+version.workspace = true
+edition.workspace = true
+description = "Contains the spotify assistant utility's executable files"
 
 [dependencies]
-rspotify = { version = "0.14.0", default-features = false, features = ["async-stream", "cli", "client-reqwest", "reqwest-default-tls", "env-file"] }
-tokio = { version = "1.41.0", features = ["full"] }
-tracing = "0.1.40"
-tracing-subscriber = { version = "0.3.18", features = ["env-filter", "json", "default", "local-time", "chrono"] }
-spotify-assistant-core = { path = "../spotify-assistant-core" }
+tracing.workspace = true
+rspotify.workspace = true
+dotenv.workspace = true
+chrono.workspace = true
+tokio.workspace = true
+pbr.workspace = true
+spotify-assistant-core.workspace = true
+spotify-assistant-cli.workspace = true
+
 spotify-assistant-database = { path = "../spotify-assistant-database", features = ["alldb"], optional = true }
-spotify-assistant-data-request = { path = "../spotify-assistant-data-request" }
-dotenv = "0.15.0"
-pbr = "1.1.1"
-polars = { version = "0.45.1", optional = true }
-chrono = "0.4.38"
-spotify-assistant-cli = { path = "../spotify-assistant-cli" }
+once_cell = { version = "1.21.3", optional = true }
+polars = { version = "0.51.0", optional = true }
+
+[features]
+default = ["spotify-assistant-database"]
+data = ["polars", "once_cell", "spotify-assistant-database"]

@@ -5,16 +5,23 @@ use clap::builder::{styling, BoolValueParser, BoolishValueParser, Styles, TypedV
 use clap::{arg, value_parser, Arg, ArgAction, ArgGroup, ArgMatches, ColorChoice, Command};
 use clap_complete::{generate, Shell};
 use futures::{stream, StreamExt};
-use rspotify::model::PlaylistId;
+use rspotify::model::{ArtistId, PlaylistId};
+use rspotify::prelude::OAuthClient;
+use rspotify::scopes;
 use tracing::{event, span, Level};
 
+use crate::commands::followed_artists::cmd_find_artists;
+use crate::enums::{BlacklistArgs, ConfigArgs, QueryArgs, ReleaseRadarArgs, ReleaseRadarCmds, ShellType};
 use spotify_assistant_core::actions::exploration::playlist::PlaylistXplr;
 use spotify_assistant_core::actions::general::FullProfiles;
-use spotify_assistant_core::actions::playlists::user::{LikedSongs, UserPlaylists};
+use spotify_assistant_core::actions::liked_songs::UserLibrary;
+use spotify_assistant_core::actions::playlists::query::PlaylistQuery;
+use spotify_assistant_core::actions::playlists::user::UserPlaylists;
 use spotify_assistant_core::actions::update::Editor;
+use spotify_assistant_core::actions::user::UserData;
+use spotify_assistant_core::enums::fs::ProjectDirectories;
 use spotify_assistant_core::models::blacklist::{Blacklist, BlacklistArtist};
-
-use crate::enums::{BlacklistArgs, ConfigArgs, QueryArgs, ReleaseRadarArgs, ReleaseRadarCmds, ShellType};
+use spotify_assistant_core::traits::apis::Api;
 
 /// Generates auto-complete scripts for different shell types.
 ///
@@ -236,6 +243,30 @@ impl TerminalApp {
                     Err(err) => Err(err)
                 }
             }
+            ConfigArgs::Unfollowed(playlist_name) => {
+                let filename = format!("playlist-artists/{playlist_name}_artists_not_followed-10-20-2025.json");
+                event!(Level::DEBUG, "Filename: {:?}", filename);
+                let file_path = ProjectDirectories::Data.path().join(filename);
+                let selected_artists = cmd_find_artists(file_path)?;
+                let scope = scopes!(
+                    "user-follow-modify"
+                );
+                let client = PlaylistQuery::set_up_client(false, Some(scope)).await;
+                let artist_ids: Vec<ArtistId> = selected_artists.into_iter().filter_map(|artist| match ArtistId::from_id(artist.id().to_string()) {
+                    Ok(id) => Some(id),
+                    Err(_) => {
+                        let id_str = artist.id();
+                        event!(Level::ERROR, %id_str, "Could not instantiate an ArtistID object for {}", artist.name());
+                        None
+                    }
+                }).collect();
+                event!(Level::DEBUG, "About to add {} Artist IDs: {:?}", artist_ids.len(), artist_ids);
+                client.user_follow_artists(artist_ids).await.expect("Couldn't add all artists");
+                let user_data = UserData::new().await;
+                user_data.update_followed_artists().await;
+
+                Ok(())
+            }
             ConfigArgs::Empty => {
                 println!("No config subcommand");
                 Ok(())
@@ -268,7 +299,7 @@ impl TerminalApp {
             BlacklistArgs::AddFromPlaylist(playlist) => {
                 let normalized_input = playlist.clone().trim().to_lowercase();
                 let user_playlists = UserPlaylists::new().await;
-                let playlist_names_and_ids = user_playlists.get_user_playlists().await;
+                let playlist_names_and_ids = user_playlists.get_user_playlist_ids_as_hashmap().await;
                 let playlist_id = match playlist_names_and_ids.iter()
                                                               .find_map(|(name, id)| {
                                                                   event!(Level::DEBUG, "Testing input as name: {:?}", &playlist);
@@ -442,9 +473,8 @@ impl TerminalApp {
             }
             QueryArgs::QLibrary(playlists) => {
                 event!(Level::TRACE, "Querying user playlists: {:?}", playlists);
-                let liked = LikedSongs::new().await;
-                let library = liked.library().await;
-                println!("Library: {:?}", library.len());
+                let liked = UserLibrary::new().await;
+                println!("Library: {:?}", liked.total_tracks());
                 Ok(())
             }
             QueryArgs::Empty => {
@@ -493,6 +523,13 @@ impl TerminalApp {
                     .value_name("SHELL")
                     .value_parser(value_parser!(ShellType))
                     .help("The shell to generate the script for"),
+            )
+            .arg(
+                Arg::new("cnofollow")
+                    .short('f')
+                    .long("not-followed")
+                    .value_name("PLAYLIST-NAME")
+                    .help("Generate a list of artists from the selected playlist that are not currently being followed by the user"),
             )
             .subcommand(
                 Command::new("blacklist")

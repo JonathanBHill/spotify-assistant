@@ -97,7 +97,7 @@ impl ProjectFiles {
     /// use spotify_assistant_core::utilities::filesystem::files::ProjectFiles;
     ///
     /// let instance = ProjectFiles::default();
-    /// let paths = instance.spotify_historical_data()?;
+    /// let paths = instance.spotify_historical_data().unwrap();
     /// for path in paths {
     ///     println!("{:?}", path);
     /// }

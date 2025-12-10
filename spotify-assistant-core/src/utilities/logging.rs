@@ -1,10 +1,31 @@
-use ansi_term::Color;
-use tracing::Level;
+use ansi_term::{ANSIGenericString, Color};
+use tracing::{Level, Metadata};
+use tracing_subscriber::fmt::format::Writer;
 use tracing_subscriber::fmt::time::{ChronoLocal, FormatTime};
-use tracing_subscriber::fmt::{
-    format::Writer, FmtContext, FormatEvent, FormatFields, FormattedFields,
-};
+use tracing_subscriber::fmt::{FmtContext, FormatEvent, FormatFields, FormattedFields};
 use tracing_subscriber::registry::LookupSpan;
+use tracing_subscriber::FmtSubscriber;
+
+pub fn init_tracing() {
+    #[cfg(debug_assertions)]
+    {
+        let subscriber = FmtSubscriber::builder()
+            .event_format(CustomFormatter)
+            .with_max_level(Level::TRACE)
+            .finish();
+        tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
+    }
+
+    #[cfg(not(debug_assertions))]
+    {
+        let subscriber = FmtSubscriber::builder()
+            .event_format(CustomFormatter)
+            .with_max_level(Level::INFO)
+            .finish();
+        tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
+    }
+    tracing::trace!("Subscriber built");
+}
 
 /// A custom formatter struct used for formatting purposes.
 ///
@@ -33,10 +54,33 @@ use tracing_subscriber::registry::LookupSpan;
 #[cfg(not(tarpaulin_include))]
 pub struct CustomFormatter;
 
+impl CustomFormatter {
+    fn log_colors(&self, meta: &Metadata) -> ANSIGenericString<'_, str> {
+        match *meta.level() {
+            Level::INFO => Color::Green.paint("INFO"),
+            Level::WARN => Color::Yellow.paint("WARN"),
+            Level::ERROR => Color::Red.paint("ERROR"),
+            Level::DEBUG => Color::Blue.paint("DEBUG"),
+            Level::TRACE => Color::White.paint("TRACE"),
+        }
+    }
+    fn filename(&self, meta: &Metadata) -> String {
+        let file = meta.file().unwrap_or("?");
+        file.split('/').last().unwrap_or("?").to_string()
+    }
+    fn line_color(&self, meta: &Metadata) -> String {
+        let line_str = meta
+            .line()
+            .map(|l| l.to_string())
+            .unwrap_or_else(|| "?".to_string());
+        Color::Purple.bold().paint(&line_str).to_string()
+    }
+}
+
 impl<S, N> FormatEvent<S, N> for CustomFormatter
-    where
-        S: tracing::Subscriber + for<'a> LookupSpan<'a>,
-        N: for<'a> FormatFields<'a> + 'static,
+where
+    S: tracing::Subscriber + for<'a> LookupSpan<'a>,
+    N: for<'a> FormatFields<'a> + 'static,
 {
     /// Formats a `tracing::Event` for logging output with custom formatting, including
     /// time, log level, module path, and optional span field data styling.
@@ -77,7 +121,7 @@ impl<S, N> FormatEvent<S, N> for CustomFormatter
     /// # Example
     /// ```rust
     /// // Hypothetical usage within a logger configuration.
-    /// use crate::spotify_assistant_core::utilities::configurations::CustomFormatter;
+    /// use crate::spotify_assistant_core::utilities::logging::CustomFormatter;
     /// let formatter = CustomFormatter;
     /// tracing_subscriber::fmt()
     ///     .event_format(formatter)
@@ -91,52 +135,35 @@ impl<S, N> FormatEvent<S, N> for CustomFormatter
         event: &tracing::Event<'_>,
     ) -> std::fmt::Result {
         let meta = event.metadata();
-        // let level = meta.level();
-        let line = meta.line().unwrap_or_default();
+        let filename = self.filename(meta);
+        let event_code_line_color = self.line_color(meta);
         let time = ChronoLocal::new("%H:%M:%S%.3f".to_string());
         let module_path_color = Color::Purple.paint(meta.target());
-        let event_code_line_color = Color::Purple.bold().paint(line.to_string()).to_string();
-        let log_type_color = match *meta.level() {
-            Level::INFO => Color::Green.paint("INFO"),
-            Level::WARN => Color::Yellow.paint("WARN"),
-            Level::ERROR => Color::Red.paint("ERROR"),
-            Level::DEBUG => Color::Blue.paint("DEBUG"),
-            Level::TRACE => Color::White.paint("TRACE"),
-        };
+        let log_type_color = self.log_colors(meta);
 
         time.format_time(&mut writer.by_ref())?;
         write!(
             writer,
-            " [{}] {}.{} | ",
-            log_type_color, module_path_color, event_code_line_color
+            " [{}] {}[{}:{}] | ",
+            log_type_color, module_path_color, filename, event_code_line_color
         )?;
 
         // Retrieve and format the span's fields (if any)
         if let Some(scope) = ctx.event_scope() {
-            let len = ctx.event_scope().unwrap().from_root().count();
-            for (index, span) in scope.from_root().enumerate() {
-                // Colorize the span name
-                let fmt_span = Color::RGB(0, 220, 0)
-                    .bold()
-                    .paint(span.name().to_string())
-                    .to_string();
-                let fmt_arrow = Color::RGB(246, 115, 60)
-                    .bold()
-                    .blink()
-                    .paint("->")
-                    .to_string();
-                // Write span name
-                if index == len - 1 {
-                    write!(writer, "{}: ", fmt_span)?;
-                } else {
+            let mut iter = scope.from_root().peekable();
+            while let Some(span) = iter.next() {
+                let fmt_span = Color::RGB(0, 220, 0).bold().paint(span.name()).to_string();
+                let fmt_arrow = Color::RGB(246, 115, 60).bold().paint("->").to_string();
+
+                if iter.peek().is_some() {
                     write!(writer, "{}{}", fmt_span, fmt_arrow)?;
+                } else {
+                    write!(writer, "{}: ", fmt_span)?;
                 }
 
-                // Get the formatted fields from the span
                 let extensions = span.extensions();
                 if let Some(fields) = extensions.get::<FormattedFields<N>>() {
                     if !fields.is_empty() {
-                        // Colorize the value field from the span
                         let value_color = Color::Cyan.italic().paint(fields.to_string());
                         write!(writer, "{{{}}} ", value_color)?;
                     }

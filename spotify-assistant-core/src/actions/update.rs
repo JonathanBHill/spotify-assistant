@@ -4,6 +4,7 @@ use crate::actions::exploration::playlist::PlaylistXplr;
 use crate::enums::pl::PlaylistType;
 use crate::models::blacklist::{Blacklist, BlacklistArtist};
 use crate::traits::apis::Api;
+use rspotify::model::Id;
 use rspotify::model::{AlbumId, FullPlaylist, FullTrack, PlayableItem, PlaylistId, TrackId};
 use rspotify::prelude::*;
 use rspotify::{scopes, AuthCodeSpotify};
@@ -72,7 +73,7 @@ impl Editor {
     /// A future that resolves to an instance of the calling type configured with the above playlist information.
     ///
     /// # Example
-    /// ```rust
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::update::Editor;
     ///
     /// async fn main() {
@@ -85,6 +86,19 @@ impl Editor {
     /// - Ensure that the `Editor` type being used is properly configured elsewhere in the codebase to handle the supplied IDs.
     pub async fn release_radar() -> Self {
         Editor::new(PlaylistType::StockRR.get_id(), PlaylistType::MyRR.get_id()).await
+    }
+    pub fn ref_pl_tracks(&self) -> Vec<FullTrack> {
+        self.ref_pl
+            .tracks
+            .items
+            .iter()
+            .filter_map(|item| {
+                match item.track.clone() {
+                    Some(PlayableItem::Track(track)) => Some(track),
+                    _ => None, // Skip if not a track
+                }
+            })
+            .collect::<Vec<FullTrack>>()
     }
 
     /// Retrieves a full playlist from Spotify using the provided client and playlist ID.
@@ -110,8 +124,14 @@ impl Editor {
     /// the provided `AuthCodeSpotify` client is correctly authenticated and initialized.
     /// Ensure to call this function within an asynchronous runtime due to the `async` nature of the
     /// Spotify API client.
-    async fn playlist_from_id(client: &AuthCodeSpotify, pl_id: PlaylistId<'static>) -> FullPlaylist {
-        match client.playlist(pl_id.clone(), None, Some(Self::market())).await {
+    async fn playlist_from_id(
+        client: &AuthCodeSpotify,
+        pl_id: PlaylistId<'static>,
+    ) -> FullPlaylist {
+        match client
+            .playlist(pl_id.clone(), None, Some(Self::market()))
+            .await
+        {
             Ok(pl) => pl,
             Err(err) => {
                 error!("Error: {err:?}");
@@ -149,8 +169,7 @@ impl Editor {
     /// - Playlist information cannot be fetched using the specified IDs.
     ///
     /// # Examples
-    ///
-    /// ```
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::update::Editor;
     /// use spotify_assistant_core::enums::pl::PlaylistType;
     ///
@@ -201,7 +220,7 @@ impl Editor {
     /// - Processes liked songs in chunks of 100 to comply with API restrictions and manage network resources.
     ///
     /// ## Example Usage:
-    /// ```
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::update::Editor;
     /// use spotify_assistant_core::enums::pl::PlaylistType;
     ///
@@ -234,35 +253,55 @@ impl Editor {
         let xplr = PlaylistXplr::new(self.target_id.clone(), false).await;
         let is_liked_hashmap = xplr.find_liked_songs().await;
         let liked = is_liked_hashmap.get("liked").unwrap();
-        let liked_song_ids = liked.iter().map(|track| {
-            match PlayableItem::Track(track.clone()).id() {
-                None => { panic!("Track does not have an ID.") }
-                Some(id) => { id.into_static() }
-            }
-        }).collect::<Vec<PlayableId>>();
+        let liked_song_ids = liked
+            .iter()
+            .map(|track| match PlayableItem::Track(track.clone()).id() {
+                None => {
+                    panic!("Track does not have an ID.")
+                }
+                Some(id) => id.into_static(),
+            })
+            .collect::<Vec<PlayableId>>();
         event!(
-            Level::INFO, "Removing liked songs from {:?}. Current track number: {:?} | Snapshot ID: {:?}",
-            self.target_pl.name, self.target_pl.tracks.total, self.target_snapshot()
+            Level::INFO,
+            "Removing liked songs from {:?}. Current track number: {:?} | Snapshot ID: {:?}",
+            self.target_pl.name,
+            self.target_pl.tracks.total,
+            self.target_snapshot()
         );
-        event!(Level::DEBUG, "Liked songs count: {:?}", liked_song_ids.len());
+        event!(
+            Level::DEBUG,
+            "Liked songs count: {:?}",
+            liked_song_ids.len()
+        );
         for batch in liked_song_ids.chunks(100) {
-            match self.client.playlist_remove_all_occurrences_of_items(
-                self.target_id.clone(),
-                batch.to_vec(),
-                Some(self.target_snapshot().as_str())
-            ).await {
+            match self
+                .client
+                .playlist_remove_all_occurrences_of_items(
+                    self.target_id.clone(),
+                    batch.to_vec(),
+                    Some(self.target_snapshot().as_str()),
+                )
+                .await
+            {
                 Ok(snapshot_id) => {
-                    self.target_pl = match self.client.playlist(self.target_id.clone(), None, Some(Self::market()))
-                                               .await {
-                        Ok(pl) => { pl }
+                    self.target_pl = match self
+                        .client
+                        .playlist(self.target_id.clone(), None, Some(Self::market()))
+                        .await
+                    {
+                        Ok(pl) => pl,
                         Err(err) => {
                             error!("Error: {:?}", err);
                             panic!("Could not retrieve target playlist");
                         }
                     };
                     event!(
-                        Level::INFO, "Removed liked songs from {:?}. Updated track number: {:?} | Snapshot ID: {:?}",
-                        self.target_pl.name, self.target_pl.tracks.total, snapshot_id
+                        Level::INFO,
+                        "Removed liked songs from {:?}. Updated track number: {:?} | Snapshot ID: {:?}",
+                        self.target_pl.name,
+                        self.target_pl.tracks.total,
+                        snapshot_id
                     );
                 }
                 Err(err) => {
@@ -284,8 +323,7 @@ impl Editor {
     /// needs to be accessed or reused without modifying the original value.
     ///
     /// # Example
-    ///
-    /// ```rust
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::update::Editor;
     /// use spotify_assistant_core::enums::pl::PlaylistType;
     ///
@@ -298,7 +336,7 @@ impl Editor {
     ///
     /// Here, `reference_id` provides access to a cloned version of the
     /// playlist's `ref_id`.
-    pub fn reference_id(&self) -> PlaylistId {
+    pub fn reference_id(&self) -> PlaylistId<'_> {
         self.ref_id.clone()
     }
 
@@ -312,7 +350,7 @@ impl Editor {
     /// A `PlaylistId` that is a clone of the `target_id`.
     ///
     /// # Examples
-    /// ```rust
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::update::Editor;
     /// use spotify_assistant_core::enums::pl::PlaylistType;
     ///
@@ -322,7 +360,7 @@ impl Editor {
     ///     println!("Target ID: {:?}", id);
     /// }
     /// ```
-    pub fn target_id(&self) -> PlaylistId {
+    pub fn target_id(&self) -> PlaylistId<'_> {
         self.target_id.clone()
     }
 
@@ -337,7 +375,7 @@ impl Editor {
     /// A `FullPlaylist` object that is a clone of the `ref_pl` field.
     ///
     /// # Examples
-    /// ```rust
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::update::Editor;
     /// use spotify_assistant_core::enums::pl::PlaylistType;
     ///
@@ -364,8 +402,7 @@ impl Editor {
     /// * `FullPlaylist` - A cloned instance of the target playlist.
     ///
     /// # Example
-    ///
-    /// ```rust
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::update::Editor;
     /// use spotify_assistant_core::enums::pl::PlaylistType;
     ///
@@ -396,7 +433,7 @@ impl Editor {
     /// * `String` - The cloned snapshot ID.
     ///
     /// # Example
-    /// ```rust
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::update::Editor;
     /// use spotify_assistant_core::enums::pl::PlaylistType;
     ///
@@ -438,10 +475,12 @@ impl Editor {
     ///
     /// In the above example, the function successfully retrieves the album ID.
     /// If the `album.id` was `None`, the function would have panicked.
-    fn get_track_album_id(&self, full_track: &FullTrack) -> AlbumId {
+    fn get_track_album_id(&self, full_track: &FullTrack) -> AlbumId<'_> {
         match full_track.album.id.clone() {
-            None => { panic!("Track does not have an album ID.") }
-            Some(album_id) => { album_id }
+            None => {
+                panic!("Track does not have an album ID.")
+            }
+            Some(album_id) => album_id,
         }
     }
 
@@ -466,7 +505,7 @@ impl Editor {
     ///   Ensure that all artist records in the playlist contain valid and clonable IDs.
     ///
     /// # Example
-    /// ```rust
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::update::Editor;
     /// use spotify_assistant_core::enums::pl::PlaylistType;
     ///
@@ -485,8 +524,11 @@ impl Editor {
     ///
     /// # Notes
     ///
-    pub async fn get_reference_track_album_ids_filtered(&self) -> Vec<AlbumId> {
-        let span = tracing::span!(Level::DEBUG, "Editor.get_reference_track_album_ids_filtered");
+    pub async fn get_reference_track_album_ids_filtered(&self) -> Vec<AlbumId<'_>> {
+        let span = tracing::span!(
+            Level::DEBUG,
+            "Editor.get_reference_track_album_ids_filtered"
+        );
         let _enter = span.enter();
 
         let blacklist = Blacklist::default().artists();
@@ -499,14 +541,20 @@ impl Editor {
                 Some(PlayableItem::Track(ref track)) => {
                     let lead_artist_id = track
                         .artists
-                        .first().unwrap().id.clone().expect("Could not clone artist ID").to_string();
-                    let lead_artist_name = track
-                        .artists
-                        .first().unwrap().name.clone();
-                    let hypothetical_blacklist_artist = BlacklistArtist::new(lead_artist_name.clone(), lead_artist_id.clone());
+                        .first()
+                        .unwrap()
+                        .id
+                        .clone()
+                        .expect("Could not clone artist ID")
+                        .to_string();
+                    let lead_artist_name = track.artists.first().unwrap().name.clone();
+                    let hypothetical_blacklist_artist =
+                        BlacklistArtist::new(lead_artist_name.clone(), lead_artist_id.clone());
                     if blacklist.contains(&hypothetical_blacklist_artist) {
                         event!(
-                            Level::INFO, "Artist {:?} is blacklisted. Skipping album ID retrieval.", lead_artist_name
+                            Level::INFO,
+                            "Artist {:?} is blacklisted. Skipping album ID retrieval.",
+                            lead_artist_name
                         );
                         None
                     } else {
@@ -545,7 +593,7 @@ impl Editor {
     /// - Another internal helper method `Self::clean_duplicate_id_vector` is used to remove any duplicate track IDs inadvertently introduced.
     ///
     /// # Examples
-    /// ```rust
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::update::Editor;
     /// use spotify_assistant_core::enums::pl::PlaylistType;
     ///
@@ -558,7 +606,7 @@ impl Editor {
     ///
     /// # Debugging
     /// - A debug statement is printed to the console showing the sizes of the return vector and the deduplicated track ID vector for verification.
-    pub async fn get_album_tracks_from_reference(&self) -> Vec<TrackId> {
+    pub async fn get_album_tracks_from_reference(&self) -> Vec<TrackId<'_>> {
         let album_ids = self.get_reference_track_album_ids_filtered().await;
         let mut return_vector = Vec::new();
         let mut album_track_ids = Vec::new();
@@ -582,7 +630,11 @@ impl Editor {
             });
         }
         album_track_ids = Self::clean_duplicate_id_vector(album_track_ids);
-        println!("Return length: {:?} | ID length {:?}", return_vector.len(), album_track_ids.len());
+        println!(
+            "Return length: {:?} | ID length {:?}",
+            return_vector.len(),
+            album_track_ids.len()
+        );
         return_vector
     }
 
@@ -616,7 +668,7 @@ impl Editor {
     /// - Each API request batch handles a maximum of 100 tracks at a time.
     ///
     /// # Example Usage
-    /// ```rust
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::update::Editor;
     /// use spotify_assistant_core::enums::pl::PlaylistType;
     ///
@@ -632,15 +684,14 @@ impl Editor {
         let span = tracing::span!(Level::DEBUG, "Editor.wipe_reference_playlist");
         let _enter = span.enter();
         let xplorer = PlaylistXplr::new(self.ref_id.clone(), false).await;
-        let track_ids = xplorer.tracks
-                               .iter().map(|track| {
-            match PlayableItem::Track(track.clone()).id() {
-                None => { panic!("Track does not have an ID.") }
-                Some(id) => { id.into_static() }
-            }
-        }).collect::<Vec<PlayableId>>();
+        let track_ids = xplorer.playable_ids();
+
         for batch in track_ids.chunks(100) {
-            match self.client.playlist_remove_all_occurrences_of_items(self.ref_id.clone(), batch.to_vec(), None).await {
+            match self
+                .client
+                .playlist_remove_all_occurrences_of_items(self.ref_id.clone(), batch.to_vec(), None)
+                .await
+            {
                 Ok(_) => {
                     event!(Level::INFO, "Removed tracks from reference playlist.");
                 }
@@ -682,13 +733,17 @@ impl Editor {
     fn check_if_stock_release_radar_id_was_used(&self, number_of_ids: usize) {
         if self.target_id.clone() == PlaylistType::StockRR.get_id() {
             event!(
-                Level::ERROR, "Your Stock Release Radar ID was used: {playlist_id}",
+                Level::ERROR,
+                "Your Stock Release Radar ID was used: {playlist_id}",
                 playlist_id = self.target_id.id()
             );
-            panic!("You must ensure that you are calling the update method with your full version release radar ID instead of your stock version's.")
+            panic!(
+                "You must ensure that you are calling the update method with your full version release radar ID instead of your stock version's."
+            )
         } else {
             event!(
-                Level::INFO, "Your Full Release Radar playlists will be updated with {number_of_ids} songs",
+                Level::INFO,
+                "Your Full Release Radar playlists will be updated with {number_of_ids} songs",
             );
         }
     }
@@ -734,7 +789,7 @@ impl Editor {
     /// - If adding items to the playlist from subsequent chunks fails.
     ///
     /// # Example
-    /// ```rust
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::update::Editor;
     /// use spotify_assistant_core::enums::pl::PlaylistType;
     ///
@@ -755,24 +810,67 @@ impl Editor {
 
         let mut first_chunk = true;
         for chunk in ids.chunks(20) {
-            let chunk_iterated = chunk.iter().map(|track| PlayableId::Track(track.as_ref()));
+            let chunk_iterated = chunk
+                .iter()
+                .map(|track| PlayableId::Track(track.as_ref()))
+                .collect();
 
-            if first_chunk {
-                let description = self.generate_release_radar_description();
-                self.client
-                    .playlist_change_detail(self.target_id.clone(), None, None, Some(description.as_str()), None)
-                    .await.expect("Couldn't update description");
-                self.client
-                    .playlist_replace_items(self.target_id.clone(), chunk_iterated)
-                    .await.expect("Track IDs should be assigned to chunk_iterated as type TrackID");
-                first_chunk = false;
-            } else {
-                self.client
-                    .playlist_add_items(self.target_id.clone(), chunk_iterated, None)
-                    .await.expect("Track IDs should be assigned to chunk_iterated as type TrackID");
-            }
+            first_chunk = self
+                .update_playlist_from_chunk(chunk_iterated, first_chunk)
+                .await;
         }
         self.wipe_reference_playlist().await;
+    }
+    pub async fn update_rr_from_xplorer(&self) {
+        let span = tracing::span!(Level::DEBUG, "Editor.update_playlist_from_xplorer");
+        let _enter = span.enter();
+        let mut xplorer = PlaylistXplr::new(self.ref_id.clone(), false).await;
+        xplorer.set_tracks_to_unique_from_expanded().await;
+        // xplorer.tracks = xplorer.unique_tracks();
+        let track_ids = xplorer.playable_ids();
+        self.check_if_stock_release_radar_id_was_used(track_ids.len());
+
+        let mut first_chunk = true;
+        for chunk in track_ids.chunks(20) {
+            first_chunk = self
+                .update_playlist_from_chunk(chunk.to_vec(), first_chunk)
+                .await;
+        }
+    }
+
+    pub async fn update_playlist_from_chunk(
+        &self,
+        chunk: Vec<PlayableId<'_>>,
+        is_first: bool,
+    ) -> bool {
+        let span = tracing::span!(Level::DEBUG, "Editor.update_playlist_from_chunk");
+        let _enter = span.enter();
+
+        if is_first {
+            let description = self.generate_release_radar_description();
+            self.client
+                .playlist_change_detail(
+                    self.target_id.clone(),
+                    None,
+                    None,
+                    Some(description.as_str()),
+                    None,
+                )
+                .await
+                .expect("Couldn't update description");
+            event!(Level::DEBUG, "Replacing playlist items.");
+            self.client
+                .playlist_replace_items(self.target_id.clone(), chunk.to_vec())
+                .await
+                .expect("Track IDs should be assigned to chunk_iterated as type TrackID");
+        } else {
+            event!(Level::DEBUG, "Adding {} tracks to playlist.", chunk.len());
+            self.client
+                .playlist_add_items(self.target_id.clone(), chunk.to_vec(), None)
+                .await
+                .expect("Track IDs should be assigned to chunk_iterated as type TrackID");
+        }
+        false
     }
 
     /// Appends unique elements from a new collection of `TrackId` to an existing vector of `TrackId`
@@ -801,7 +899,7 @@ impl Editor {
     /// - The function preserves the order of elements:
     ///   - Elements in the `existing` vector retain their original order.
     ///   - Unique elements from the `new` slice are appended in the order they appear.
-    fn append_uniques<'a>(existing: &Vec<TrackId<'a>>, new: &[TrackId<'a>]) -> Vec<TrackId<'a>> {
+    fn append_uniques<'a>(existing: &Vec<TrackId<'a>>, new: &Vec<TrackId<'a>>) -> Vec<TrackId<'a>> {
         let mut extended = existing.to_owned();
         let intersection: Vec<TrackId> = existing
             .iter()

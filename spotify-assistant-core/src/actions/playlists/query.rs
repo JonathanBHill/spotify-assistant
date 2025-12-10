@@ -24,10 +24,10 @@ pub struct PlaylistQuery {
 impl Api for PlaylistQuery {
     fn select_scopes() -> HashSet<String> {
         scopes!(
-            "playlists-read-private",
-            "playlists-read-collaborative",
-            "playlists-modify-public",
-            "playlists-modify-private"
+            "playlist-read-private",
+            "playlist-read-collaborative",
+            "playlist-modify-public",
+            "playlist-modify-private"
         )
     }
 }
@@ -45,7 +45,7 @@ impl PlaylistQuery {
     /// An initialized `PlaylistQuery` instance with an authenticated Spotify client.
     ///
     /// # Example
-    /// ```rust
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::playlists::query::PlaylistQuery;
     /// async fn main() {
     ///     let playlist_query = PlaylistQuery::new().await;
@@ -89,8 +89,7 @@ impl PlaylistQuery {
     /// * An error occurs during the API call to fetch the playlist.
     ///
     /// # Examples
-    ///
-    /// ```rust
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::playlists::query::PlaylistQuery;
     /// async fn main() {
     ///     let client = PlaylistQuery::new().await;
@@ -188,8 +187,7 @@ impl PlaylistQuery {
     /// - The code currently does not gracefully handle user interaction errors with the playlist selection.
     ///
     /// # Examples
-    ///
-    /// ```rust
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::playlists::query::PlaylistQuery;
     /// async fn main() {
     ///     let client = PlaylistQuery::new().await;

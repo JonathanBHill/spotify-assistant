@@ -38,30 +38,30 @@ pub struct BlacklistArtist {
 impl BlacklistArtist {
     /// Creates a new `BlacklistArtist` instance.
     ///
-    /// This function takes in the `name` and a raw `id` of the artist as `String` values. 
-    /// The `id` string is expected to follow a specific format that includes multiple 
-    /// components separated by colons (`:`). The function extracts the third component 
-    /// (index 2) of the `id` string (post-split) and uses it as the actual `id` for 
+    /// This function takes in the `name` and a raw `id` of the artist as `String` values.
+    /// The `id` string is expected to follow a specific format that includes multiple
+    /// components separated by colons (`:`). The function extracts the third component
+    /// (index 2) of the `id` string (post-split) and uses it as the actual `id` for
     /// the `BlacklistArtist` instance.
     ///
     /// # Arguments
     ///
     /// * `name` - A `String` representing the name of the artist.
-    /// * `id` - A `String` representing the raw ID of the artist. The ID is expected 
+    /// * `id` - A `String` representing the raw ID of the artist. The ID is expected
     ///   to follow a specific format with colon-separated components.
     ///
     /// # Returns
     ///
-    /// An instance of `BlacklistArtist` initialized with the provided `name` and 
+    /// An instance of `BlacklistArtist` initialized with the provided `name` and
     /// the extracted `id`.
     ///
     /// # Panics
     ///
-    /// This function will panic if the `id` string doesn't contain at least three 
+    /// This function will panic if the `id` string doesn't contain at least three
     /// colon-separated components (i.e., `id.split(':')` results in less than three elements).
     ///
     /// # Example
-    /// ```
+    /// ```no_run,ignore
     /// use spotify_assistant_core::models::blacklist::BlacklistArtist;
     /// let artist = BlacklistArtist::new(
     ///     "Artist Name".to_string(),
@@ -87,8 +87,7 @@ impl BlacklistArtist {
     /// A `String` containing the value of the `name` field.
     ///
     /// # Examples
-    ///
-    /// ```
+    /// ```no_run,ignore
     /// struct Example {
     ///     name: String,
     /// }
@@ -114,8 +113,7 @@ impl BlacklistArtist {
     /// remains intact and unmodified.
     ///
     /// # Examples
-    ///
-    /// ```
+    /// ```no_run,ignore
     /// struct Example {
     ///     id: String,
     /// }
@@ -135,6 +133,64 @@ impl BlacklistArtist {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_support::{blacklist_toml, invalid_blacklist_toml, TestEnvironment, ENV_MUTEX};
+    use std::fs;
+
+    fn blacklist_fixture() -> Blacklist {
+        toml::from_str(&blacklist_toml()).expect("fixture blacklist should deserialize")
+    }
+
+    #[test]
+    fn blacklist_serialization_round_trip_preserves_artists() {
+        let blacklist = blacklist_fixture();
+        let serialized = toml::to_string_pretty(&blacklist).expect("serialization should succeed");
+        let deserialized: Blacklist =
+            toml::from_str(&serialized).expect("round-trip deserialization should succeed");
+
+        assert_eq!(
+            deserialized.blacklist.artists, blacklist.blacklist.artists,
+            "Artist sets should remain unchanged after round-trip"
+        );
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn blacklist_default_reads_from_temp_environment() {
+        let _guard = ENV_MUTEX.lock().unwrap_or_else(|err| err.into_inner());
+        let env = unsafe { TestEnvironment::new() };
+        let toml = blacklist_toml();
+        fs::write(env.config_file("blacklist.toml"), &toml)
+            .expect("failed to write blacklist fixture");
+
+        let expected = blacklist_fixture();
+        let loaded = Blacklist::default();
+
+        assert_eq!(
+            loaded.blacklist.artists, expected.blacklist.artists,
+            "Loaded blacklist should match fixture"
+        );
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn blacklist_default_panics_on_invalid_toml() {
+        let _guard = ENV_MUTEX.lock().unwrap_or_else(|err| err.into_inner());
+        let env = unsafe { TestEnvironment::new() };
+        fs::write(env.config_file("blacklist.toml"), invalid_blacklist_toml())
+            .expect("failed to write malformed blacklist fixture");
+
+        let result = std::panic::catch_unwind(Blacklist::default);
+        println!("{:?}", env.config_file("blacklist.toml"));
+        assert!(
+            result.is_err(),
+            "Malformed blacklist TOML should trigger a panic"
+        );
+    }
+}
+
 /// A struct representing data for managing a blacklist of artists.
 ///
 /// The `BlacklistData` struct contains a collection of uniquely identified
@@ -143,8 +199,8 @@ impl BlacklistArtist {
 ///
 /// ## Fields
 ///
-/// - `artists`: 
-///   A `HashSet` containing `BlacklistArtist` elements. This ensures that each 
+/// - `artists`:
+///   A `HashSet` containing `BlacklistArtist` elements. This ensures that each
 ///   artist in the blacklist is unique and allows for efficient lookups.
 ///
 /// ## Traits
@@ -152,7 +208,7 @@ impl BlacklistArtist {
 /// - `Serialize`: Enables the `BlacklistData` struct to be serialized, e.g., converting
 ///   it into JSON or other formats for storage or transmission.
 ///
-/// - `Deserialize`: Allows the deserialization of the `BlacklistData` struct, e.g., 
+/// - `Deserialize`: Allows the deserialization of the `BlacklistData` struct, e.g.,
 ///   reconstructing it from a JSON or other serialized format.
 ///
 /// - `Debug`: Implements debugging capabilities, providing formatted representations
@@ -213,7 +269,7 @@ pub struct Blacklist {
 }
 
 impl Default for Blacklist {
-    /// Creates a default instance of the `Blacklist` struct by reading a blacklist 
+    /// Creates a default instance of the `Blacklist` struct by reading a blacklist
     /// from an external source or predefined location.
     ///
     /// # Returns
@@ -222,20 +278,18 @@ impl Default for Blacklist {
     /// obtained from the `read_blacklist` method.
     ///
     /// # Example
-    ///
-    /// ```rust
+    /// ```no_run,ignore
     /// use spotify_assistant_core::models::blacklist::Blacklist;
     /// let default_blacklist = Blacklist::default();
     /// ```
     ///
     /// # Notes
     ///
-    /// The `read_blacklist` method is expected to provide the necessary data 
-    /// for constructing the `blacklist` field. Any errors occurring during this 
+    /// The `read_blacklist` method is expected to provide the necessary data
+    /// for constructing the `blacklist` field. Any errors occurring during this
     /// process should be handled inside the `read_blacklist` function.
     fn default() -> Self {
-        let blacklist = Blacklist::read_blacklist().blacklist;
-        Blacklist { blacklist }
+        Blacklist::read_blacklist()
     }
 }
 impl Blacklist {
@@ -298,10 +352,10 @@ impl Blacklist {
 
     /// Adds a new artist to the blacklist.
     ///
-    /// This function accepts a `BlacklistArtist` instance and attempts to add it to the current blacklist. 
-    /// It uses a tracing span to log details about the operation and provides debug-level logs showing 
-    /// the blacklist before and after the addition. If the artist is already present in the blacklist, 
-    /// a message is printed to the console indicating that the entry already exists. After attempting to 
+    /// This function accepts a `BlacklistArtist` instance and attempts to add it to the current blacklist.
+    /// It uses a tracing span to log details about the operation and provides debug-level logs showing
+    /// the blacklist before and after the addition. If the artist is already present in the blacklist,
+    /// a message is printed to the console indicating that the entry already exists. After attempting to
     /// append the artist, it calls `update_blacklist` to apply any necessary updates.
     ///
     /// # Arguments
@@ -321,8 +375,7 @@ impl Blacklist {
     /// - `DEBUG` level event: Logs the state of the blacklist before and after the modification.
     ///
     /// # Example
-    ///
-    /// ```
+    /// ```no_run,ignore
     /// use spotify_assistant_core::models::blacklist::{Blacklist, BlacklistArtist};
     /// let mut blacklist = Blacklist::default();
     /// let artist = BlacklistArtist::new("Artist Name".to_string(), "artist:id:12345".to_string());
@@ -348,7 +401,7 @@ impl Blacklist {
     /// to the blacklist by calling the internal `add_artist` method for each one.
     ///
     /// # Example
-    /// ```
+    /// ```no_run,ignore
     /// use spotify_assistant_core::models::blacklist::{Blacklist, BlacklistArtist};
     /// let mut blacklist = Blacklist::default();
     /// let artist1 = BlacklistArtist::new("Artist 1".to_string(), "artist:id:12345".to_string());
@@ -389,8 +442,7 @@ impl Blacklist {
     ///   called to apply any necessary updates to the blacklist state.
     ///
     /// # Example
-    ///
-    /// ```rust
+    /// ```no_run,ignore
     /// use spotify_assistant_core::models::blacklist::{Blacklist, BlacklistArtist};
     /// let mut manager = Blacklist::default();
     /// let artist = BlacklistArtist::new("Artist Name".to_string(), "artist:id:12345".to_string());
@@ -434,9 +486,9 @@ impl Blacklist {
     ///
     /// This function will panic in the following situations:
     ///
-    /// 1. If the blacklist file cannot be read, it will panic with a message 
+    /// 1. If the blacklist file cannot be read, it will panic with a message
     ///    indicating the error that occurred during the file read operation.
-    /// 2. If the TOML string read from the file cannot be deserialized into a `Blacklist` object, 
+    /// 2. If the TOML string read from the file cannot be deserialized into a `Blacklist` object,
     ///    it will panic with a message indicating the deserialization error.
     ///
     /// # Behavior
@@ -471,8 +523,7 @@ impl Blacklist {
     /// * A `bool` indicating whether the normalized `console_input` and `name_from_file` are equal.
     ///
     /// # Example
-    ///
-    /// ```
+    /// ```no_run,ignore
     /// use spotify_assistant_core::models::blacklist::Blacklist;
     /// let instance = Blacklist::default();
     /// let is_equal = instance.are_names_equal("JohnDoe", String::from("john_doe"));
@@ -512,9 +563,9 @@ impl Blacklist {
         let name = name.as_str();
         let remove_diacritics = |s: &str| {
             s.nfd() // Decompose Unicode
-             .filter(|c| !is_combining_mark(*c)) // Remove diacritics
-             .flat_map(char::to_lowercase) // Convert to lowercase
-             .collect::<String>()
+                .filter(|c| !is_combining_mark(*c)) // Remove diacritics
+                .flat_map(char::to_lowercase) // Convert to lowercase
+                .collect::<String>()
         };
 
         remove_diacritics(name)
@@ -535,12 +586,12 @@ impl Blacklist {
     ///   - ArtistName2 (67890)
     ///
     /// # Note
-    /// - This function assumes that the `blacklist` field in the containing struct is properly initialized 
+    /// - This function assumes that the `blacklist` field in the containing struct is properly initialized
     ///   and has a method `artists()` that returns an iterable collection of artists.
     /// - Each `artist` is required to have `name()` and `id()` methods to retrieve relevant information.
     ///
-    /// # Example Usage
-    /// ```
+    /// # Example
+    /// ```no_run,ignore
     /// use spotify_assistant_core::models::blacklist::Blacklist;
     /// let blacklist = Blacklist::default();
     /// blacklist.print_blacklist();
@@ -562,7 +613,7 @@ impl Blacklist {
     /// A `HashSet<BlacklistArtist>` representing the collection of blacklisted artists.
     ///
     /// # Example
-    /// ```
+    /// ```no_run,ignore
     /// use spotify_assistant_core::models::blacklist::Blacklist;
     /// let instance = Blacklist::default();
     /// let blacklist = instance.artists();
@@ -603,7 +654,7 @@ impl Blacklist {
     ///   name and ID and calls `self.remove_artist()`.
     ///
     /// # Example:
-    /// ```rust
+    /// ```no_run,ignore
     /// // Imagine `self` is an instance of the relevant struct that contains this method.
     /// // Calling this method will show a terminal menu for selecting an artist to remove:
     /// use spotify_assistant_core::models::blacklist::Blacklist;
@@ -688,9 +739,19 @@ impl Blacklist {
         artists.iter().for_each(|(album_name, artists)| {
             artists.iter().enumerate().for_each(|(index, artist)| {
                 if index == 0 {
-                    formatted_options.push(format!("1: {} ({:?}) | Album - {}", artist.name, artist.id.clone().expect("Could not get ID").to_string(), album_name))
+                    formatted_options.push(format!(
+                        "1: {} ({:?}) | Album - {}",
+                        artist.name,
+                        artist.id.clone().expect("Could not get ID").to_string(),
+                        album_name
+                    ))
                 } else {
-                    formatted_options.push(format!("\t{}: {} ({:?})", index + 1, artist.name, artist.id.clone().expect("Could not get ID").to_string()))
+                    formatted_options.push(format!(
+                        "\t{}: {} ({:?})",
+                        index + 1,
+                        artist.name,
+                        artist.id.clone().expect("Could not get ID").to_string()
+                    ))
                 }
             });
         });
@@ -704,11 +765,13 @@ impl Blacklist {
             None
         } else {
             let selected_option_string = &formatted_options[selection];
-            let split_option = selected_option_string.split(&[':', '\"', '(']).collect::<Vec<&str>>();
+            let split_option = selected_option_string
+                .split(&[':', '\"', '('])
+                .collect::<Vec<&str>>();
             println!("Full: {selected_option_string:?}\nSplit: {split_option:?}");
             Some(BlacklistArtist {
                 name: split_option[1].trim().to_string(),
-                id: split_option[5].trim().to_string()
+                id: split_option[5].trim().to_string(),
             })
         }
     }

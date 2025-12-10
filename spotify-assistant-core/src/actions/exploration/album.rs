@@ -37,10 +37,10 @@ pub struct AlbumXplr {
 impl Api for AlbumXplr {
     fn select_scopes() -> HashSet<String> {
         scopes!(
-            "playlists-read-private",
-            "playlists-read-collaborative",
-            "playlists-modify-public",
-            "playlists-modify-private"
+            "playlist-read-private",
+            "playlist-read-collaborative",
+            "playlist-modify-public",
+            "playlist-modify-private"
         )
     }
 }
@@ -122,7 +122,7 @@ impl AlbumXplr {
     /// # Note
     /// The returned `AlbumId` is a clone of the original to ensure the integrity
     /// of the data in the current instance remains unchanged.
-    pub fn album_id(&self) -> AlbumId {
+    pub fn album_id(&self) -> AlbumId<'_> {
         self.album_id.clone()
     }
 
@@ -173,7 +173,7 @@ impl AlbumXplr {
     ///
     /// # Note
     /// The method ensures the uniqueness of artist IDs when `for_tracks` is `true` by checking for duplicates before adding them to the resulting vector.
-    pub fn artist_ids(&self, for_tracks: bool) -> Vec<ArtistId> {
+    pub fn artist_ids(&self, for_tracks: bool) -> Vec<ArtistId<'_>> {
         match for_tracks {
             true => {
                 let tracks = self.simple_tracks();
@@ -302,7 +302,7 @@ impl AlbumXplr {
     /// let track_ids = explorer.track_ids();
     /// println!("{:?}", track_ids);
     /// ```
-    pub fn track_ids(&self) -> Vec<TrackId> {
+    pub fn track_ids(&self) -> Vec<TrackId<'_>> {
         self.simple_tracks()
             .iter()
             .map(|track| track.id.clone().expect("Could not get track ID"))
@@ -411,58 +411,55 @@ impl AlbumXplr {
 
 #[cfg(test)]
 mod tests {
-    use rspotify::model::AlbumId;
-
     use super::*;
+    use crate::test_support::offline::OfflineObjects;
+    use rspotify::model::{AlbumId, FullAlbum};
 
-    #[tokio::test]
-    async fn test_new() {
-        let album_id = AlbumId::from_id("24AElprtNKLkp18RzoddPb").unwrap();
-        let album_xplr = AlbumXplr::new(album_id.clone()).await;
-        assert_eq!(album_xplr.album_id, album_id);
+    // Test-only constructor to avoid network calls
+    impl AlbumXplr {
+        fn new_offline(album_id: AlbumId<'static>, full_album: FullAlbum) -> Self {
+            Self {
+                client: OfflineObjects::dummy_client(),
+                album_id,
+                full_album,
+            }
+        }
     }
 
-    #[tokio::test]
-    async fn test_genres() {
-        let album_id = AlbumId::from_id("24AElprtNKLkp18RzoddPb").unwrap();
-        let album_xplr = AlbumXplr::new(album_id.clone()).await;
-        let genres = album_xplr.genres();
-        println!("{:?}", genres);
-        assert_eq!(genres.len(), 0);
+    fn sample_full_album() -> (AlbumId<'static>, FullAlbum) {
+        OfflineObjects::sample_full_album()
     }
 
-    #[tokio::test]
-    async fn test_track_methods() {
-        let album_id = AlbumId::from_id("24AElprtNKLkp18RzoddPb").unwrap();
-        let album_xplr = AlbumXplr::new(album_id.clone()).await;
+    #[test]
+    fn test_offline_genres_and_ids() {
+        let (album_id, full_album) = OfflineObjects::sample_full_album();
+        let x = AlbumXplr::new_offline(album_id.clone(), full_album);
+        assert_eq!(x.album_id().id(), album_id.id());
+        let genres = x.genres();
+        assert_eq!(genres, vec!["Electro".to_string(), "Breaks".to_string()]);
 
-        let track_ids = album_xplr.track_ids();
-        let simple_tracks = album_xplr.simple_tracks();
-        let full_tracks = album_xplr.full_tracks().await;
-        assert_eq!(track_ids.len(), 13);
-        assert_eq!(simple_tracks.len(), 13);
-        assert_eq!(full_tracks.len(), 13);
+        // Track IDs from simplified items
+        let ids: Vec<String> = x.track_ids().iter().map(|id| id.id().to_string()).collect();
+        assert_eq!(ids.len(), 2);
+        assert!(ids[0].starts_with("TRACKID"));
     }
 
-    #[tokio::test]
-    async fn test_artist_methods() {
-        let album_id = AlbumId::from_id("24AElprtNKLkp18RzoddPb").unwrap();
-        let album_xplr = AlbumXplr::new(album_id.clone()).await;
+    #[test]
+    fn test_offline_simple_methods() {
+        let (_album_id, full_album) = OfflineObjects::sample_full_album();
+        let album_id2 = AlbumId::from_id("ZYXWVUTSRQPONMLKJIHGFEDCBA34").unwrap();
+        let x = AlbumXplr::new_offline(album_id2, full_album);
 
-        let simple_artists = album_xplr.simple_artists();
-        assert_eq!(simple_artists.len(), 1);
-        assert_eq!(simple_artists[0].name, "Kraddy".to_string());
+        let artists = x.simple_artists();
+        assert_eq!(artists.len(), 1);
+        assert_eq!(artists[0].name, "Example Artist");
 
-        println!("Working on method, 'artist_ids'");
-        let album_collaborators = album_xplr.artist_ids(false);
-        let track_collaborators = album_xplr.artist_ids(true);
-        assert_eq!(album_collaborators.len(), 1);
-        assert_eq!(track_collaborators.len(), 14);
+        let simple_tracks = x.simple_tracks();
+        assert_eq!(simple_tracks.len(), 2);
 
-        println!("Working on method, 'full_artists'");
-        let full_artists = album_xplr.full_artists(false).await;
-        let full_collaborators = album_xplr.full_artists(true).await;
-        assert_eq!(full_artists.len(), 1);
-        assert_eq!(full_collaborators.len(), 14);
+        let artist_ids = x.artist_ids(false);
+        assert_eq!(artist_ids.len(), 1);
+        let artist_ids_from_tracks = x.artist_ids(true);
+        assert_eq!(artist_ids_from_tracks.len(), 1);
     }
 }

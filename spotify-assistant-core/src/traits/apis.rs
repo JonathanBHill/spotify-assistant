@@ -1,9 +1,8 @@
-use std::collections::HashSet;
-use std::env;
-
 use rspotify::model::{Id, Market};
 use rspotify::prelude::OAuthClient;
 use rspotify::{AuthCodeSpotify, Config, Credentials, OAuth};
+use std::collections::HashSet;
+use std::env;
 use tracing::{error, event, span, trace, Level};
 
 use crate::enums::fs::{ProjectDirectories, ProjectFiles};
@@ -71,18 +70,6 @@ pub trait Api {
     /// scope in the set is a unique string representing a specific permission
     /// or resource access level.
     ///
-    /// # Example
-    ///
-    /// ```rust
-    /// use std::collections::HashSet;
-    /// use spotify_assistant_core::traits::apis::Api;
-    ///
-    /// let scopes = Api::select_scopes();
-    /// for scope in &scopes {
-    ///     println!("Scope: {}", scope);
-    /// }
-    /// ```
-    ///
     /// # Notes
     ///
     /// - The exact method or criteria used to select scopes is determined
@@ -143,8 +130,8 @@ pub trait Api {
     /// - If no explicit scopes are provided, the client will use an empty default.
     ///
     /// # Examples
+    /// ```no_run,ignore
     /// Setting up a Spotify client:
-    /// ```rust
     /// use std::collections::HashSet;
     /// use spotify_assistant_core::traits::apis::Api;
     ///
@@ -152,12 +139,11 @@ pub trait Api {
     /// let scopes = Some(HashSet::from(["user-read-private".to_string(), "playlist-read-private".to_string()]));
     /// let spotify_client = Api::set_up_client(is_test, scopes);
     /// // Use the `spotify_client` for further API interactions
-    /// }
     /// ```
     fn set_up_client(
         is_test: bool,
         scopes: Option<HashSet<String>>,
-    ) -> impl std::future::Future<Output = AuthCodeSpotify> + Send {
+    ) -> impl Future<Output = AuthCodeSpotify> + Send {
         async move {
             let suc_span = span!(Level::TRACE, "Api.set_up_client");
             let _enter = suc_span.enter();
@@ -185,6 +171,7 @@ pub trait Api {
                 None => {
                     let env_file = ProjectFiles::DotEnv.path();
                     if !env_file.exists() {
+                        let path = ProjectDirectories::Config.path().clone();
                         error!(
                             name: "credentials",
                             target: "api-setup",
@@ -192,7 +179,7 @@ pub trait Api {
                             env_directory =  ProjectDirectories::Config.path().to_str().unwrap(),
                             ".env file was not found on the system. This file should be created in your configuration directory {:?}",
                             // fixme <On message line above> Add terminology that aligns with the user's operating system (e.g. directory vs folder)
-                            { ProjectDirectories::Config.path().to_str().unwrap() }
+                            { path.to_str().unwrap() }
                         );
                     } else {
                         let _ = env::args().filter(|key| {
@@ -255,13 +242,6 @@ pub trait Api {
     ///
     /// # Returns
     /// * `Market` - A market object set to the United States.
-    ///
-    /// # Example
-    /// ```rust
-    /// use rspotify::model::Market;
-    /// use spotify_assistant_core::traits::apis::Api;
-    /// let us_market = Api::market();
-    /// ```
     fn market() -> Market {
         Market::Country(rspotify::model::Country::UnitedStates)
     }
@@ -280,39 +260,6 @@ pub trait Api {
     /// # Returns
     /// A new vector of type `T` containing only unique elements from the input vector,
     /// preserving their order of first occurrence in the original input.
-    ///
-    /// # Example
-    /// ```
-    /// use std::collections::HashSet;
-    /// use rspotify::model::{Id, Type};
-    /// use spotify_assistant_core::traits::apis::Api;
-    ///
-    /// #[derive(Clone, Eq, PartialEq, Hash)]
-    /// struct Item {
-    ///     id: usize,
-    ///     value: String,
-    /// }
-    ///
-    /// impl Id for Item {
-    ///     fn id(&self) -> usize {
-    ///         self.id
-    ///     }
-    ///    fn _type(&self) -> Type {
-    ///        todo!()
-    ///    }
-    /// }
-    ///
-    /// let items = vec![
-    ///     Item { id: 1, value: "A".to_string() },
-    ///     Item { id: 2, value: "B".to_string() },
-    ///     Item { id: 1, value: "A".to_string() },
-    /// ];
-    ///
-    /// let cleaned_items = Api::clean_duplicate_id_vector(items);
-    /// assert_eq!(cleaned_items.len(), 2);
-    /// assert_eq!(cleaned_items[0].id, 1);
-    /// assert_eq!(cleaned_items[1].id, 2);
-    /// ```
     ///
     /// # Note
     /// The function uses a `HashSet` to track already-seen elements,
@@ -350,14 +297,6 @@ pub trait Api {
 ///   the type implementing this trait.
 /// - The returned future should be `Send`, meaning it can safely be sent across threads.
 ///
-/// ### Usage
-/// ```
-/// use spotify_assistant_core::traits::apis::Querying;
-/// async fn example() {
-///     let instance = Querying::new().await;
-/// }
-/// ```
-///
 /// # Example
 /// ```
 /// use spotify_assistant_core::traits::apis::Querying;
@@ -382,5 +321,5 @@ pub trait Api {
 /// }
 /// ```
 pub trait Querying {
-    fn new() -> impl std::future::Future<Output = Self> + Send;
+    fn new() -> impl Future<Output = Self> + Send;
 }

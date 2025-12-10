@@ -16,4 +16,4 @@ tests
 /spotify-assistant-database/Cargo.lock
 /spotify-assistant-tui/Cargo.lock
 bacon.toml
-.env
+.env.remove

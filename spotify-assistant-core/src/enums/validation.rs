@@ -141,6 +141,7 @@
 ///
 /// - `CurrentUserPlaylists`
 ///   Maximum batch size: 50.
+#[derive(Debug)]
 pub enum BatchLimits {
     Albums,                      // 20
     AlbumTracks,                 // 50
@@ -386,7 +387,7 @@ impl BatchLimits {
 /// assert_eq!(morning, TimeOfDay::Morning);
 /// println!("{:?}", morning); // Output: Morning
 /// ```
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum TimeOfDay {
     Morning,
     Afternoon,
@@ -538,5 +539,189 @@ impl TimeOfDay {
     /// ```
     pub fn is_night(&self) -> bool {
         matches!(self, TimeOfDay::Night)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn batch_limits_get_limit_matches_expected_values() {
+        use BatchLimits::*;
+
+        let cases = vec![
+            (Albums, 20usize),
+            (AlbumTracks, 50usize),
+            (GetSavedAlbums, 50usize),
+            (ModifyCurrentUserAlbums, 20usize),
+            (NewReleases, 50usize),
+            (Artists, 50usize),
+            (ArtistAlbums, 50usize),
+            (Audiobooks, 50usize),
+            (AudiobookChapters, 50usize),
+            (SavedAudiobooks, 50usize),
+            (ModifyCurrentUserAudiobook, 50usize),
+            (BrowseCategories, 50usize),
+            (AudiobooksChapters, 50usize),
+            (Episodes, 50usize),
+            (GetSavedEpisodes, 50usize),
+            (ModifyCurrentUserEpisodes, 50usize),
+            (RecentlyPlayed, 50usize),
+            (PlaylistItems, 50usize),
+            (ModifyPlaylistItems, 100usize),
+            (UserPlaylists, 50usize),
+            (GetPlaylists, 50usize),
+            (SearchItem, 50usize),
+            (GetShows, 50usize),
+            (GetShowEpisodes, 50usize),
+            (GetUserSavedShows, 50usize),
+            (ModifyCurrentUserShows, 50usize),
+            (Tracks, 50usize),
+            (GetSavedTracks, 50usize),
+            (ModifyCurrentUserTracks, 50usize),
+            (TracksAudioFeatures, 100usize),
+            (Recommendations, 100usize),
+            (CurrentUserTopItems, 50usize),
+            (CurrentUserFollowedArtists, 50usize),
+            (ModifyWhoCurrentUserFollows, 50usize),
+            (CurrentUserPlaylists, 50usize),
+        ];
+
+        for (variant, expected) in cases {
+            assert_eq!(
+                variant.get_limit(),
+                expected,
+                "Unexpected limit for {variant:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn batch_limits_is_valid_respects_boundaries_and_none() {
+        use BatchLimits::*;
+
+        let cases = vec![
+            (Albums, 20usize),
+            (AlbumTracks, 50usize),
+            (GetSavedAlbums, 50usize),
+            (ModifyCurrentUserAlbums, 20usize),
+            (NewReleases, 50usize),
+            (Artists, 50usize),
+            (ArtistAlbums, 50usize),
+            (Audiobooks, 50usize),
+            (AudiobookChapters, 50usize),
+            (SavedAudiobooks, 50usize),
+            (ModifyCurrentUserAudiobook, 50usize),
+            (BrowseCategories, 50usize),
+            (AudiobooksChapters, 50usize),
+            (Episodes, 50usize),
+            (GetSavedEpisodes, 50usize),
+            (ModifyCurrentUserEpisodes, 50usize),
+            (RecentlyPlayed, 50usize),
+            (PlaylistItems, 50usize),
+            (ModifyPlaylistItems, 100usize),
+            (UserPlaylists, 50usize),
+            (GetPlaylists, 50usize),
+            (SearchItem, 50usize),
+            (GetShows, 50usize),
+            (GetShowEpisodes, 50usize),
+            (GetUserSavedShows, 50usize),
+            (ModifyCurrentUserShows, 50usize),
+            (Tracks, 50usize),
+            (GetSavedTracks, 50usize),
+            (ModifyCurrentUserTracks, 50usize),
+            (TracksAudioFeatures, 100usize),
+            (Recommendations, 100usize),
+            (CurrentUserTopItems, 50usize),
+            (CurrentUserFollowedArtists, 50usize),
+            (ModifyWhoCurrentUserFollows, 50usize),
+            (CurrentUserPlaylists, 50usize),
+        ];
+
+        for (variant, limit) in cases {
+            assert!(
+                variant.is_valid(Some(0)),
+                "Zero should be valid for {variant:?}"
+            );
+            assert!(
+                variant.is_valid(Some(limit)),
+                "Limit should be valid for {variant:?}"
+            );
+            assert!(
+                !variant.is_valid(Some(limit + 1)),
+                "Values above the limit should be invalid for {variant:?}"
+            );
+            assert!(
+                !variant.is_valid(None),
+                "None should be invalid for {variant:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn time_of_day_from_hour_maps_edges_and_defaults() {
+        let cases = vec![
+            (0, TimeOfDay::Night),
+            (5, TimeOfDay::Night),
+            (6, TimeOfDay::Morning),
+            (11, TimeOfDay::Morning),
+            (12, TimeOfDay::Afternoon),
+            (17, TimeOfDay::Afternoon),
+            (18, TimeOfDay::Evening),
+            (23, TimeOfDay::Evening),
+            (24, TimeOfDay::Morning),
+            (u32::MAX, TimeOfDay::Morning),
+        ];
+
+        for (hour, expected) in cases {
+            assert_eq!(
+                TimeOfDay::from_hour(hour),
+                expected,
+                "Unexpected mapping for hour {hour}"
+            );
+        }
+    }
+
+    #[test]
+    fn time_of_day_helpers_match_variants() {
+        let cases = vec![
+            (TimeOfDay::Morning, "morning", (true, false, false, false)),
+            (
+                TimeOfDay::Afternoon,
+                "afternoon",
+                (false, true, false, false),
+            ),
+            (TimeOfDay::Evening, "evening", (false, false, true, false)),
+            (TimeOfDay::Night, "night", (false, false, false, true)),
+        ];
+
+        for (variant, expected_str, (is_morning, is_afternoon, is_evening, is_night)) in cases {
+            assert_eq!(
+                variant.string(),
+                expected_str,
+                "Unexpected string for {variant:?}"
+            );
+            assert_eq!(
+                variant.is_morning(),
+                is_morning,
+                "is_morning mismatch for {variant:?}"
+            );
+            assert_eq!(
+                variant.is_afternoon(),
+                is_afternoon,
+                "is_afternoon mismatch for {variant:?}"
+            );
+            assert_eq!(
+                variant.is_evening(),
+                is_evening,
+                "is_evening mismatch for {variant:?}"
+            );
+            assert_eq!(
+                variant.is_night(),
+                is_night,
+                "is_night mismatch for {variant:?}"
+            );
+        }
     }
 }

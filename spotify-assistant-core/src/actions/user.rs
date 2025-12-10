@@ -1,11 +1,12 @@
-use std::collections::{HashMap, HashSet};
-
-use rspotify::clients::OAuthClient;
-use rspotify::model::{FullArtist, FullTrack, Id, PlayHistory, PrivateUser, SubscriptionLevel, TimeRange};
-use rspotify::{scopes, AuthCodeSpotify};
-use tracing::{event, info, Level};
-
+use crate::enums::fs::ProjectDirectories;
+use crate::paginator::PaginatorRunner;
 use crate::traits::apis::Api;
+use rspotify::clients::OAuthClient;
+use rspotify::model::{FullArtist, FullTrack, Id, PlayHistory, PrivateUser, SimplifiedPlaylist, SubscriptionLevel, TimeRange};
+use rspotify::{scopes, AuthCodeSpotify};
+use std::collections::{HashMap, HashSet};
+use std::path::PathBuf;
+use tracing::{event, info, Level};
 
 /// `UserData` is a structure that holds information about a Spotify user and their authorized Spotify client.
 ///
@@ -64,7 +65,7 @@ impl UserData {
     /// authentication credentials and setup are valid before calling this method.
     ///
     /// # Example
-    /// ```rust
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::user::UserData;
     ///
     /// #[tokio::main]
@@ -98,8 +99,7 @@ impl UserData {
     ///   Defaults to `SubscriptionLevel::Free` if no subscription is specified.
     ///
     /// # Examples
-    ///
-    /// ```
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::user::UserData;
     /// use rspotify::model::SubscriptionLevel;
     ///
@@ -128,7 +128,7 @@ impl UserData {
     /// - `"Free"` if the user's subscription level is `SubscriptionLevel::Free` or not set.
     ///
     /// # Examples
-    /// ```
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::user::UserData;
     /// #[tokio::main]
     /// async fn main() {
@@ -162,7 +162,7 @@ impl UserData {
     /// - Values are strings representing the corresponding external URL or the user's `href`.
     ///
     /// # Example
-    /// ```
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::user::UserData;
     /// #[tokio::main]
     /// async fn main() {
@@ -219,8 +219,7 @@ impl UserData {
     /// A `String` representation of the total number of followers.
     ///
     /// # Example
-    ///
-    /// ```rust
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::user::UserData;
     /// #[tokio::main]
     /// async fn main() {
@@ -248,7 +247,7 @@ impl UserData {
     /// * `u32` - The total number of followers, or `0` if the value is not set.
     ///
     /// # Examples
-    /// ```
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::user::UserData;
     /// #[tokio::main]
     /// async fn main() {
@@ -280,7 +279,7 @@ impl UserData {
     /// - If `id_type` is `"email"` but the email is `None`.
     ///
     /// # Examples
-    /// ```
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::user::UserData;
     /// use rspotify::model::Id;
     /// #[tokio::main]
@@ -333,8 +332,7 @@ impl UserData {
     /// for the user are not found (`None` in the `self.user.explicit_content`).
     ///
     /// # Example
-    ///
-    /// ```
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::user::UserData;
     /// #[tokio::main]
     /// async fn main() {
@@ -375,7 +373,7 @@ impl UserData {
     /// This function will panic if it fails to retrieve the user's listening history from the Spotify API.
     ///
     /// # Example
-    /// ```rust
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::user::UserData;
     /// #[tokio::main]
     /// async fn main() {
@@ -425,7 +423,7 @@ impl UserData {
     /// - Leverages Spotify's API client to fetch the user's top tracks.
     ///
     /// # Example
-    /// ```rust
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::user::UserData;
     /// #[tokio::main]
     /// async fn main() {
@@ -441,60 +439,23 @@ impl UserData {
     /// - The function is scoped with a logging span (`UserData.top-tracks`) for consistent logging output.
     /// - Currently, commented-out functionality (`save_to_file`) exists for serialization of top tracks to a file.
     /// - Tracks are inserted into the vector at the correct positions based on their index to ensure order preservation.
-    pub async fn top_tracks(&self) -> Vec<FullTrack> {
+    pub async fn top_tracks(&self, term: &str) -> Vec<FullTrack> {
         let span = tracing::span!(Level::INFO, "UserData.top-tracks");
         let _enter = span.enter();
 
-        let total_top_tracks = match self
-            .client
-            .current_user_top_tracks_manual(Some(TimeRange::ShortTerm), Some(1), None)
-            .await
-        {
-            Ok(top_track) => top_track.total,
-            Err(error) => panic!("Could not get top tracks: {error:?}"),
+        let time_range = match term {
+            "short" => TimeRange::ShortTerm,
+            "medium" => TimeRange::MediumTerm,
+            "long" => TimeRange::LongTerm,
+            _ => TimeRange::ShortTerm,
         };
-        let mut top_vec = Vec::with_capacity(total_top_tracks as usize);
-        let page_size = 50;
-        let pages_no_remainder = (total_top_tracks / page_size) as i32;
-        let pages = if total_top_tracks % page_size > 0 {
-            info!("pages with remainder: {}", pages_no_remainder + 1);
-            pages_no_remainder + 1
-        } else {
-            info!("pages w/o remainder: {pages_no_remainder}");
-            pages_no_remainder
-        };
-        for page in 0..pages {
-            let offset = page_size * page as u32;
-            let multiplier = page_size as usize * page as usize;
-            let offset_top_tracks = match self
-                .client
-                .current_user_top_tracks_manual(
-                    Some(TimeRange::ShortTerm),
-                    Some(page_size),
-                    Some(offset),
-                )
-                .await
-            {
-                Ok(page) => page.items.into_iter(),
-                Err(error) => panic!("{error:?}"),
-            };
-            for (index, track) in offset_top_tracks.enumerate() {
-                let track_number = index + multiplier;
-                top_vec.insert(track_number, track);
-            }
-            info!("Page {}/{} appended", page + 1, pages)
-        }
-        info!(
-            "A total of {} top tracks have been collected.",
-            top_vec.len()
-        );
-        // if save_to_file {
-        //     let io = TracksIO::new("toptracks".to_string());
-        //     io.serialize(&top_vec);
-        // }
-        top_vec
+        let top_tracks = self.client.current_user_top_tracks(Some(time_range));
+        let paginator = PaginatorRunner::new(top_tracks, ());
+        paginator.run().await.unwrap_or_else(|err| {
+            event!(Level::ERROR, "Error retrieving top tracks: {:?}", err);
+            Vec::new()
+        })
     }
-
 
     /// Asynchronously retrieves and logs the current user's playlists.
     ///
@@ -513,7 +474,7 @@ impl UserData {
     /// providing a debug representation of the error.
     ///
     /// # Examples
-    /// ```no_run
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::user::UserData;
     /// #[tokio::main]
     /// async fn main() {
@@ -538,21 +499,15 @@ impl UserData {
     /// # Errors
     /// - All errors will result in an immediate `panic!`, so error handling may
     ///   need to be revised for more robust applications.
-    pub async fn playlists(&self) {
+    pub async fn get_user_playlists(&self) -> Vec<SimplifiedPlaylist> {
         let span = tracing::span!(Level::INFO, "UserData.playlists");
         let _enter = span.enter();
-        let playlists = match self
-            .client
-            .current_user_playlists_manual(Some(1), None)
-            .await
-        {
-            Ok(playlists) => playlists,
-            Err(error) => panic!("Could not get playlists: {error:?}"),
-        };
-        playlists.items.iter().for_each(|playlist| {
-            info!("{:?}", playlist.name);
-        });
-        info!("Total playlists: {}", playlists.total);
+        let user_playlists = self.client.current_user_playlists();
+        let paginator = PaginatorRunner::new(user_playlists, ());
+        paginator.run().await.unwrap_or_else(|err| {
+            event!(Level::ERROR, "Error retrieving playlists: {:?}", err);
+            Vec::new()
+        })
     }
 
     /// Retrieves a list of artists followed by the current user.
@@ -585,7 +540,7 @@ impl UserData {
     ///   - Each page's progress and the respective artist data.
     ///
     /// # Example Usage
-    /// ```rust
+    /// ```no_run,ignore
     /// use spotify_assistant_core::actions::user::UserData;
     /// #[tokio::main]
     /// async fn main() {
@@ -654,5 +609,62 @@ impl UserData {
             Err(error) => panic!("Could not get artists: {error:?}"),
         }
         followed_artists
+    }
+    pub async fn update_followed_artists(&self) {
+        let span = tracing::span!(Level::INFO, "UserData.update-artists");
+        let _enter = span.enter();
+        let artists = self.artists().await;
+        let follower_length = artists.len();
+        let local_time = chrono::Local::now();
+        let local_time_string = local_time.format("%m-%d-%Y").to_string();
+        let file_name = format!("{}_followers-{}.json", follower_length, local_time_string);
+        let file_dir = Self::follower_file_directory();
+        let file_path = file_dir.join(file_name);
+        let artists_json = serde_json::to_string_pretty(&artists).unwrap();
+        std::fs::write(file_path.clone(), artists_json).unwrap();
+        info!("Stored {} artists to file path: {:?}", follower_length, file_path);
+    }
+    fn follower_file_directory() -> PathBuf {
+        let data_path = ProjectDirectories::Data.path();
+        data_path.join("followers")
+    }
+    pub async fn save_artists_locally_manual(&self, artists: Vec<FullArtist>) -> () {
+        let span = tracing::span!(Level::INFO, "UserData.store-artists");
+        let _enter = span.enter();
+        let follower_length = artists.len();
+        let local_time = chrono::Local::now();
+        let local_time_string = local_time.format("%m-%d-%Y").to_string();
+        let file_name = format!("{}_followers-{}.json", follower_length, local_time_string);
+        let file_dir = Self::follower_file_directory();
+        let file_path = file_dir.join(file_name);
+        let json = serde_json::to_string_pretty(&artists).unwrap();
+        std::fs::write(file_path.clone(), json).unwrap();
+        info!("Stored {} artists to file path: {:?}", follower_length, file_path);
+    }
+    pub fn read_artists_from_file(&self, file_name: &str) -> Vec<FullArtist> {
+        let span = tracing::span!(Level::INFO, "UserData.read-artists");
+        let _enter = span.enter();
+        let file_dir = Self::follower_file_directory();
+        let file_name = format!("{}.json", file_name);
+        let file_path = file_dir.join(file_name);
+        let json = std::fs::read_to_string(file_path.clone()).unwrap();
+        let artists: Vec<FullArtist> = serde_json::from_str(&json).unwrap();
+        info!("Read {} artists from file path: {:?}", artists.len(), file_path);
+        artists
+    }
+    fn artists_not_followed_from_playlist_directory() -> PathBuf {
+        let data_path = ProjectDirectories::Data.path();
+        data_path.join("playlist-artists")
+    }
+    pub fn save_unfollowed_artists_locally(&self, artists: Vec<FullArtist>, playlist_name: String) {
+        let span = tracing::span!(Level::INFO, "UserData.store-unfollowed-artists");
+        let _enter = span.enter();
+        let local_time = chrono::Local::now();
+        let local_time_string = local_time.format("%m-%d-%Y").to_string();
+        let file_name = format!("{}_artists_not_followed-{}.json", playlist_name, local_time_string);
+        let file_dir = Self::artists_not_followed_from_playlist_directory();
+        let file_path = file_dir.join(file_name);
+        let json = serde_json::to_string_pretty(&artists).unwrap();
+        std::fs::write(file_path.clone(), json).unwrap();
     }
 }

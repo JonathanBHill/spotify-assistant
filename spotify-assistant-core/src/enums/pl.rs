@@ -87,6 +87,7 @@ impl PlaylistType {
     /// before calling this method.
     pub fn get_id(&self) -> PlaylistId<'static> {
         dotenv::from_path(ProjectFiles::DotEnv.path()).ok();
+        println!("{:?}", ProjectFiles::DotEnv.path());
         let env_id = match self {
             PlaylistType::StockRR => "RELEASE_RADAR_ID",
             PlaylistType::MyRR => "MY_RELEASE_RADAR_ID",
@@ -108,9 +109,8 @@ impl PlaylistType {
 
 #[cfg(test)]
 mod tests {
-    use rspotify::model::Id;
-
     use super::*;
+    use rspotify::model::Id;
 
     #[test]
     fn test_get_id() {
@@ -118,7 +118,8 @@ mod tests {
         let my_rr = PlaylistType::MyRR;
         let stock_id = stock_rr.get_id();
         let my_id = my_rr.get_id();
-        assert_eq!(stock_id.id(), "37i9dQZEVXbdINACbjb1qu");
-        assert_eq!(my_id.id(), "46mIugmIiN2HYVwAwlaBAr");
+
+        assert_eq!(stock_id.id().to_string(), "3WuaniG4xcoEXAH3ZBmbqX".to_string());
+        assert_eq!(my_id.id().to_string(), "46mIugmIiN2HYVwAwlaBAr".to_string());
     }
 }

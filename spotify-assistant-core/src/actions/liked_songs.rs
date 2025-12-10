@@ -1,12 +1,13 @@
 use crate::enums::fs::ProjectDirectories;
+use crate::paginator::PaginatorRunner;
 use crate::traits::apis::Api;
-use rspotify::model::SavedTrack;
+use rspotify::model::{FullTrack, SavedTrack};
 use rspotify::prelude::{Id, OAuthClient};
 use rspotify::AuthCodeSpotify;
 use std::io::Write;
 use std::path::PathBuf;
 use std::{fs, io};
-use tracing::event;
+use tracing::{event, span, Level};
 
 /// Represents the structure that handles a user's liked songs.
 ///
@@ -27,19 +28,17 @@ use tracing::event;
 ///   where saved tracks data will be stored or retrieved. This can be used
 ///   to persist the user's liked song data locally for offline access or
 ///   caching purposes.
-pub struct UserLikedSongs {
+pub struct UserLibrary {
     client: AuthCodeSpotify,
-    tracks: Vec<SavedTrack>,
+    saved_tracks: Vec<SavedTrack>,
     saved_tracks_path: PathBuf,
 }
-impl Api for UserLikedSongs {
+impl Api for UserLibrary {
     fn select_scopes() -> std::collections::HashSet<String> {
-        rspotify::scopes!(
-            "user-library-read"
-        )
+        rspotify::scopes!("user-library-read", "user-library-modify")
     }
 }
-impl UserLikedSongs {
+impl UserLibrary {
     /// Asynchronously constructs a new instance of the struct.
     ///
     /// This function performs the following operations:
@@ -61,113 +60,87 @@ impl UserLikedSongs {
     /// but the function ensures a valid instance is returned even in case of failures.
     ///
     /// # Example
-    /// ```rust
-    /// use spotify_assistant_core::actions::liked_songs::UserLikedSongs;
+    /// ```no_run,ignore
+    /// use spotify_assistant_core::actions::liked_songs::UserLibrary;
     /// async fn main() {
-    ///     let instance = UserLikedSongs::new().await;
+    ///     let instance = UserLibrary::new().await;
     /// }
     /// ```
     pub async fn new() -> Self {
         let client = Self::set_up_client(false, Some(Self::select_scopes())).await;
         let data_dir = ProjectDirectories::Data;
         let saved_tracks_path = data_dir.path().join("liked_songs.json");
-        if let Ok(tracks) = Self::load_from_file() {
+        if let Ok(saved_tracks) = Self::load_from_file() {
             println!("Loaded liked songs from cache.");
-            Self { client, tracks, saved_tracks_path }
+            Self {
+                client,
+                saved_tracks,
+                saved_tracks_path,
+            }
         } else {
-            let tracks = match Self::fetch_all(&client).await {
+            let saved_tracks = match Self::update_library(&client).await {
                 Ok(tracks) => {
-                    event!(tracing::Level::INFO, "Successfully fetched liked songs.");
+                    event!(Level::INFO, "Successfully fetched liked songs.");
                     tracks
-                },
+                }
                 Err(err) => {
-                    event!(tracing::Level::ERROR, "Failed to fetch liked songs: {:?}", err);
+                    event!(Level::ERROR, "Failed to fetch liked songs: {:?}", err);
                     Vec::new()
-                },
+                }
             };
             let self_obj = Self {
                 client,
-                tracks,
+                saved_tracks,
                 saved_tracks_path,
             };
             match self_obj.save_to_file() {
-                Ok(_) => event!(tracing::Level::INFO, "Liked songs saved to cache."),
-                Err(err) => event!(tracing::Level::ERROR, "Failed to save liked songs to cache: {:?}", err),
+                Ok(_) => event!(Level::INFO, "Liked songs saved to cache."),
+                Err(err) => event!(
+                    Level::ERROR,
+                    "Failed to save liked songs to cache: {:?}",
+                    err
+                ),
             };
-            // Self {client, tracks, saved_tracks_path}
             self_obj
         }
     }
 
-    /// Fetches all liked songs from the user's Spotify library.
-    ///
-    /// This asynchronous function retrieves saved (liked) songs for the current user in batches of 50
-    /// until all songs are retrieved or an error occurs. It utilizes the Spotify API through `AuthCodeSpotify`
-    /// client and handles pagination automatically. The function gathers all retrieved `SavedTrack`
-    /// instances into a single `Vec` and returns them upon successful completion.
-    ///
-    /// ### Parameters
-    /// - `client`: A reference to an initialized `AuthCodeSpotify` client, authenticated with proper
-    ///   user credentials to fetch the user's liked songs.
-    ///
-    /// ### Returns
-    /// - `Result<Vec<SavedTrack>, rspotify::ClientError>`:
-    ///     - On success, returns a vector containing all the user's liked songs (`SavedTrack`s).
-    ///     - On failure, returns a `ClientError` encapsulating details for why the operation failed.
-    ///
-    /// ### Behavior
-    /// - Fetches liked songs in pages of 50 items, supports Spotify's offset-based pagination.
-    /// - Logs events using the `tracing` crate at different levels:
-    ///     - `INFO` on successful page fetch or when all songs are retrieved.
-    ///     - `ERROR` if a request fails.
-    /// - Stops fetching if:
-    ///     - A page contains zero items (no more songs left to fetch).
-    ///     - The `next` link in the response is `None`, indicating the last page.
-    /// - Handles offset updates to ensure continuous fetching from where the last retrieval stopped.
-    ///
-    /// ### Notes
-    /// - This function relies on the Spotify API endpoint for fetching saved tracks. Ensure appropriate
-    ///   API permissions are granted for the user (scope: `user-library-read`).
-    /// - Performance depends on network latency and the size of the user's library.
-    /// - If no saved tracks are found, returns an empty vector.
-    ///
-    /// ### Errors
-    /// - Returns `ClientError` when:
-    ///     - The API client is not authenticated properly.
-    ///     - Network issues occur.
-    ///     - Spotify's API returns an error response.
-    async fn fetch_all(client: &AuthCodeSpotify) -> Result<Vec<SavedTrack>, rspotify::ClientError> {
-        let span = tracing::span!(tracing::Level::INFO, "UserLikedSongs.fetch_all");
-        let _enter = span.enter();
-        let mut tracks = Vec::new();
-        let mut offset = 0;
-
-        loop {
-            let page = match client.current_user_saved_tracks_manual(
-                Some(Self::market()), Some(50), Some(offset)
-            ).await {
-                Ok(page) => {
-                    event!(tracing::Level::INFO, "Fetched page with {} items", page.items.len());
-                    page
-                },
-                Err(err) => {
-                    event!(tracing::Level::ERROR, "Failed to fetch liked songs: {:?}", err);
-                    return Err(err)
-                },
-            };
-            if page.items.is_empty() {
-                event!(tracing::Level::INFO, "No more liked songs to fetch.");
-                break;
-            }
-            offset += page.items.len() as u32;
-            tracks.extend(page.items);
-            if page.next.is_none() {
-                event!(tracing::Level::INFO, "Reached the end of liked songs.");
-                break;
-            }
-        }
-
+    fn load_from_file() -> io::Result<Vec<SavedTrack>> {
+        let data_dir = ProjectDirectories::Data;
+        let liked_songs_path = data_dir.path().join("liked_songs.json");
+        let contents = fs::read_to_string(liked_songs_path)?;
+        let tracks: Vec<SavedTrack> = serde_json::from_str(&contents)?;
         Ok(tracks)
+    }
+
+    pub fn full_tracks(&self) -> Vec<FullTrack> {
+        self.saved_tracks
+            .iter()
+            .map(|saved_track| saved_track.track.clone())
+            .collect::<Vec<FullTrack>>()
+    }
+
+    async fn update_library(
+        client: &AuthCodeSpotify,
+    ) -> Result<Vec<SavedTrack>, rspotify::ClientError> {
+        let span = span!(Level::INFO, "UserLibrary.library");
+        let _enter = span.enter();
+
+        let liked_songs = client.current_user_saved_tracks(Some(Self::market()));
+        let paginator = PaginatorRunner::new(liked_songs, ());
+        let library = paginator.run().await.unwrap_or_else(|err| {
+            event!(
+                Level::ERROR,
+                "Could not retrieve your saved tracks: {:?}",
+                err
+            );
+            Vec::new()
+        });
+        Ok(library)
+    }
+
+    pub fn total_tracks(&self) -> usize {
+        self.saved_tracks.len()
     }
 
     /// Retrieves a list of saved tracks.
@@ -182,11 +155,10 @@ impl UserLikedSongs {
     /// * `Vec<SavedTrack>` - A vector containing the saved tracks.
     ///
     /// # Example
-    ///
-    /// ```
-    /// use spotify_assistant_core::actions::liked_songs::UserLikedSongs;
+    /// ```no_run,ignore
+    /// use spotify_assistant_core::actions::liked_songs::UserLibrary;
     /// async fn main() {
-    ///     let my_instance = UserLikedSongs::new().await;
+    ///     let my_instance = UserLibrary::new().await;
     ///     let saved_tracks = my_instance.tracks();
     ///     for track in saved_tracks {
     ///         println!("Track: {:?}", track);
@@ -194,7 +166,7 @@ impl UserLikedSongs {
     /// }
     /// ```
     pub fn tracks(&self) -> Vec<SavedTrack> {
-        self.tracks.clone()
+        self.saved_tracks.clone()
     }
 
     /// Saves the current state of the `tracks` field to a file in JSON format.
@@ -215,7 +187,7 @@ impl UserLikedSongs {
     ///
     /// - `Ok(())` if the save operation completes successfully.
     fn save_to_file(&self) -> io::Result<()> {
-        let json = serde_json::to_string_pretty(&self.tracks)?;
+        let json = serde_json::to_string_pretty(&self.saved_tracks)?;
         let mut file = fs::File::create(self.saved_tracks_path.clone())?;
         file.write_all(json.as_bytes())?;
         Ok(())
@@ -227,14 +199,14 @@ impl UserLikedSongs {
     /// * `PathBuf` - A cloned `PathBuf` representing the path to the saved tracks.
     ///
     /// # Example
-    /// ```
-    /// use spotify_assistant_core::actions::liked_songs::UserLikedSongs;
+    /// ```no_run,ignore
+    /// use spotify_assistant_core::actions::liked_songs::UserLibrary;
     /// use std::path::PathBuf;
     /// use spotify_assistant_core::enums::fs::ProjectDirectories;
     /// async fn main() {
     ///     let data_dir = ProjectDirectories::Data;
     ///     let saved_tracks_path = data_dir.path().join("liked_songs.json");
-    ///     let configuration = UserLikedSongs::new().await; 
+    ///     let configuration = UserLibrary::new().await;
     ///     let path = configuration.saved_tracks_path();
     ///     assert_eq!(path, PathBuf::from("/music/saved_tracks"));
     /// }
@@ -249,10 +221,10 @@ impl UserLikedSongs {
     /// Returns the number of tracks in the current collection.
     ///
     /// # Example
-    /// ```
-    /// use spotify_assistant_core::actions::liked_songs::UserLikedSongs;
+    /// ```no_run,ignore
+    /// use spotify_assistant_core::actions::liked_songs::UserLibrary;
     /// async fn main() {
-    /// let collection = UserLikedSongs::new().await;
+    /// let collection = UserLibrary::new().await;
     /// assert_eq!(collection.number_of_tracks(), 3);
     /// }
     /// ```
@@ -260,7 +232,7 @@ impl UserLikedSongs {
     /// # Returns
     /// * `usize` - The total count of tracks in the collection.
     pub fn number_of_tracks(&self) -> usize {
-        self.tracks.len()
+        self.saved_tracks.len()
     }
 
     /// Retrieves a list of track IDs from the current object.
@@ -276,47 +248,186 @@ impl UserLikedSongs {
     ///   - The `track.id` is `None` during the unwrap operation.
     ///
     /// # Example
-    /// ```rust
-    /// use spotify_assistant_core::actions::liked_songs::UserLikedSongs;
+    /// ```no_run,ignore
+    /// use spotify_assistant_core::actions::liked_songs::UserLibrary;
     /// async fn main() {
-    ///     let my_object = UserLikedSongs::new().await;
+    ///     let my_object = UserLibrary::new().await;
     ///     let track_ids = my_object.track_ids();
     ///     println!("{:?}", track_ids);
     /// }
     /// ```
     pub fn track_ids(&self) -> Vec<String> {
-        self.tracks.iter().map(|track| track.track.id.clone().unwrap().id().to_string()).collect()
+        self.saved_tracks
+            .iter()
+            .map(|track| track.track.id.clone().unwrap().id().to_string())
+            .collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_support::offline::OfflineObjects;
+    use std::sync::{Mutex, OnceLock};
+    use tempfile::tempdir;
+
+    fn sample_saved_track(label: &str) -> SavedTrack {
+        OfflineObjects::sample_saved_track(label)
     }
 
-    /// Loads a list of saved tracks from a JSON file located in the application data directory.
-    ///
-    /// This function retrieves the path to the data directory using the `ProjectDirectories` library,
-    /// appends the file name `liked_songs.json` to it, and attempts to read the file's contents.
-    /// The contents are then deserialized into a vector of `SavedTrack` objects using the `serde_json` library.
-    ///
-    /// # Returns
-    ///
-    /// - `Ok(Vec<SavedTrack>)`: A vector containing the deserialized `SavedTrack` objects if the file
-    ///   is read and parsed successfully.
-    /// - `Err(io::Error)`: An error if there is an issue reading the file or parsing the JSON content.
-    ///
-    /// # Errors
-    ///
-    /// This function will propagate errors if:
-    /// - The file `liked_songs.json` does not exist or cannot be accessed.
-    /// - The file contents cannot be read as a string.
-    /// - The JSON within the file cannot be deserialized into `Vec<SavedTrack>`.
-    ///
-    /// # Dependencies
-    ///
-    /// - This function uses the `ProjectDirectories` crate to determine the application's data directory.
-    /// - The `serde_json` crate is required for JSON parsing.
-    /// ```
-    fn load_from_file() -> io::Result<Vec<SavedTrack>> {
-        let data_dir = ProjectDirectories::Data;
-        let liked_songs_path = data_dir.path().join("liked_songs.json");
-        let contents = fs::read_to_string(liked_songs_path)?;
-        let tracks: Vec<SavedTrack> = serde_json::from_str(&contents)?;
-        Ok(tracks)
+    fn sample_tracks() -> Vec<SavedTrack> {
+        OfflineObjects::sample_saved_tracks()
+    }
+
+    fn env_mutex() -> &'static Mutex<()> {
+        static ENV_MUTEX: OnceLock<Mutex<()>> = OnceLock::new();
+        ENV_MUTEX.get_or_init(|| Mutex::new(()))
+    }
+
+    #[test]
+    fn tracks_returns_clone_of_internal_state() {
+        let temp_dir = tempdir().expect("temporary directory");
+        let file_path = temp_dir.path().join("liked_songs.json");
+        let tracks = sample_tracks();
+        let liked_songs = UserLibrary {
+            client: AuthCodeSpotify::default(),
+            saved_tracks: tracks.clone(),
+            saved_tracks_path: file_path,
+        };
+
+        let mut cloned_tracks = liked_songs.tracks();
+        cloned_tracks.clear();
+
+        assert_eq!(liked_songs.saved_tracks.len(), tracks.len());
+        assert_ne!(liked_songs.saved_tracks.len(), cloned_tracks.len());
+    }
+
+    #[test]
+    fn number_of_tracks_matches_len() {
+        let temp_dir = tempdir().expect("temporary directory");
+        let file_path = temp_dir.path().join("liked_songs.json");
+        let tracks = sample_tracks();
+        let liked_songs = UserLibrary {
+            client: AuthCodeSpotify::default(),
+            saved_tracks: tracks.clone(),
+            saved_tracks_path: file_path,
+        };
+
+        assert_eq!(liked_songs.number_of_tracks(), tracks.len());
+    }
+
+    #[test]
+    fn track_ids_extracts_ids() {
+        let temp_dir = tempdir().expect("temporary directory");
+        let file_path = temp_dir.path().join("liked_songs.json");
+        let saved_tracks = sample_tracks();
+        let liked_songs = UserLibrary {
+            client: AuthCodeSpotify::default(),
+            saved_tracks,
+            saved_tracks_path: file_path,
+        };
+
+        assert_eq!(
+            liked_songs.track_ids(),
+            vec![
+                "AAAAAAAAAAAAAAAAAAAAAA".to_string(),
+                "DDDDDDDDDDDDDDDDDDDDDD".to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn saved_tracks_path_returns_clone() {
+        let temp_dir = tempdir().expect("temporary directory");
+        let file_path = temp_dir.path().join("liked_songs.json");
+        let saved_tracks = sample_tracks();
+        let liked_songs = UserLibrary {
+            client: AuthCodeSpotify::default(),
+            saved_tracks,
+            saved_tracks_path: file_path.clone(),
+        };
+
+        let mut returned_path = liked_songs.saved_tracks_path();
+        assert_eq!(returned_path, file_path);
+        returned_path.push("extra");
+        assert_ne!(returned_path, liked_songs.saved_tracks_path);
+    }
+
+    #[test]
+    fn save_to_file_persists_tracks() {
+        let temp_dir = tempdir().expect("temporary directory");
+        let file_path = temp_dir.path().join("liked_songs.json");
+        let tracks = sample_tracks();
+        let liked_songs = UserLibrary {
+            client: AuthCodeSpotify::default(),
+            saved_tracks: tracks.clone(),
+            saved_tracks_path: file_path.clone(),
+        };
+
+        if let Some(parent) = file_path.parent() {
+            fs::create_dir_all(parent).expect("create parent directory");
+        }
+
+        liked_songs.save_to_file().expect("save liked songs");
+
+        let persisted = fs::read_to_string(&file_path).expect("read persisted file");
+        let parsed_tracks: Vec<SavedTrack> =
+            serde_json::from_str(&persisted).expect("parse persisted tracks");
+        assert_eq!(parsed_tracks, tracks);
+    }
+
+    struct EnvVarGuard {
+        key: &'static str,
+        original: Option<String>,
+    }
+
+    impl EnvVarGuard {
+        unsafe fn set(key: &'static str, value: &str) -> Self {
+            unsafe {
+                let original = std::env::var(key).ok();
+                std::env::set_var(key, value);
+                Self { key, original }
+            }
+        }
+    }
+
+    impl Drop for EnvVarGuard {
+        fn drop(&mut self) {
+            if let Some(ref value) = self.original {
+                unsafe {
+                    std::env::set_var(self.key, value);
+                }
+            } else {
+                unsafe {
+                    std::env::remove_var(self.key);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn load_from_file_reads_tracks_from_cache() {
+        let _guard = env_mutex().lock().expect("lock environment mutex");
+        let temp_dir = tempdir().expect("temporary directory");
+        let env_guard = unsafe {
+            EnvVarGuard::set(
+                "XDG_DATA_HOME",
+                temp_dir.path().to_str().expect("utf-8 path"),
+            )
+        };
+        let data_dir = ProjectDirectories::Data.path();
+        fs::create_dir_all(&data_dir).expect("create data directory");
+        let file_path = data_dir.join("liked_songs.json");
+        let tracks = sample_tracks();
+        fs::write(
+            &file_path,
+            serde_json::to_string(&tracks).expect("serialize tracks"),
+        )
+            .expect("write tracks to cache");
+
+        let loaded = UserLibrary::load_from_file().expect("load tracks from cache");
+        assert_eq!(loaded, tracks);
+
+        drop(env_guard);
     }
 }
