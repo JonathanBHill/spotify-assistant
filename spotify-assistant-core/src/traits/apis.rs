@@ -3,7 +3,7 @@ use rspotify::prelude::OAuthClient;
 use rspotify::{AuthCodeSpotify, Config, Credentials, OAuth};
 use std::collections::HashSet;
 use std::env;
-use tracing::{error, event, span, trace, Level};
+use tracing::{Level, error, event, span, trace, trace_span};
 
 use crate::enums::fs::{ProjectDirectories, ProjectFiles};
 
@@ -145,7 +145,7 @@ pub trait Api {
         scopes: Option<HashSet<String>>,
     ) -> impl Future<Output = AuthCodeSpotify> + Send {
         async move {
-            let suc_span = span!(Level::TRACE, "Api.set_up_client");
+            let suc_span = trace_span!("api-client");
             let _enter = suc_span.enter();
             dotenv::from_path(ProjectFiles::DotEnv.path()).ok();
             trace!(

@@ -8,9 +8,9 @@ use rspotify::model::{
     AlbumId, ArtistId, FullAlbum, FullPlaylist, FullTrack, PlayableId, PlayableItem, PlaylistId,
     SimplifiedAlbum, SimplifiedArtist, TrackId,
 };
-use rspotify::{scopes, AuthCodeSpotify};
+use rspotify::{AuthCodeSpotify, scopes};
 use std::collections::{HashMap, HashSet};
-use tracing::{event, Level};
+use tracing::{Level, debug_span, error, event, info, trace};
 
 /// `PlaylistXplr` is a struct that provides functionality for exploring and managing
 /// Spotify playlists. It contains information about a specific playlist, its tracks,
@@ -86,8 +86,7 @@ impl PlaylistXplr {
     ///
     /// This function is `async` and must be called within an asynchronous context.
     pub async fn new(playlist_id: PlaylistId<'static>, duplicates: bool) -> Self {
-        let span = tracing::span!(Level::INFO, "ExplorePlaylist.new");
-        let _enter = span.enter();
+        let _pl_xplr_span = debug_span!("pl-xplr").entered();
 
         let client = Self::set_up_client(false, Some(Self::select_scopes())).await;
         let full_playlist = Self::instantiate_playlist(client.clone(), playlist_id.clone()).await;
@@ -204,19 +203,18 @@ impl PlaylistXplr {
         client: AuthCodeSpotify,
         playlist_id: PlaylistId<'_>,
     ) -> FullPlaylist {
-        let span = tracing::span!(Level::INFO, "ExplorePlaylist.instantiate_playlist");
-        let _enter = span.enter();
-        event!(Level::TRACE, "Retrieving playlist data");
+        let _get_pl_span = debug_span!("get-pl").entered();
+        trace!("Retrieving playlist data");
         match client
             .playlist(playlist_id, None, Some(Self::market()))
             .await
         {
             Ok(pl) => {
-                event!(Level::TRACE, "Playlist data has been retrieved.");
+                trace!("Playlist data has been retrieved.");
                 pl
             }
             Err(err) => {
-                event!(Level::ERROR, "Could not retrieve playlist: {:?}", err);
+                error!("Could not retrieve playlist: {:?}", err);
                 panic!("Could not retrieve playlist: {err:?}");
             }
         }
@@ -926,12 +924,10 @@ impl PlaylistXplr {
             .collect::<Vec<TrackId>>()
     }
     pub fn track_fingerprint(&self) -> Vec<FullTrackFingerprint> {
-        let span = tracing::span!(Level::INFO, "ExplorePlaylist.track_ids_original");
-        let _enter = span.enter();
-        event!(
-            Level::INFO,
-            "Retrieving track ids from the playlist. Track count: {:?}",
-            self.tracks().len()
+        let _track_fingerprint_span = tracing::span!(Level::INFO, "get-trck-fp").entered();
+        info!(
+            track_count = ?self.tracks().len(),
+            "Retrieving track fingerprints",
         );
         self.tracks()
             .iter()

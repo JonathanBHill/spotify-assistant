@@ -1,60 +1,62 @@
 use ansi_term::{ANSIGenericString, Color};
+use std::collections::VecDeque;
+use std::io;
 use tracing::{Level, Metadata};
+use tracing_appender::rolling;
+use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::fmt::format::Writer;
 use tracing_subscriber::fmt::time::{ChronoLocal, FormatTime};
 use tracing_subscriber::fmt::{FmtContext, FormatEvent, FormatFields, FormattedFields};
+use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::registry::LookupSpan;
-use tracing_subscriber::FmtSubscriber;
+use tracing_subscriber::util::SubscriberInitExt;
+use tracing_subscriber::{EnvFilter, Layer, fmt};
+
+static LOG_GUARD: once_cell::sync::OnceCell<tracing_appender::non_blocking::WorkerGuard> =
+    once_cell::sync::OnceCell::new();
 
 pub fn init_tracing() {
-    #[cfg(debug_assertions)]
-    {
-        let subscriber = FmtSubscriber::builder()
-            .event_format(CustomFormatter)
-            .with_max_level(Level::TRACE)
-            .finish();
-        tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
-    }
+    const CRATE_NAME: &str = env!("CARGO_CRATE_NAME");
 
-    #[cfg(not(debug_assertions))]
-    {
-        let subscriber = FmtSubscriber::builder()
-            .event_format(CustomFormatter)
-            .with_max_level(Level::INFO)
-            .finish();
-        tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
-    }
-    tracing::trace!("Subscriber built");
+    // Base filter: crate only, everything else off.
+    let base_directive = EnvFilter::new(format!(
+        "off,{crate}=trace,testing=trace",
+        crate = CRATE_NAME
+    ));
+    // Console filter: crate only, everything else off.
+    // In debug: TRACE, in release: INFO.
+    let console_directive = if cfg!(debug_assertions) {
+        format!("off,{crate}=trace,testing=trace", crate = CRATE_NAME)
+    } else {
+        format!("off,{crate}=info", crate = CRATE_NAME)
+    };
+
+    // File appender (logs/countycrawler.log, rotated daily)
+    let file_appender = rolling::daily("logs", "spotifyassistant.log");
+    let (file_writer, guard) = tracing_appender::non_blocking(file_appender);
+    // Store guard so async threads don't drop
+    let _ = LOG_GUARD.set(guard);
+
+    // Console: human-friendly formatting, your existing formatter, INFO+ only
+    let console_layer = fmt::layer()
+        .event_format(CustomDevFormatter)
+        .with_writer(io::stderr)
+        .with_filter(LevelFilter::TRACE);
+
+    // File: standard format is fine, DEBUG+ (controlled by EnvFilter above)
+    let file_layer = fmt::layer().with_ansi(false).with_writer(file_writer);
+
+    tracing_subscriber::registry()
+        .with(base_directive) // global filtering (dependency logging: off)
+        .with(console_layer.with_filter(EnvFilter::new(console_directive))) // TRACE+ without dependencies to console
+        .with(file_layer.with_filter(LevelFilter::TRACE)) // full detail to logs/countycrawler.log
+        .init();
+
+    tracing::debug!("Tracing subscriber initialized");
 }
+pub struct CustomDevFormatter;
 
-/// A custom formatter struct used for formatting purposes.
-///
-/// This struct is typically employed in scenarios where custom formatting logic
-/// for specific data types or outputs is necessary. The use of the `#[cfg(not(tarpaulin_include))]`
-/// attribute ensures that this struct is excluded from coverage analysis by the `tarpaulin` code
-/// coverage tool, thereby preventing its inclusion in test coverage reports.
-///
-/// # Example
-/// ```ignore
-/// let formatter = CustomFormatter;
-/// // Use `formatter` to apply custom formatting logic
-/// ```
-///
-/// # Attributes
-/// None
-///
-/// # Notes
-/// This struct does not contain any fields or methods by default and is expected
-/// to be extended or used in conjunction with other logic to serve as a formatting utility.
-///
-/// # Feature Flags
-/// - This struct is conditionally excluded from test coverage reporting when
-///   compiled with the `tarpaulin` tool due to the inclusion of the `cfg(not(tarpaulin_include))`
-///   conditional compilation attribute.
-#[cfg(not(tarpaulin_include))]
-pub struct CustomFormatter;
-
-impl CustomFormatter {
+impl CustomDevFormatter {
     fn log_colors(&self, meta: &Metadata) -> ANSIGenericString<'_, str> {
         match *meta.level() {
             Level::INFO => Color::Green.paint("INFO"),
@@ -75,9 +77,22 @@ impl CustomFormatter {
             .unwrap_or_else(|| "?".to_string());
         Color::Purple.bold().paint(&line_str).to_string()
     }
+    fn file_path_color(&self, meta: &Metadata, file_name: &str) -> String {
+        let mut module_path_vec = meta.target().split("::").collect::<VecDeque<&str>>();
+        let _ = module_path_vec.pop_back();
+        let _ = module_path_vec.pop_front();
+        module_path_vec.insert(0, "src");
+        module_path_vec.insert(module_path_vec.len(), file_name);
+        let file_path = module_path_vec
+            .iter()
+            .map(|module| module.to_string())
+            .collect::<Vec<String>>()
+            .join(".");
+        Color::Purple.paint(file_path).to_string()
+    }
 }
 
-impl<S, N> FormatEvent<S, N> for CustomFormatter
+impl<S, N> FormatEvent<S, N> for CustomDevFormatter
 where
     S: tracing::Subscriber + for<'a> LookupSpan<'a>,
     N: for<'a> FormatFields<'a> + 'static,
@@ -121,13 +136,12 @@ where
     /// # Example
     /// ```rust
     /// // Hypothetical usage within a logger configuration.
-    /// use crate::spotify_assistant_core::utilities::logging::CustomFormatter;
-    /// let formatter = CustomFormatter;
+    /// use crate::spotify_assistant_core::utilities::logging::CustomDevFormatter;
+    /// let formatter = CustomDevFormatter;
     /// tracing_subscriber::fmt()
     ///     .event_format(formatter)
     ///     .init();
     /// ```
-    #[cfg(not(tarpaulin_include))]
     fn format_event(
         &self,
         ctx: &FmtContext<'_, S, N>,
@@ -135,17 +149,17 @@ where
         event: &tracing::Event<'_>,
     ) -> std::fmt::Result {
         let meta = event.metadata();
+        let log_type_color = self.log_colors(meta);
         let filename = self.filename(meta);
+        let file_path = self.file_path_color(meta, &filename);
         let event_code_line_color = self.line_color(meta);
         let time = ChronoLocal::new("%H:%M:%S%.3f".to_string());
-        let module_path_color = Color::Purple.paint(meta.target());
-        let log_type_color = self.log_colors(meta);
 
         time.format_time(&mut writer.by_ref())?;
         write!(
             writer,
-            " [{}] {}[{}:{}] | ",
-            log_type_color, module_path_color, filename, event_code_line_color
+            " [{}] {}:{} | ",
+            log_type_color, file_path, event_code_line_color
         )?;
 
         // Retrieve and format the span's fields (if any)

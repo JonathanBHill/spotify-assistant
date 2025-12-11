@@ -31,6 +31,26 @@ impl ConfigReader for Constants {
     }
 }
 
+impl Constants {
+    pub fn playlist_id(&self, name: &str) -> String {
+        let playlist = self
+            .ids
+            .playlists
+            .iter()
+            .find(|p| {
+                let key = match name {
+                    "stock" => "stock_release_radar",
+                    "custom" => "custom_release_radar",
+                    "lagging" => "lagging_release_radar",
+                    _ => panic!("Playlist {} not found in constants.toml", name),
+                };
+                key == p.name
+            })
+            .unwrap();
+        playlist.id.clone()
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug)]
 struct ConstIDs {
     playlists: HashSet<ConstPlaylist>,
@@ -40,12 +60,6 @@ struct ConstIDs {
 struct ConstPlaylist {
     name: String,
     id: String,
-}
-
-impl ConstPlaylist {
-    pub fn new(name: String, id: String) -> Self {
-        Self { name, id }
-    }
 }
 
 #[cfg(test)]
