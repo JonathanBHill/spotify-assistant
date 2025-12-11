@@ -17,3 +17,4 @@ tests
 /spotify-assistant-tui/Cargo.lock
 bacon.toml
 .env.remove
+logs

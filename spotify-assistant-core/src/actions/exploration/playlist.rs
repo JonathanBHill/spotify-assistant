@@ -1,8 +1,10 @@
 use crate::enums::duplication::DuplicatePolicy;
 use crate::extractors::artist::{artists_entry_for_album, artists_for_album};
+use crate::models::blacklist::{Blacklist, BlacklistArtist};
 use crate::models::full_track_fingerprint::FullTrackFingerprint;
 use crate::paginator::PaginatorRunner;
 use crate::traits::apis::Api;
+use crate::traits::vector_manipulation::VecManipulation;
 use rspotify::clients::{BaseClient, OAuthClient};
 use rspotify::model::{
     AlbumId, ArtistId, FullAlbum, FullPlaylist, FullTrack, PlayableId, PlayableItem, PlaylistId,
@@ -10,7 +12,7 @@ use rspotify::model::{
 };
 use rspotify::{AuthCodeSpotify, scopes};
 use std::collections::{HashMap, HashSet};
-use tracing::{Level, debug_span, error, event, info, trace};
+use tracing::{Level, debug, debug_span, error, event, info, info_span, trace};
 
 /// `PlaylistXplr` is a struct that provides functionality for exploring and managing
 /// Spotify playlists. It contains information about a specific playlist, its tracks,
@@ -35,12 +37,13 @@ use tracing::{Level, debug_span, error, event, info, trace};
 /// * `duplicates` (`bool`): A private field (not accessible outside this struct) that
 ///   indicates whether the playlist contains duplicate tracks. This can be used internally
 ///   for operations such as filtering or alerting the user of duplicate entries.
+#[derive(Debug, Clone)]
 pub struct PlaylistXplr {
     pub client: AuthCodeSpotify,
     pub playlist_id: PlaylistId<'static>,
     pub full_playlist: FullPlaylist,
     pub tracks: Vec<FullTrack>,
-    duplicates: bool,
+    drop_duplicates: bool,
 }
 
 impl Api for PlaylistXplr {
@@ -53,6 +56,8 @@ impl Api for PlaylistXplr {
         )
     }
 }
+
+impl VecManipulation for PlaylistXplr {}
 
 impl PlaylistXplr {
     /// Asynchronously creates a new instance of `PlaylistXplr`.
@@ -85,18 +90,18 @@ impl PlaylistXplr {
     /// # Asynchronous Behavior
     ///
     /// This function is `async` and must be called within an asynchronous context.
-    pub async fn new(playlist_id: PlaylistId<'static>, duplicates: bool) -> Self {
+    pub async fn new(playlist_id: PlaylistId<'static>, drop_duplicates: bool) -> Self {
         let _pl_xplr_span = debug_span!("pl-xplr").entered();
 
         let client = Self::set_up_client(false, Some(Self::select_scopes())).await;
-        let full_playlist = Self::instantiate_playlist(client.clone(), playlist_id.clone()).await;
-        let tracks = Self::instantiate_playlist_tracks(client.clone(), playlist_id.clone()).await;
+        let full_playlist = Self::instantiate_playlist(&client, playlist_id.clone()).await;
+        let tracks = Self::instantiate_playlist_tracks(&client, playlist_id.clone()).await;
         PlaylistXplr {
             client,
             playlist_id,
             full_playlist,
             tracks,
-            duplicates,
+            drop_duplicates: drop_duplicates,
         }
     }
 
@@ -148,12 +153,11 @@ impl PlaylistXplr {
     /// See the [`rspotify` crate](https://docs.rs/rspotify) documentation for more information on managing playlists
     /// and tracks using the Spotify API.
     pub async fn instantiate_playlist_tracks(
-        client: AuthCodeSpotify,
+        client: &AuthCodeSpotify,
         playlist_id: PlaylistId<'_>,
     ) -> Vec<FullTrack> {
-        let span = tracing::span!(Level::INFO, "ExplorePlaylist.instantiate_playlist_tracks");
-        let _enter = span.enter();
-        event!(Level::TRACE, "Retrieving playlist tracks");
+        let _init_pl_tracks_span = debug_span!("init-pl-xplr-tracks").entered();
+        trace!("Retrieving playlist tracks");
         let playlist_items = client.playlist_items(playlist_id, None, Some(Self::market()));
         let paginator = PaginatorRunner::new(playlist_items, ());
         match paginator.run().await {
@@ -166,7 +170,7 @@ impl PlaylistXplr {
                 .filter_map(Result::ok)
                 .collect::<Vec<FullTrack>>(),
             Err(err) => {
-                event!(Level::ERROR, "Could not retrieve playlist items: {:?}", err);
+                error!("Could not retrieve playlist items: {:?}", err);
                 Vec::new()
             }
         }
@@ -200,7 +204,7 @@ impl PlaylistXplr {
     /// - TRACE level events to indicate the success of playlist data retrieval.
     /// - ERROR level events to log any errors encountered during the retrieval process.
     async fn instantiate_playlist(
-        client: AuthCodeSpotify,
+        client: &AuthCodeSpotify,
         playlist_id: PlaylistId<'_>,
     ) -> FullPlaylist {
         let _get_pl_span = debug_span!("get-pl").entered();
@@ -302,19 +306,15 @@ impl PlaylistXplr {
     /// - **INFO** - Indicates the playlist being processed.
     /// - **DEBUG** - Provides detailed insights into each track and artist during extraction.
     pub fn artists(&self) -> Vec<SimplifiedArtist> {
-        let span = tracing::span!(Level::INFO, "ExplorePlaylist.artists");
-        let _enter = span.enter();
+        let _get_artist_span = info_span!("get-artists").entered();
         let pl_name = self.full_playlist.name.clone();
-        event!(
-            Level::INFO,
-            "Retrieving artists from the '{pl_name}' playlists"
-        );
+        info!("Retrieving artists from the '{pl_name}' playlists");
 
         let mut artists_vec = Vec::new();
         self.tracks().iter().for_each(|track| {
-            event!(Level::DEBUG, "Track: {:?}", track.clone().name);
+            debug!("Track: {:?}", track.clone().name);
             track.artists.iter().for_each(|artist| {
-                event!(Level::DEBUG, "\tArtist: {:?}", artist.clone().name);
+                debug!("\tArtist: {:?}", artist.clone().name);
                 artists_vec.push(artist.clone());
             });
         });
@@ -353,26 +353,20 @@ impl PlaylistXplr {
     /// - Associated logging spans can be useful for debugging and tracing this function when it's run
     ///   in environments with enabled `tracing`.
     pub fn artists_by_track(&self) -> HashMap<String, Vec<SimplifiedArtist>> {
-        let span = tracing::span!(Level::INFO, "ExplorePlaylist.artists_by_track");
-        let _enter = span.enter();
+        let _artist_by_track_span = info_span!("artist-by-track").entered();
         let pl_name = self.full_playlist.name.clone();
-        event!(
-            Level::INFO,
-            "Retrieving artists from the '{pl_name}' playlists"
-        );
+        info!("Retrieving artists from the '{pl_name}' playlists");
         let mut artists_map = HashMap::new();
         self.tracks().iter().for_each(|track| {
             let track_name = track.name.clone();
             let artists = track.artists.clone();
-            event!(
-                Level::TRACE,
+            trace!(
                 "Adding {:?} artists from track {:?}",
                 artists.len(),
                 track_name
             );
             artists_map.insert(track_name.clone(), artists.clone());
-            event!(
-                Level::DEBUG,
+            debug!(
                 "Hashmap length: {:?} | Key: {:?} | Length of value {:?}",
                 artists_map.len(),
                 track_name,
@@ -407,16 +401,44 @@ impl PlaylistXplr {
     /// }
     /// ```
     pub fn album_ids(&self) -> Vec<AlbumId<'_>> {
-        self.tracks()
-            .iter()
-            .map(|track| {
-                track
-                    .album
-                    .id
-                    .clone()
-                    .expect("Could not get album id from track")
-            })
-            .collect::<Vec<AlbumId>>()
+        let _album_ids_span = debug_span!("album-ids").entered();
+        if self.drop_duplicates {
+            self.album_ids_filtered()
+        } else {
+            self.tracks()
+                .iter()
+                .map(|track| {
+                    track
+                        .album
+                        .id
+                        .clone()
+                        .expect("Could not get album id from track")
+                })
+                .collect::<Vec<AlbumId>>()
+        }
+    }
+
+    fn album_ids_filtered(&self) -> Vec<AlbumId<'_>> {
+        let _albums_filtered_span = debug_span!("album-filter").entered();
+        let blacklist = Blacklist::default().artists();
+        debug!("Current blacklist: {:?}", blacklist);
+
+        self.tracks().iter().filter_map(|track| {
+            // let album = track.album.artists
+            let lead_artist = match track.album.artists.first() {
+                Some(artist) => artist,
+                None => panic!("Track {:?} has no lead artist", track.name),
+            };
+            let hypothetical_blacklist_artist = BlacklistArtist::new_from_artist(lead_artist);
+            if blacklist.contains(&hypothetical_blacklist_artist) {
+                debug!(skipped_artist = ?hypothetical_blacklist_artist, "Skipping album ID retrieval");
+                None
+            } else {
+                trace!(added_artist = ?hypothetical_blacklist_artist, "Retrieving album ID");
+                let album_id = track.album.id.clone().expect("Could not clone album ID");
+                Some(album_id)
+            }
+        }).collect()
     }
 
     /// Asynchronously retrieves and expands a list of artist IDs based on the albums associated
@@ -454,16 +476,12 @@ impl PlaylistXplr {
     /// println!("Expanded artist IDs: {:?}", expanded_artist_ids);
     /// ```
     pub async fn artist_ids_from_track_albums(&self) -> Vec<ArtistId<'_>> {
-        let span = tracing::span!(Level::INFO, "ExplorePlaylist.artist_ids_from_track_albums");
-        let _enter = span.enter();
+        let _artist_ids_from_track_album_span =
+            info_span!("artist-ids-from-track-albums").entered();
 
         let mut artist_ids = Vec::new();
         for album_chunk in self.album_ids().chunks(20) {
-            event!(
-                Level::DEBUG,
-                "Current album chunk: {:?}",
-                album_chunk.to_vec()
-            );
+            debug!("Current album chunk: {:?}", album_chunk.to_vec());
             let albums = self
                 .client
                 .albums(album_chunk.to_vec(), Some(Self::market()))
@@ -484,8 +502,8 @@ impl PlaylistXplr {
                 );
             });
         }
-        if !self.duplicates {
-            artist_ids = Self::clean_duplicate_id_vector(artist_ids);
+        if self.drop_duplicates {
+            artist_ids = Self::dedup_by_key(artist_ids, |artist_id| artist_id.clone());
         }
         artist_ids
     }
@@ -516,8 +534,8 @@ impl PlaylistXplr {
     /// }
     /// ```
     pub fn artist_ids_from_tracks(&self) -> Vec<ArtistId<'_>> {
-        let span = tracing::span!(Level::INFO, "ExplorePlaylist.artist_ids_from_tracks");
-        let _enter = span.enter();
+        let _artist_ids_from_tracks_span = info_span!("artist-ids-from-tracks").entered();
+
         let mut artist_ids = self
             .tracks()
             .iter()
@@ -537,8 +555,8 @@ impl PlaylistXplr {
             })
             .collect::<Vec<ArtistId>>();
 
-        if !self.duplicates {
-            artist_ids = Self::clean_duplicate_id_vector(artist_ids);
+        if self.drop_duplicates {
+            artist_ids = Self::dedup_by_key(artist_ids, |artist_id| artist_id.clone());
         };
         artist_ids
     }
@@ -578,16 +596,11 @@ impl PlaylistXplr {
     /// - This method relies on the `self.album_ids()` method to retrieve the list of album IDs.
     /// - The `clean_duplicate_id_vector` method is used to remove duplicate IDs if the `duplicates` flag is `false`.
     pub async fn track_ids_expanded(&self) -> Vec<TrackId<'_>> {
-        let span = tracing::span!(Level::INFO, "ExplorePlaylist.track_ids_expanded");
-        let _enter = span.enter();
+        let _track_ids_exp_span = debug_span!("trck-ids-xp").entered();
 
         let mut track_ids: Vec<TrackId> = Vec::new();
         for album_chunk in self.album_ids().chunks(20) {
-            event!(
-                Level::DEBUG,
-                "Current album chunk: {:?}",
-                album_chunk.to_vec()
-            );
+            debug!("Current album chunk: {:?}", album_chunk.to_vec());
             let albums: Vec<FullAlbum> = self
                 .client
                 .albums(album_chunk.to_vec(), Some(Self::market()))
@@ -604,8 +617,8 @@ impl PlaylistXplr {
                 );
             });
         }
-        if !self.duplicates {
-            track_ids = Self::clean_duplicate_id_vector(track_ids);
+        if self.drop_duplicates {
+            track_ids = Self::dedup_by_key(track_ids, |track_id| track_id.clone());
         }
         track_ids
     }
@@ -656,10 +669,10 @@ impl PlaylistXplr {
                 unique_tracks.push(track.clone());
             } else {
                 dup_counter += 1;
-                event!(Level::DEBUG, "Duplicate track found: {:?}", track.name);
+                debug!("Duplicate track found: {:?}", track.name);
             }
         }
-        event!(Level::INFO, "{} duplicate tracks skipped", dup_counter);
+        info!("{} duplicate tracks skipped", dup_counter);
         unique_tracks
     }
 
@@ -746,23 +759,19 @@ impl PlaylistXplr {
                 .await
             {
                 Ok(liked) => {
-                    event!(Level::DEBUG, "batch size: {:?}", liked.len());
+                    debug!("batch size: {:?}", liked.len());
                     liked
                         .iter()
                         .for_each(|liked| liked_songz.push(liked.to_owned()));
                 }
                 Err(err) => {
-                    event!(Level::ERROR, "Could not retrieve liked songs: {:?}", err);
+                    error!("Could not retrieve liked songs: {:?}", err);
                     panic!();
                 }
             }
         }
-        event!(Level::DEBUG, "Liked songs length: {:?}", liked_songz.len());
-        event!(
-            Level::DEBUG,
-            "Track ids length: {:?}",
-            self.track_ids().len()
-        );
+        debug!("Liked songs length: {:?}", liked_songz.len());
+        debug!("Track ids length: {:?}", self.track_ids().len());
         let zipped = self
             .tracks()
             .into_iter()
@@ -837,7 +846,7 @@ impl PlaylistXplr {
         let span = tracing::span!(Level::INFO, "ExplorePlaylist.artists_by_album");
         let _enter = span.enter();
 
-        let policy = if self.duplicates {
+        let policy = if !self.drop_duplicates {
             DuplicatePolicy::Keep
         } else {
             DuplicatePolicy::Remove
@@ -845,11 +854,7 @@ impl PlaylistXplr {
 
         let mut artists_map = HashMap::new();
         for album_chunk in self.album_ids().chunks(20) {
-            event!(
-                Level::DEBUG,
-                "Current album chunk: {:?}",
-                album_chunk.to_vec()
-            );
+            debug!("Current album chunk: {:?}", album_chunk.to_vec());
             let albums: Vec<FullAlbum> = match self
                 .client
                 .albums(album_chunk.to_vec(), Some(Self::market()))
@@ -857,14 +862,13 @@ impl PlaylistXplr {
             {
                 Ok(albums) => albums,
                 Err(err) => {
-                    event!(Level::ERROR, "Could not retrieve albums: {:?}", err);
+                    error!("Could not retrieve albums: {:?}", err);
                     panic!("Could not retrieve albums: {err:?}");
                 }
             };
             for album in &albums {
                 let (name, artists) = artists_entry_for_album(album, policy);
-                event!(
-                    Level::DEBUG,
+                debug!(
                     album = %name,
                     artists_raw = artists_for_album(album).len(),
                     artists_final = artists.len(),
@@ -910,8 +914,7 @@ impl PlaylistXplr {
     pub fn track_ids(&self) -> Vec<TrackId<'_>> {
         let span = tracing::span!(Level::INFO, "ExplorePlaylist.track_ids_original");
         let _enter = span.enter();
-        event!(
-            Level::INFO,
+        info!(
             "Retrieving track ids from the playlist. Track count: {:?}",
             self.tracks().len()
         );
@@ -934,6 +937,14 @@ impl PlaylistXplr {
             .map(FullTrackFingerprint::new)
             .collect::<Vec<FullTrackFingerprint>>()
     }
+    pub fn playable_items(&self) -> Vec<PlayableItem> {
+        let span = tracing::span!(Level::INFO, "ExplorePlaylist.playable_items");
+        let _enter = span.enter();
+        self.tracks()
+            .iter()
+            .map(|track| PlayableItem::Track(track.to_owned()))
+            .collect::<Vec<PlayableItem>>()
+    }
     pub fn playable_ids(&self) -> Vec<PlayableId<'_>> {
         let span = tracing::span!(Level::INFO, "ExplorePlaylist.playable_ids");
         let _enter = span.enter();
@@ -946,10 +957,7 @@ impl PlaylistXplr {
             .collect::<Vec<_>>();
 
         if owned_tracks.is_empty() {
-            event!(
-                Level::ERROR,
-                "Could not collect track IDs from reference playlist"
-            );
+            error!("Could not collect track IDs from reference playlist");
             panic!("Could not collect track IDs from reference playlist");
         } else {
             owned_tracks

@@ -4,9 +4,9 @@ use std::path::PathBuf;
 
 use rspotify::model::SimplifiedArtist;
 use serde::{Deserialize, Serialize};
-use tracing::{event, span, Level};
-use unicode_normalization::char::is_combining_mark;
+use tracing::{Level, event, span};
 use unicode_normalization::UnicodeNormalization;
+use unicode_normalization::char::is_combining_mark;
 
 use crate::enums::fs::ProjectDirectories;
 
@@ -75,6 +75,17 @@ impl BlacklistArtist {
         BlacklistArtist { name, id }
     }
 
+    pub fn new_from_artist(artist: &SimplifiedArtist) -> Self {
+        let name = artist.name.clone();
+        let uri = artist
+            .id
+            .clone()
+            .expect("Could not obtain artist ID")
+            .to_string();
+        let id = uri.split(':').collect::<Vec<&str>>()[2].to_string();
+        BlacklistArtist { name, id }
+    }
+
     /// Returns a clone of the `name` field.
     ///
     /// This method provides access to the `name` field of the struct
@@ -136,7 +147,7 @@ impl BlacklistArtist {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_support::{blacklist_toml, invalid_blacklist_toml, TestEnvironment, ENV_MUTEX};
+    use crate::test_support::{ENV_MUTEX, TestEnvironment, blacklist_toml, invalid_blacklist_toml};
     use std::fs;
 
     fn blacklist_fixture() -> Blacklist {
