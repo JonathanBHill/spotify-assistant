@@ -1,7 +1,6 @@
-use tracing::Level;
-
-use spotify_assistant_core::actions::update::Editor;
+use spotify_assistant_core::actions::playlist_editor::Modifier;
 use spotify_assistant_core::utilities::logging::init_tracing;
+use tracing::Level;
 
 #[tokio::main]
 async fn main() {
@@ -9,6 +8,6 @@ async fn main() {
     let span = tracing::span!(Level::INFO, "main");
     let _enter = span.enter();
 
-    let my_release_radar = Editor::release_radar().await;
-    my_release_radar.update_rr_from_xplorer().await
+    let modifier = Modifier::release_radar().await;
+    modifier.update_playlist().await;
 }

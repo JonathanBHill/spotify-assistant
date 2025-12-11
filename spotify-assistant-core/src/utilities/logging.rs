@@ -31,26 +31,36 @@ pub fn init_tracing() {
         format!("off,{crate}=info", crate = CRATE_NAME)
     };
 
-    // File appender (logs/countycrawler.log, rotated daily)
-    let file_appender = rolling::daily("logs", "spotifyassistant.log");
-    let (file_writer, guard) = tracing_appender::non_blocking(file_appender);
-    // Store guard so async threads don't drop
-    let _ = LOG_GUARD.set(guard);
-
     // Console: human-friendly formatting, your existing formatter, INFO+ only
     let console_layer = fmt::layer()
         .event_format(CustomDevFormatter)
         .with_writer(io::stderr)
         .with_filter(LevelFilter::TRACE);
 
-    // File: standard format is fine, DEBUG+ (controlled by EnvFilter above)
-    let file_layer = fmt::layer().with_ansi(false).with_writer(file_writer);
-
+    #[cfg(debug_assertions)]
     tracing_subscriber::registry()
         .with(base_directive) // global filtering (dependency logging: off)
         .with(console_layer.with_filter(EnvFilter::new(console_directive))) // TRACE+ without dependencies to console
-        .with(file_layer.with_filter(LevelFilter::TRACE)) // full detail to logs/countycrawler.log
         .init();
+
+    #[cfg(not(debug_assertions))]
+    {
+        // File appender (logs/countycrawler.log, rotated daily)
+        let file_appender = rolling::daily("logs", "spotifyassistant.log");
+        let (file_writer, guard) = tracing_appender::non_blocking(file_appender);
+
+        // Store guard so async threads don't drop
+        let _ = LOG_GUARD.set(guard);
+
+        // File: standard format is fine, DEBUG+ (controlled by EnvFilter above)
+        let file_layer = fmt::layer().with_ansi(false).with_writer(file_writer);
+
+        tracing_subscriber::registry()
+            .with(base_directive) // global filtering (dependency logging: off)
+            .with(console_layer.with_filter(EnvFilter::new(console_directive))) // TRACE+ without dependencies to console
+            .with(file_layer.with_filter(LevelFilter::TRACE)) // full detail to logs/countycrawler.log
+            .init();
+    }
 
     tracing::debug!("Tracing subscriber initialized");
 }
