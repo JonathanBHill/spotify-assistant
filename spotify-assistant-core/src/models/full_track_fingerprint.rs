@@ -1,53 +1,55 @@
-use regex::Regex;
 use rspotify::model::{FullTrack, SimplifiedArtist};
 use rspotify::prelude::Id;
+use std::collections::HashSet;
 use std::hash::{Hash, Hasher};
 use tracing::{debug, debug_span, trace};
 
 #[derive(Debug, Clone, Default)]
 pub struct PlaylistFingerprints {
-    pub full_fp: Vec<FullTrackFingerprint>,
-    pub distinct_fp: Vec<FullTrackFingerprint>,
-    pub duplicates_fp: Vec<FullTrackFingerprint>,
+    pub full_fp: HashSet<FullTrackFingerprint>,
+    pub distinct_fp: HashSet<FullTrackFingerprint>,
+    pub duplicates_fp: HashSet<FullTrackFingerprint>,
 }
 
 impl PlaylistFingerprints {
-    pub fn new(tracks: &Vec<FullTrack>) -> Self {
-        let _distinct_fp_span = debug_span!("distinct-fp").entered();
-        let full_fp = tracks.iter().map(FullTrackFingerprint::new).collect();
+    pub fn new(tracks: &[FullTrack]) -> Self {
+        let _new_span = debug_span!("new-fps").entered();
+        let full_fp = tracks
+            .into_iter()
+            .map(FullTrackFingerprint::new)
+            .collect::<HashSet<FullTrackFingerprint>>();
         let (distinct_fp, duplicates_fp) = PlaylistFingerprints::distinct_fingerprints(&full_fp);
-        // FullTrackFingerprints { fingerprints }
         PlaylistFingerprints {
             full_fp,
             distinct_fp,
             duplicates_fp,
         }
     }
-    pub fn insert_track(&mut self, track: &FullTrack) {
+    pub fn insert_track(&mut self, track: &FullTrack) -> bool {
         let fp = FullTrackFingerprint::new(track);
-        self.full_fp.push(fp.clone());
-        if !self.distinct_fp.contains(&fp) {
+        self.full_fp.insert(fp.clone());
+        if !self.distinct_fp.insert(fp.clone()) {
             trace!(distinct = ?fp, distinct_count = self.distinct_fp.len() + 1);
-            self.distinct_fp.push(fp);
+            true
         } else {
             trace!(duplicate = ?fp, duplicate_count = self.duplicates_fp.len() + 1);
-            self.duplicates_fp.push(fp);
+            self.duplicates_fp.insert(fp);
+            false
         }
     }
     pub fn distinct_fingerprints(
-        track_fp: &Vec<FullTrackFingerprint>,
-    ) -> (Vec<FullTrackFingerprint>, Vec<FullTrackFingerprint>) {
+        track_fp: &HashSet<FullTrackFingerprint>,
+    ) -> (HashSet<FullTrackFingerprint>, HashSet<FullTrackFingerprint>) {
         let mut seen = std::collections::HashSet::new();
-        let mut distinct_fp = Vec::new();
-        let mut duplicates_fp = Vec::new();
+        let mut distinct_fp = HashSet::new();
+        let mut duplicates_fp = HashSet::new();
         track_fp.iter().for_each(|fp| {
-            let fingerprint = fp.clone();
-            if !seen.insert(fingerprint.clone()) {
-                trace!(duplicate = ?fingerprint);
-                duplicates_fp.push(fingerprint);
+            if !seen.insert(fp.clone()) {
+                trace!(duplicate = ?fp);
+                duplicates_fp.insert(fp.clone());
             } else {
-                trace!(distinct = ?fingerprint);
-                distinct_fp.push(fingerprint);
+                trace!(distinct = ?fp);
+                distinct_fp.insert(fp.clone());
             }
         });
         (distinct_fp, duplicates_fp)
@@ -83,6 +85,7 @@ pub struct FullTrackFingerprint {
     title: String,
     base_artists: Vec<String>,
     duration: i32,
+    #[allow(dead_code)]
     id: String,
 }
 
