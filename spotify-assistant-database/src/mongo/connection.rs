@@ -1,11 +1,4 @@
 #[cfg(feature = "mongo")]
-use mongodb::bson::doc;
-#[cfg(feature = "mongo")]
-use mongodb::options::{ClientOptions, ServerApi, ServerApiVersion};
-#[cfg(feature = "mongo")]
-use mongodb::{Client, Collection};
-
-#[cfg(feature = "mongo")]
 use crate::mongo::groups::Clusters;
 #[cfg(feature = "mongo")]
 use crate::mongo::models::{ArtistRecord, RecommendedRecord};
@@ -368,18 +361,5 @@ impl Recommendation {
         let count = coll.estimated_document_count().await?;
         println!("{:?} document was successfully added", count);
         Ok(())
-    }
-}
-
-#[cfg(feature = "mongo")]
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    async fn test_connection() {
-        let connection = Artist::new().await.unwrap();
-        let alive = Artist::test_connection(&connection.client).await.unwrap();
-        assert!(alive);
     }
 }

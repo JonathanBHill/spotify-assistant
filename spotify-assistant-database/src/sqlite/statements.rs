@@ -11,27 +11,14 @@ impl SQLiteStatements {
     pub fn string(&self) -> String {
         match self {
             SQLiteStatements::InitTables(init) => {
-                let mut table_columns: HashMap<&str, &str> = HashMap::new();
-                match init {
-                    InitTables::User => {
-                        table_columns = TableColumns::User.with_properties();
-                    }
-                    InitTables::Playlists => {
-                        table_columns = TableColumns::Playlists.with_properties();
-                    }
-                    InitTables::PlaylistTracks => {
-                        table_columns = TableColumns::Tracks.with_properties();
-                    }
-                    InitTables::FollowedArtists => {
-                        table_columns = TableColumns::Artists.with_properties();
-                    }
-                    InitTables::LikedTrackArtists => {
-                        table_columns = TableColumns::Artists.with_properties();
-                    }
-                    InitTables::LikedTracks => {
-                        table_columns = TableColumns::Tracks.with_properties();
-                    }
-                }
+                let table_columns: HashMap<&str, &str> = match init {
+                    InitTables::User => TableColumns::User.with_properties(),
+                    InitTables::Playlists => TableColumns::Playlists.with_properties(),
+                    InitTables::PlaylistTracks => TableColumns::Tracks.with_properties(),
+                    InitTables::FollowedArtists => TableColumns::Artists.with_properties(),
+                    InitTables::LikedTrackArtists => TableColumns::Artists.with_properties(),
+                    InitTables::LikedTracks => TableColumns::Tracks.with_properties(),
+                };
                 init.new_table(table_columns)
             }
             _ => "".to_string(),
