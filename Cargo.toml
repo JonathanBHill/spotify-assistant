@@ -22,7 +22,7 @@ publish = false
 [workspace.lints.rust]
 unsafe_code = "forbid"
 missing_docs = "warn"
-unused_imports = "allow"
+unused_imports = "warn"
 
 [workspace.lints.clippy]
 all = "warn"
@@ -81,6 +81,6 @@ inherits = "release"
 opt-level = "s"
 strip = "debuginfo"
 
-[alias]
+#[alias]
 # Run all tests across every crate in the workspace
-test-all = "test --workspace"
+#test-all = "test --workspace"

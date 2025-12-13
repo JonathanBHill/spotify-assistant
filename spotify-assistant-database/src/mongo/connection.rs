@@ -10,11 +10,15 @@ use mongodb::bson::doc;
 use mongodb::options::{ClientOptions, ServerApi, ServerApiVersion};
 #[cfg(feature = "mongo")]
 use mongodb::{Client, Collection};
+#[cfg(feature = "mongo")]
 use rspotify::model::{
     FullArtist, FullTrack, Recommendations, RecommendationsSeedType, SimplifiedAlbum,
 };
+#[cfg(feature = "mongo")]
 use rspotify::prelude::Id;
+#[cfg(feature = "mongo")]
 use spotify_assistant_core::enums::fs::ProjectFiles;
+#[cfg(feature = "mongo")]
 use std::collections::HashMap;
 
 #[cfg(feature = "mongo")]

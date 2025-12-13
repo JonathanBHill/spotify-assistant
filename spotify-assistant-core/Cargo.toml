@@ -4,6 +4,9 @@ version.workspace = true
 edition = "2024"
 description = "Contains the spotify assistant utility's core logic"
 
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tarpaulin_include)'] }
+
 [dependencies]
 tracing.workspace = true
 tracing-subscriber.workspace = true
