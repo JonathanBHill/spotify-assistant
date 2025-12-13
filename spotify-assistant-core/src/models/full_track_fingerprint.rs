@@ -15,7 +15,7 @@ impl PlaylistFingerprints {
     pub fn new(tracks: &[FullTrack]) -> Self {
         let _new_span = debug_span!("new-fps").entered();
         let full_fp = tracks
-            .into_iter()
+            .iter()
             .map(FullTrackFingerprint::new)
             .collect::<HashSet<FullTrackFingerprint>>();
         let (distinct_fp, duplicates_fp) = PlaylistFingerprints::distinct_fingerprints(&full_fp);
@@ -40,18 +40,23 @@ impl PlaylistFingerprints {
     pub fn distinct_fingerprints(
         track_fp: &HashSet<FullTrackFingerprint>,
     ) -> (HashSet<FullTrackFingerprint>, HashSet<FullTrackFingerprint>) {
-        let mut seen = std::collections::HashSet::new();
+        let mut seen = HashSet::new();
         let mut distinct_fp = HashSet::new();
         let mut duplicates_fp = HashSet::new();
+        trace!(full_count = track_fp.len());
         track_fp.iter().for_each(|fp| {
-            if !seen.insert(fp.clone()) {
-                trace!(duplicate = ?fp);
-                duplicates_fp.insert(fp.clone());
-            } else {
+            if seen.insert(fp.clone()) {
                 trace!(distinct = ?fp);
                 distinct_fp.insert(fp.clone());
+            } else {
+                trace!(duplicate = ?fp);
+                duplicates_fp.insert(fp.clone());
             }
         });
+        trace!(
+            distinct_count = distinct_fp.len(),
+            duplicate_count = duplicates_fp.len()
+        );
         (distinct_fp, duplicates_fp)
     }
     pub fn get_track_ids(&self, fp_type: &str) -> Vec<String> {
@@ -61,31 +66,50 @@ impl PlaylistFingerprints {
             "duplicates" => self.duplicates_fp.clone(),
             _ => panic!("Invalid fingerprint type: {}", fp_type),
         };
-        fp_vec.iter().map(|fp| fp.title.clone()).collect()
+        fp_vec.iter().map(|fp| fp.id.clone()).collect()
     }
-    pub fn filter_duplicates(&self, other: PlaylistFingerprints) -> Vec<FullTrackFingerprint> {
+    pub fn filter_duplicates(
+        &self,
+        source_fps: PlaylistFingerprints,
+    ) -> HashSet<FullTrackFingerprint> {
         let _filter_span = debug_span!("filter-duplicates").entered();
-        let mut dup_tracks = Vec::new();
-        let mut count = 0;
-        for fp in self.distinct_fp.iter() {
-            if !other.distinct_fp.contains(fp) {
-                dup_tracks.push(fp.clone());
+        let mut self_ref_fps = self.distinct_fp.clone();
+        let mut new_target_unique_fps = HashSet::new();
+        let mut dup_count = 0;
+        for source_fp in source_fps.distinct_fp.iter() {
+            if self_ref_fps.insert(source_fp.clone()) {
+                new_target_unique_fps.insert(source_fp.clone());
+                debug!(track_fp = ?source_fp, "Track from target playlist not found in reference playlist; adding to new playlist");
+                trace!(
+                    new_unique_fps_count = new_target_unique_fps.len(),
+                    ref_fps_count = self_ref_fps.len()
+                );
             } else {
-                count += 1;
-                debug!(track_fp = ?fp, "Duplicate track skipped");
+                dup_count += 1;
+                debug!(track_fp = ?source_fp, "Duplicate track skipped");
             }
         }
-        debug!(duplicate_track_count = count);
-        dup_tracks
+        debug!(duplicate_track_count = dup_count);
+        new_target_unique_fps
+    }
+    pub fn filter_candidate_with_mask(
+        mask: &HashSet<FullTrackFingerprint>,
+        candidate: &[FullTrack],
+    ) -> Vec<FullTrack> {
+        candidate
+            .iter()
+            .filter(|track| mask.contains(&FullTrackFingerprint::new(track)))
+            .cloned()
+            .collect()
     }
 }
 #[derive(Debug, Clone, Eq, Default)]
 pub struct FullTrackFingerprint {
     isrc: Option<String>,
+    #[allow(dead_code)]
     title: String,
     base_artists: Vec<String>,
     duration: i32,
-    #[allow(dead_code)]
     id: String,
 }
 

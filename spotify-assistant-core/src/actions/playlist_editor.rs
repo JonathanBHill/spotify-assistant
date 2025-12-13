@@ -1,16 +1,18 @@
 use crate::actions::exploration::playlist::PlaylistXplr;
 use crate::enums::pl::PlaylistType;
+use crate::models::full_track_fingerprint::PlaylistFingerprints;
 use crate::traits::apis::Api;
 use rspotify::clients::OAuthClient;
-use rspotify::model::{Id, PlayableId, PlaylistId};
+use rspotify::model::{FullTrack, PlayableId, PlaylistId, TrackId};
 use rspotify::{AuthCodeSpotify, scopes};
 use std::collections::HashSet;
-use tracing::{debug, debug_span, error, info};
+use tracing::{debug, debug_span, error, info, trace};
 
 #[derive(Debug, Clone)]
 pub struct Modifier {
     client: AuthCodeSpotify,
-    ref_pl_xplorer: PlaylistXplr,
+    src_pl_xplorer: PlaylistXplr,
+    target_playlist_id: PlaylistId<'static>,
     target_pl_xplorer: PlaylistXplr,
 }
 
@@ -27,51 +29,86 @@ impl Api for Modifier {
 
 impl Modifier {
     pub async fn new(
-        ref_playlist_id: PlaylistId<'static>,
+        src_playlist_id: PlaylistId<'static>,
         target_playlist_id: PlaylistId<'static>,
     ) -> Self {
         let client = Self::set_up_client(false, Some(Self::select_scopes())).await;
-        let ref_pl_xplorer = PlaylistXplr::new(ref_playlist_id, true).await;
-        let target_pl_xplorer = PlaylistXplr::new(target_playlist_id, true).await;
+        let src_pl_xplorer = PlaylistXplr::new(src_playlist_id, true).await;
+        let target_pl_xplorer = PlaylistXplr::new(target_playlist_id.clone(), true).await;
+
         Modifier {
             client,
-            ref_pl_xplorer,
+            src_pl_xplorer,
+            target_playlist_id,
             target_pl_xplorer,
         }
     }
-    pub async fn release_radar() -> Self {
+    pub async fn new_rr() -> Self {
         let client = Self::set_up_client(false, Some(Self::select_scopes())).await;
         let stock_rr_id = PlaylistType::StockRR.get_id();
         let my_rr_id = PlaylistType::MyRR.get_id();
-        let ref_pl_xplorer = PlaylistXplr::new(stock_rr_id, true).await;
+        let lagging_rr_id = PlaylistType::MyLaggingRR.get_id();
+        let src_pl_xplorer = PlaylistXplr::new(stock_rr_id, true).await;
         let target_pl_xplorer = PlaylistXplr::new(my_rr_id, true).await;
         Modifier {
             client,
-            ref_pl_xplorer,
+            src_pl_xplorer,
+            target_playlist_id: lagging_rr_id,
             target_pl_xplorer,
         }
     }
-    pub async fn lagging_release_radar() -> Self {
-        let client = Self::set_up_client(false, Some(Self::select_scopes())).await;
-        let my_rr_id = PlaylistType::MyRR.get_id();
-        let lagging_rr_id = PlaylistType::MyLaggingRR.get_id();
-        let ref_pl_xplorer = PlaylistXplr::new(my_rr_id, true).await;
-        let target_pl_xplorer = PlaylistXplr::new(lagging_rr_id, true).await;
-        Modifier {
-            client,
-            ref_pl_xplorer,
-            target_pl_xplorer,
-        }
+    pub async fn run_rr(&mut self) {
+        let _run_span = debug_span!("run").entered();
+        self.check_if_stock_release_radar_id_was_used_as_target_id();
+
+        // Update lagging RR playlist with current RR playlist's tracks.
+        info!(
+            "Backing up the current Release Radar playlist into the Lagging Release Radar playlist"
+        );
+        let ref_tracks = self.target_pl_xplorer.full_tracks_expanded().await;
+        let ref_track_ids = ref_tracks
+            .iter()
+            .map(|track| track.id.clone().unwrap())
+            .collect();
+        self.update_playlist(&ref_track_ids).await;
+
+        // Update current RR playlist with tracks from source playlist.
+        info!("Updating Release Radar playlist");
+        self.target_playlist_id = self.target_pl_xplorer.playlist_id.clone();
+        let raw_src_tracks = self.src_pl_xplorer.full_tracks_expanded().await;
+        let src_tracks = self.filter_ref(raw_src_tracks, ref_tracks).await;
+        let track_ids_from_src = src_tracks
+            .iter()
+            .map(|track| track.id.clone().unwrap())
+            .collect();
+        self.update_playlist(&track_ids_from_src).await;
+
+        self.wipe_reference_playlist().await;
     }
-    pub async fn update_playlist(&self) {
+    pub async fn filter_ref(
+        &self,
+        src_tracks: Vec<FullTrack>,
+        ref_tracks: Vec<FullTrack>,
+    ) -> Vec<FullTrack> {
+        let src_fps = PlaylistFingerprints::new(&src_tracks);
+        let ref_fps = PlaylistFingerprints::new(&ref_tracks);
+        let fps_mask = ref_fps.filter_duplicates(src_fps.clone());
+        trace!(
+            source_count = src_fps.distinct_fp.len(),
+            ref_count = ref_fps.distinct_fp.len(),
+            mask_count = fps_mask.len()
+        );
+        PlaylistFingerprints::filter_candidate_with_mask(&fps_mask, &src_tracks)
+    }
+
+    pub async fn update_playlist(&self, track_ids: &Vec<TrackId<'_>>) {
         let _update_pl_span = debug_span!("update-playlist").entered();
-        let track_ids = self.ref_pl_xplorer.track_ids_expanded().await;
-        let ids_len = track_ids.len();
-        self.check_if_stock_release_radar_id_was_used(ids_len);
+        let ids_vec = track_ids;
+        let ids_len = ids_vec.len();
         let mut first_chunk = true;
         let mut count = 1;
 
-        for chunk in track_ids.chunks(20) {
+        for chunk in ids_vec.chunks(20) {
             debug!(
                 "On chunk {:?}/{:?}",
                 count,
@@ -91,17 +128,17 @@ impl Modifier {
             );
             count += 1;
         }
-        self.wipe_reference_playlist().await;
     }
+
     async fn wipe_reference_playlist(&self) {
         let _wipe_pl_span = debug_span!("wipe-ref-pl").entered();
-        let track_ids = self.ref_pl_xplorer.playable_ids();
+        let track_ids = self.src_pl_xplorer.playable_ids();
 
         for batch in track_ids.chunks(100) {
             match self
                 .client
                 .playlist_remove_all_occurrences_of_items(
-                    self.ref_pl_xplorer.playlist_id.clone(),
+                    self.src_pl_xplorer.playlist_id.clone(),
                     batch.to_vec(),
                     None,
                 )
@@ -117,18 +154,12 @@ impl Modifier {
             }
         }
     }
-    fn check_if_stock_release_radar_id_was_used(&self, number_of_ids: usize) {
-        if self.target_pl_xplorer.playlist_id.clone() == PlaylistType::StockRR.get_id() {
-            error!(
-                "Your Stock Release Radar ID was used: {playlist_id}",
-                playlist_id = self.target_pl_xplorer.playlist_id.id()
-            );
-            panic!(
-                "You must ensure that you are calling the update method with your full version release radar ID instead of your stock version's."
-            )
-        } else {
-            info!("Your Full Release Radar playlists will be updated with {number_of_ids} songs",);
-        }
+    fn check_if_stock_release_radar_id_was_used_as_target_id(&self) {
+        assert_ne!(
+            self.target_playlist_id.clone(),
+            PlaylistType::StockRR.get_id(),
+            "The target playlist ID cannot be set to the stock release radar playlist ID."
+        );
     }
     fn generate_release_radar_description(&self) -> String {
         let local_time = chrono::Local::now();
@@ -138,7 +169,7 @@ impl Modifier {
         )
     }
     async fn update_playlist_from_chunk(&self, chunk: Vec<PlayableId<'_>>, is_first: bool) -> bool {
-        let target_id = self.target_pl_xplorer.playlist_id.clone();
+        let target_id = self.target_playlist_id.clone();
         let _upd_pl_from_chunk_span = debug_span!("upd-chunking").entered();
 
         if is_first {

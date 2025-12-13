@@ -8,7 +8,7 @@ use futures::{StreamExt, stream};
 use rspotify::model::{ArtistId, PlaylistId};
 use rspotify::prelude::OAuthClient;
 use rspotify::scopes;
-use tracing::{Level, event, info, span};
+use tracing::{Level, debug, error, span, trace};
 
 use crate::commands::followed_artists::cmd_find_artists;
 use crate::enums::{
@@ -150,16 +150,11 @@ impl TerminalApp {
                 let name = cmd.get_name();
                 match matches.subcommand_matches(name) {
                     None => {
-                        event!(
-                            Level::TRACE,
-                            "No match was made for the {:?} subcommand",
-                            &name
-                        );
+                        trace!("No match was made for the {:?} subcommand", &name);
                     }
                     Some(subcommand) => match name {
                         "playlists" => {
-                            event!(
-                                Level::TRACE,
+                            trace!(
                                 "Subcommand 'playlists' detected; executing run_playlist_command \
                             with the following arguments:\n{:?}",
                                 subcommand
@@ -168,8 +163,7 @@ impl TerminalApp {
                                 .expect("Couldn't complete the playlist command execution");
                         }
                         "config" => {
-                            event!(
-                                Level::TRACE,
+                            trace!(
                                 "Subcommand 'config' detected; executing run_config_command \
                             with the following arguments:\n{:?}",
                                 subcommand
@@ -179,8 +173,7 @@ impl TerminalApp {
                                 .expect("Couldn't complete the config command execution");
                         }
                         "releaseradar" => {
-                            event!(
-                                Level::TRACE,
+                            debug!(
                                 "Subcommand 'releaseradar' detected; executing run_rr_command \
                             with the following arguments:\n{:?}",
                                 subcommand
@@ -190,8 +183,7 @@ impl TerminalApp {
                                 .expect("Couldn't complete the release radar command execution");
                         }
                         "query" => {
-                            event!(
-                                Level::TRACE,
+                            debug!(
                                 "Subcommand 'query' detected; executing run_query_command \
                             with the following arguments:\n{:?}",
                                 subcommand
@@ -201,16 +193,14 @@ impl TerminalApp {
                                 .expect("Couldn't complete the query command execution");
                         }
                         "listeninghistory" => {
-                            event!(
-                                Level::TRACE,
+                            debug!(
                                 "Subcommand 'listeninghistory' detected; executing \
                             run_listening_history_command with the following arguments:\n{:?}",
                                 subcommand
                             );
                         }
                         _ => {
-                            event!(
-                                Level::TRACE,
+                            debug!(
                                 "No subcommand detected in the following input:\n{:?}",
                                 subcommand
                             );
@@ -247,13 +237,9 @@ impl TerminalApp {
             .get_one::<bool>("pdelete")
             .unwrap_or(&false)
             .to_string();
-        event!(
-            Level::DEBUG,
+        debug!(
             "Playlist list: {:?}; Playlist create: {:?}; Playlist move: {:?}; Playlist delete: {:?}",
-            &plist,
-            &pcreate,
-            &pmove,
-            &pdelete
+            &plist, &pcreate, &pmove, &pdelete
         );
         Ok(())
     }
@@ -298,7 +284,7 @@ impl TerminalApp {
                 let filename = format!(
                     "playlist-artists/{playlist_name}_artists_not_followed-10-20-2025.json"
                 );
-                event!(Level::DEBUG, "Filename: {:?}", filename);
+                debug!("Filename: {:?}", filename);
                 let file_path = ProjectDirectories::Data.path().join(filename);
                 let selected_artists = cmd_find_artists(file_path)?;
                 let scope = scopes!("user-follow-modify");
@@ -307,12 +293,11 @@ impl TerminalApp {
                     Ok(id) => Some(id),
                     Err(_) => {
                         let id_str = artist.id();
-                        event!(Level::ERROR, %id_str, "Could not instantiate an ArtistID object for {}", artist.name());
+                        error!(%id_str, "Could not instantiate an ArtistID object for {}", artist.name());
                         None
                     }
                 }).collect();
-                event!(
-                    Level::DEBUG,
+                debug!(
                     "About to add {} Artist IDs: {:?}",
                     artist_ids.len(),
                     artist_ids
@@ -369,10 +354,9 @@ impl TerminalApp {
                 let playlist_names_and_ids =
                     user_playlists.get_user_playlist_ids_as_hashmap().await;
                 let playlist_id = match playlist_names_and_ids.iter().find_map(|(name, id)| {
-                    event!(Level::DEBUG, "Testing input as name: {:?}", &playlist);
+                    debug!("Testing input as name: {:?}", &playlist);
                     if name.clone().to_lowercase() == normalized_input {
-                        event!(
-                            Level::DEBUG,
+                        debug!(
                             "Input matches a name (playlist, input): {:?}, {:?}",
                             &playlist,
                             &name.to_lowercase()
@@ -384,16 +368,11 @@ impl TerminalApp {
                             .iter()
                             .map(|slice| slice.to_string())
                             .collect::<Vec<String>>();
-                        event!(Level::DEBUG, "ID string: {:?}", new_id_string);
+                        debug!("ID string: {:?}", new_id_string);
                         match PlaylistId::from_id(new_id_string[2].clone()) {
                             Ok(id) => Some(id),
                             Err(err) => {
-                                event!(
-                                    Level::ERROR,
-                                    "Failed to parse playlist ID '{}': {:?}",
-                                    &playlist,
-                                    err
-                                );
+                                error!("Failed to parse playlist ID '{}': {:?}", &playlist, err);
                                 None
                             }
                         }
@@ -406,7 +385,7 @@ impl TerminalApp {
                         println!("Could not find a playlist matching the provided name.");
                         match PlaylistId::from_id(playlist.clone()) {
                             Ok(unwrapped_playlist_id) => {
-                                event!(Level::DEBUG, "Input as ID: {:?}", playlist.clone());
+                                debug!("Input as ID: {:?}", playlist.clone());
                                 unwrapped_playlist_id
                             }
                             Err(err) => {
@@ -486,15 +465,7 @@ impl TerminalApp {
                         Ok(())
                     }
                     ReleaseRadarArgs::Empty => {
-                        info!(
-                            "Backing up the current Release Radar playlist into the Lagging Release Radar playlist"
-                        );
-                        Modifier::lagging_release_radar()
-                            .await
-                            .update_playlist()
-                            .await;
-                        info!("Updating Release Radar playlist");
-                        Modifier::release_radar().await.update_playlist().await;
+                        Modifier::new_rr().await.run_rr().await;
                         Ok(())
                     }
                     _ => Ok(()),
@@ -531,8 +502,7 @@ impl TerminalApp {
         let span = span!(Level::TRACE, "TerminalApp.run_query_command");
         let _enter = span.enter();
 
-        event!(
-            Level::DEBUG,
+        debug!(
             "Stock RR: {:?} | Custom RR: {:?} | Blacklist: {:?} | Library: {:?}",
             query_arguments
                 .get_one::<bool>("qstock")
@@ -554,39 +524,27 @@ impl TerminalApp {
 
         match QueryArgs::from_query_matches(query_arguments) {
             QueryArgs::QStock(stock) => {
-                event!(
-                    Level::TRACE,
-                    "Querying Stock Release Radar playlists: {:?}",
-                    stock
-                );
+                trace!("Querying Stock Release Radar playlists: {:?}", stock);
                 Ok(())
             }
             QueryArgs::QCustom(custom) => {
-                event!(
-                    Level::TRACE,
-                    "Querying Custom Release Radar playlists: {:?}",
-                    custom
-                );
+                trace!("Querying Custom Release Radar playlists: {:?}", custom);
                 Ok(())
             }
             QueryArgs::QBlacklist(blacklist) => {
-                event!(
-                    Level::TRACE,
-                    "Querying the current blacklist: {:?}",
-                    blacklist
-                );
+                trace!("Querying the current blacklist: {:?}", blacklist);
                 let blackist = Blacklist::default();
                 blackist.print_blacklist();
                 Ok(())
             }
             QueryArgs::QLibrary(playlists) => {
-                event!(Level::TRACE, "Querying user playlists: {:?}", playlists);
+                trace!("Querying user playlists: {:?}", playlists);
                 let liked = UserLibrary::new().await;
                 println!("Library: {:?}", liked.total_tracks());
                 Ok(())
             }
             QueryArgs::Empty => {
-                event!(Level::TRACE, "No Release Radar query argument");
+                trace!("No Release Radar query argument");
                 Ok(())
             }
         }
