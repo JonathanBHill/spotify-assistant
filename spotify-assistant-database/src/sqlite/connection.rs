@@ -2,8 +2,8 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 #[cfg(feature = "rusqlite")]
-use rusqlite::{params, Connection, Error};
-use tracing::{event, Level};
+use rusqlite::{Connection, Error, params};
+use tracing::{Level, event};
 
 use spotify_assistant_core::utilities::filesystem::initialization::ProjectFileSystem;
 

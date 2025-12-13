@@ -3,7 +3,7 @@ use std::ops::Index;
 
 use rspotify::clients::BaseClient;
 use rspotify::model::{FullPlaylist, PlaylistId, SearchResult, SearchType, SimplifiedPlaylist};
-use rspotify::{scopes, AuthCodeSpotify, ClientError};
+use rspotify::{AuthCodeSpotify, ClientError, scopes};
 
 use crate::traits::apis::Api;
 
@@ -104,14 +104,17 @@ impl PlaylistQuery {
     ///
     /// This function uses the Spotify Web API and expects the caller to ensure that the API client
     /// has access rights and a valid configuration.
-    pub async fn get_playlist(&self, playlist_id_as_str: &str) -> Result<FullPlaylist, Box<dyn std::error::Error>> {
+    pub async fn get_playlist(
+        &self,
+        playlist_id_as_str: &str,
+    ) -> Result<FullPlaylist, Box<dyn std::error::Error>> {
         let playlist_id = match PlaylistId::from_id(playlist_id_as_str) {
-            Ok(id) => { id }
-            Err(err) => { return Err(Box::new(err)) }
+            Ok(id) => id,
+            Err(err) => return Err(Box::new(err)),
         };
         match self.client.playlist(playlist_id, None, None).await {
-            Ok(pl) => { Ok(pl) }
-            Err(err) => { Err(Box::new(err)) }
+            Ok(pl) => Ok(pl),
+            Err(err) => Err(Box::new(err)),
         }
     }
 
@@ -219,28 +222,50 @@ impl PlaylistQuery {
     /// The function may panic under the following conditions:
     /// - Failure to create the regex pattern.
     /// - Any `unwrap()` failure when handling results from the Spotify client API, interaction dialogs, or regex matching.
-    pub async fn query_public_playlist(&self, playlist_name: String) -> Result<FullPlaylist, ClientError> {
+    pub async fn query_public_playlist(
+        &self,
+        playlist_name: String,
+    ) -> Result<FullPlaylist, ClientError> {
         let market = Self::market();
-        let results = self.client.search(&playlist_name, SearchType::Playlist, Some(market), None, Some(50), None).await.unwrap();
+        let results = self
+            .client
+            .search(
+                &playlist_name,
+                SearchType::Playlist,
+                Some(market),
+                None,
+                Some(50),
+                None,
+            )
+            .await
+            .unwrap();
         let pl_name_vec = playlist_name.split(" ").collect::<Vec<&str>>();
         let regex_pattern = self.construct_pattern(pl_name_vec);
         let regex_match = regex::Regex::new(regex_pattern.as_str()).unwrap();
         match results {
             SearchResult::Playlists(paginator) => {
-                let oop = paginator.clone().items.into_iter().filter(|pl| {
-                    regex_match.is_match(pl.name.as_str())
-                }).collect::<Vec<SimplifiedPlaylist>>();
+                let oop = paginator
+                    .clone()
+                    .items
+                    .into_iter()
+                    .filter(|pl| regex_match.is_match(pl.name.as_str()))
+                    .collect::<Vec<SimplifiedPlaylist>>();
 
-                let sel =
-                    dialoguer::Select::new()
-                        .items(&oop.clone().iter().map(|pl| {
-                            if let Some(displayname) = &pl.owner.display_name {
-                                format!("{} - {:?}", pl.name.as_str(), displayname)
-                            } else {
-                                format!("{}", pl.name.as_str())
-                            }
-                        }).collect::<Vec<String>>())
-                        .interact().unwrap();
+                let sel = dialoguer::Select::new()
+                    .items(
+                        &oop.clone()
+                            .iter()
+                            .map(|pl| {
+                                if let Some(displayname) = &pl.owner.display_name {
+                                    format!("{} - {:?}", pl.name.as_str(), displayname)
+                                } else {
+                                    format!("{}", pl.name.as_str())
+                                }
+                            })
+                            .collect::<Vec<String>>(),
+                    )
+                    .interact()
+                    .unwrap();
 
                 let selected = oop.index(sel);
                 if let Some(displayname) = &selected.owner.display_name {
@@ -249,11 +274,21 @@ impl PlaylistQuery {
                 } else {
                     println!("Selection: {:?}", selected.name);
                 };
-                Ok(self.client.playlist(oop.index(sel).id.clone(), None, Some(market)).await?)
+                Ok(self
+                    .client
+                    .playlist(oop.index(sel).id.clone(), None, Some(market))
+                    .await?)
             }
             _ => {
                 println!("Error: {:?}", results);
-                Ok(self.client.playlist(PlaylistId::from_id("37i9dQZEVXbdINACbjb1qu").unwrap(), None, Some(market)).await?)
+                Ok(self
+                    .client
+                    .playlist(
+                        PlaylistId::from_id("37i9dQZEVXbdINACbjb1qu").unwrap(),
+                        None,
+                        Some(market),
+                    )
+                    .await?)
             }
         }
     }

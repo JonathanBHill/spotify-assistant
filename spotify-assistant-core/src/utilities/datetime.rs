@@ -1,5 +1,5 @@
 use chrono::{DateTime, Datelike, Duration, Local, NaiveDate, NaiveTime, Timelike, Weekday};
-use tracing::{debug, Level};
+use tracing::{Level, debug};
 
 use crate::enums::validation::TimeOfDay;
 

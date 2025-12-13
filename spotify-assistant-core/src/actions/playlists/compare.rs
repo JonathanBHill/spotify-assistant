@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use dotenv::dotenv;
 use rspotify::model::{FullPlaylist, FullTrack, PlayableItem};
-use rspotify::{scopes, AuthCodeSpotify};
+use rspotify::{AuthCodeSpotify, scopes};
 
 use crate::traits::apis::Api;
 

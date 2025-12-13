@@ -50,7 +50,6 @@ pub mod test_ws {
     });
 }
 
-
 pub mod offline;
 
 type EnvMap = HashMap<&'static str, Option<OsString>>;
@@ -268,7 +267,8 @@ log_level = "info"
 pub fn env(env: &TestEnvironment) -> String {
     r#"RELEASE_RADAR_ID="37i9dQZEVXbdINACbjb1qu"
 MY_RELEASE_RADAR_ID="46mIugmIiN2HYVwAwlaBAr"
-    "#.to_string()
+    "#
+    .to_string()
 }
 pub fn constants_toml(env: &TestEnvironment) -> String {
     r#"title="constants"
@@ -276,7 +276,8 @@ pub fn constants_toml(env: &TestEnvironment) -> String {
         [[ids.playlists]]
     name="stock_release_radar"
     id="3WuaniG4xcoEXAH3ZBmbqX"
-    "#.to_string()
+    "#
+    .to_string()
 }
 
 /// Generates malformed configuration TOML suitable for failure tests.
@@ -296,7 +297,7 @@ id = "artist_one"
 name = "Artist Two"
 id = "artist_two"
 "#
-        .to_string()
+    .to_string()
 }
 
 /// Generates malformed blacklist TOML suitable for failure tests.

@@ -7,8 +7,7 @@
 #![allow(dead_code)]
 
 use rspotify::model::{
-    AlbumId, FullAlbum, FullArtist, SavedTrack, SimplifiedAlbum, SimplifiedArtist,
-    SimplifiedTrack,
+    AlbumId, FullAlbum, FullArtist, SavedTrack, SimplifiedAlbum, SimplifiedArtist, SimplifiedTrack,
 };
 use rspotify::prelude::Id;
 use rspotify::{AuthCodeSpotify, Config, Credentials, OAuth};
@@ -25,7 +24,10 @@ impl OfflineObjects {
     /// Returns a Spotify client that never performs network I/O.
     pub fn dummy_client() -> AuthCodeSpotify {
         let creds = Credentials::new("test_id", "test_secret");
-        let oauth = OAuth { scopes: Default::default(), ..Default::default() };
+        let oauth = OAuth {
+            scopes: Default::default(),
+            ..Default::default()
+        };
         let config = Config::default();
         AuthCodeSpotify::with_config(creds, oauth, config)
     }
@@ -37,7 +39,7 @@ impl OfflineObjects {
             "id": id,
             "name": name,
         }))
-            .expect("valid SimplifiedArtist JSON")
+        .expect("valid SimplifiedArtist JSON")
     }
 
     pub fn artist_full(id: &str, name: &str) -> FullArtist {
@@ -53,7 +55,7 @@ impl OfflineObjects {
             "type": "artist",
             "uri": format!("spotify:artist:{id}"),
         }))
-            .expect("valid FullArtist JSON")
+        .expect("valid FullArtist JSON")
     }
 
     pub fn album_simplified(
@@ -84,10 +86,15 @@ impl OfflineObjects {
             "restrictions": null,
             "total_tracks": 2,
         }))
-            .expect("valid SimplifiedAlbum JSON")
+        .expect("valid SimplifiedAlbum JSON")
     }
 
-    pub fn track_simplified(id: &str, name: &str, artist_id: &str, artist_name: &str) -> SimplifiedTrack {
+    pub fn track_simplified(
+        id: &str,
+        name: &str,
+        artist_id: &str,
+        artist_name: &str,
+    ) -> SimplifiedTrack {
         serde_json::from_value(json!({
             "artists": [{
                 "external_urls": {"spotify": "https://example.com/artist"},
@@ -109,7 +116,7 @@ impl OfflineObjects {
             "preview_url": null,
             "track_number": 1,
         }))
-            .expect("valid SimplifiedTrack JSON")
+        .expect("valid SimplifiedTrack JSON")
     }
 
     pub fn full_album_with(
@@ -119,10 +126,7 @@ impl OfflineObjects {
         artist: SimplifiedArtist,
         tracks: Vec<SimplifiedTrack>,
     ) -> FullAlbum {
-        let tracks_href = format!(
-            "https://api.spotify.com/v1/albums/{}/tracks",
-            album_id.id()
-        );
+        let tracks_href = format!("https://api.spotify.com/v1/albums/{}/tracks", album_id.id());
         serde_json::from_value(json!({
             "album_type": "album",
             "total_tracks": tracks.len(),
@@ -154,7 +158,7 @@ impl OfflineObjects {
             ],
             "external_ids": {"isrc": "USS1Z2400001"}
         }))
-            .expect("valid FullAlbum JSON")
+        .expect("valid FullAlbum JSON")
     }
 
     /// Convenience sample full album used by multiple tests.
@@ -162,10 +166,26 @@ impl OfflineObjects {
         let album_id = AlbumId::from_id("ABCDEFGHIJKLMNOPQRSTUVWXYZ12").unwrap();
         let artist = Self::artist_simple("ARTIST1234567890123456", "Example Artist");
         let tracks = vec![
-            Self::track_simplified("TRACKID123456789012345678", "Track One", "ARTIST1234567890123456", "Example Artist"),
-            Self::track_simplified("TRACKID223456789012345678", "Track Two", "ARTIST1234567890123456", "Example Artist"),
+            Self::track_simplified(
+                "TRACKID123456789012345678",
+                "Track One",
+                "ARTIST1234567890123456",
+                "Example Artist",
+            ),
+            Self::track_simplified(
+                "TRACKID223456789012345678",
+                "Track Two",
+                "ARTIST1234567890123456",
+                "Example Artist",
+            ),
         ];
-        let full_album = Self::full_album_with(&album_id, "Example Album", &["Electro", "Breaks"], artist, tracks);
+        let full_album = Self::full_album_with(
+            &album_id,
+            "Example Album",
+            &["Electro", "Breaks"],
+            artist,
+            tracks,
+        );
         (album_id, full_album)
     }
 
@@ -196,9 +216,21 @@ impl OfflineObjects {
 
     pub fn sample_saved_track(label: &str) -> SavedTrack {
         let (track_id, artist_id, album_id) = match label {
-            "one" => ("AAAAAAAAAAAAAAAAAAAAAA", "BBBBBBBBBBBBBBBBBBBBBB", "CCCCCCCCCCCCCCCCCCCCCC"),
-            "two" => ("DDDDDDDDDDDDDDDDDDDDDD", "EEEEEEEEEEEEEEEEEEEEEE", "FFFFFFFFFFFFFFFFFFFFFF"),
-            _ => ("GGGGGGGGGGGGGGGGGGGGGG", "HHHHHHHHHHHHHHHHHHHHHH", "IIIIIIIIIIIIIIIIIIIIII"),
+            "one" => (
+                "AAAAAAAAAAAAAAAAAAAAAA",
+                "BBBBBBBBBBBBBBBBBBBBBB",
+                "CCCCCCCCCCCCCCCCCCCCCC",
+            ),
+            "two" => (
+                "DDDDDDDDDDDDDDDDDDDDDD",
+                "EEEEEEEEEEEEEEEEEEEEEE",
+                "FFFFFFFFFFFFFFFFFFFFFF",
+            ),
+            _ => (
+                "GGGGGGGGGGGGGGGGGGGGGG",
+                "HHHHHHHHHHHHHHHHHHHHHH",
+                "IIIIIIIIIIIIIIIIIIIIII",
+            ),
         };
         let artist_href = format!("https://api.spotify.com/v1/artists/{artist_id}");
         let album_href = format!("https://api.spotify.com/v1/albums/{album_id}");
@@ -251,10 +283,13 @@ impl OfflineObjects {
                 "type": "track"
             }
         }))
-            .expect("valid saved track JSON")
+        .expect("valid saved track JSON")
     }
 
     pub fn sample_saved_tracks() -> Vec<SavedTrack> {
-        vec![Self::sample_saved_track("one"), Self::sample_saved_track("two")]
+        vec![
+            Self::sample_saved_track("one"),
+            Self::sample_saved_track("two"),
+        ]
     }
 }

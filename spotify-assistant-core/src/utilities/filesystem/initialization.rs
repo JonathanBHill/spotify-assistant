@@ -2,7 +2,7 @@ use std::collections::HashSet;
 use std::io::Error;
 use std::path::{Path, PathBuf};
 
-use tracing::{debug, event, info, span, Level};
+use tracing::{Level, debug, event, info, span};
 
 use crate::enums::fs::ProjectDirectories;
 
@@ -151,7 +151,7 @@ impl ProjectFileSystem {
         let span = span!(Level::INFO, "ProjectFileSystem.get_files");
         let _enter = span.enter();
         let reader = match dir.read_dir() {
-            Ok(read_dir) => { read_dir }
+            Ok(read_dir) => read_dir,
             Err(error) => {
                 event!(Level::ERROR, "Error reading directory: {:?}", error);
                 return HashSet::new();
@@ -228,9 +228,7 @@ impl ProjectFileSystem {
             self.state_directory.path(),
             self.cache_directory.path(),
         ];
-        let file_vec = vec![
-            self.config_directory.path().join("blacklist.toml"),
-        ];
+        let file_vec = vec![self.config_directory.path().join("blacklist.toml")];
         let span = span!(Level::INFO, "Initializer.init");
         let _enter = span.enter();
         for dir in dir_vec {
@@ -249,7 +247,7 @@ impl ProjectFileSystem {
                     );
                 }
             };
-        };
+        }
         for file in file_vec {
             match self.initialize_file(&file.clone()) {
                 Ok(_) => {
@@ -266,7 +264,7 @@ impl ProjectFileSystem {
                     );
                 }
             };
-        };
+        }
     }
 
     /// Initializes a file at the specified file path.
@@ -317,7 +315,7 @@ impl ProjectFileSystem {
         if !file_path.exists() {
             match self.create_file(PathBuf::from(file_path)) {
                 Ok(_) => Ok(true),
-                Err(e) => Err(e)
+                Err(e) => Err(e),
             }
         } else {
             event!(
@@ -387,7 +385,7 @@ impl ProjectFileSystem {
         if !directory_path.exists() {
             match self.create_directory(PathBuf::from(directory_path)) {
                 Ok(_) => Ok(true),
-                Err(e) => Err(e)
+                Err(e) => Err(e),
             }
         } else {
             event!(
@@ -485,14 +483,16 @@ impl ProjectFileSystem {
         let _enter = span.enter();
         match std::fs::create_dir(directory_path.clone()) {
             Ok(_) => {
-                event!(Level::INFO,
+                event!(
+                    Level::INFO,
                     "{:?} was successfully created.",
                     directory_path.clone().to_str().unwrap()
                 );
                 Ok(())
             }
             Err(e) => {
-                event!(Level::DEBUG,
+                event!(
+                    Level::DEBUG,
                     "Unable to create the following directory: {:?}",
                     directory_path.clone().to_str().unwrap()
                 );
@@ -500,7 +500,6 @@ impl ProjectFileSystem {
             }
         }
     }
-
 }
 
 #[cfg(test)]
@@ -514,13 +513,19 @@ mod tests {
     fn test_default() {
         let init = ProjectFileSystem::default();
         println!("{init:?}");
-        assert_eq!(init.home_directory.test_path(), ProjectDirectories::Home.test_path());
+        assert_eq!(
+            init.home_directory.test_path(),
+            ProjectDirectories::Home.test_path()
+        );
     }
 
     #[test]
     fn test_new() {
         let init = ProjectFileSystem::new();
-        assert_eq!(init.home_directory.test_path(), ProjectDirectories::Home.test_path());
+        assert_eq!(
+            init.home_directory.test_path(),
+            ProjectDirectories::Home.test_path()
+        );
     }
     #[test]
     fn test_create_file() {

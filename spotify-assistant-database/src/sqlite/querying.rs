@@ -1,4 +1,4 @@
-use tracing::{info, Level};
+use tracing::{Level, info};
 
 use spotify_assistant_core::actions::user::UserData;
 

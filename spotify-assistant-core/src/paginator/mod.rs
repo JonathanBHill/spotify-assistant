@@ -11,5 +11,5 @@ pub mod r#trait;
 
 // Re-export the most commonly used items for convenience.
 pub use event::PaginatorEvent;
-pub use r#trait::PaginatorProcessor;
 pub use runner::PaginatorRunner;
+pub use r#trait::PaginatorProcessor;

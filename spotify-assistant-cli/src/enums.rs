@@ -134,8 +134,8 @@ impl QueryArgs {
     }
     fn arg_exists(command: &str, matches: &ArgMatches) -> bool {
         match matches.get_one::<bool>(command) {
-            Some(exists) => { *exists }
-            None => { false }
+            Some(exists) => *exists,
+            None => false,
         }
     }
 }
@@ -156,8 +156,8 @@ impl ReleaseRadarArgs {
     }
     fn arg_exists(command: &str, matches: &ArgMatches) -> bool {
         match matches.get_one::<bool>(command) {
-            Some(exists) => { *exists }
-            None => { false }
+            Some(exists) => *exists,
+            None => false,
         }
     }
     pub fn from_compare_matches(matches: &ArgMatches) -> ReleaseRadarArgs {
@@ -189,7 +189,7 @@ impl ReleaseRadarArgs {
                     return ReleaseRadarArgs::Empty;
                 }
             }
-        };
+        }
         ReleaseRadarArgs::Empty
     }
     fn bool_exists(command: &str, matches: &ArgMatches) -> bool {
@@ -202,21 +202,13 @@ impl ReleaseRadarArgs {
     fn exists(is_bool: bool, command: &str, matches: &ArgMatches) -> bool {
         if is_bool {
             match matches.get_one::<bool>(command) {
-                Some(_) => {
-                    true
-                }
-                None => {
-                    false
-                }
+                Some(_) => true,
+                None => false,
             }
         } else {
             match matches.get_one::<String>(command) {
-                Some(_) => {
-                    true
-                }
-                None => {
-                    false
-                }
+                Some(_) => true,
+                None => false,
             }
         }
     }
@@ -256,7 +248,6 @@ pub enum BlacklistArgs {
     RemoveByName(String),
     RemoveBySelect,
     Empty,
-
 }
 impl BlacklistArgs {
     pub fn from_matches(matches: &ArgMatches) -> BlacklistArgs {
@@ -268,12 +259,8 @@ impl BlacklistArgs {
             BlacklistArgs::AddFromPlaylist(let_playlist.to_string())
         } else {
             match matches.get_one::<String>("blremove") {
-                Some(remove_value) => {
-                    BlacklistArgs::RemoveByName(remove_value.to_string())
-                }
-                None => {
-                    BlacklistArgs::RemoveBySelect
-                }
+                Some(remove_value) => BlacklistArgs::RemoveByName(remove_value.to_string()),
+                None => BlacklistArgs::RemoveBySelect,
             }
         }
     }

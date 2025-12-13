@@ -8,8 +8,8 @@ use rspotify::model::{
     AlbumId, ArtistId, FullAlbum, FullArtist, FullTrack, PlayableId, SimplifiedAlbum,
     SimplifiedTrack, TrackId,
 };
-use rspotify::{scopes, AuthCodeSpotify, ClientError};
-use tracing::{error, event, info, Level};
+use rspotify::{AuthCodeSpotify, ClientError, scopes};
+use tracing::{Level, error, event, info};
 
 use crate::enums::validation::BatchLimits;
 use crate::paginator::PaginatorRunner;
@@ -1066,7 +1066,10 @@ mod tests {
     fn test_offline_album_slice_and_genres() {
         let x = build_offline();
         // cutoff after 2023 so only the 2024 album remains
-        let cutoff_dt = NaiveDate::from_ymd_opt(2023, 12, 31).unwrap().and_hms_opt(0, 0, 0).unwrap();
+        let cutoff_dt = NaiveDate::from_ymd_opt(2023, 12, 31)
+            .unwrap()
+            .and_hms_opt(0, 0, 0)
+            .unwrap();
         let sliced = x.album_slice(Some(cutoff_dt));
         assert_eq!(sliced.albums.len(), 1);
         assert_eq!(sliced.albums[0].name, "Example Album");

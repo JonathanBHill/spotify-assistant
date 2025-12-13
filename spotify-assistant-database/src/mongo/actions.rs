@@ -1,12 +1,12 @@
 use std::collections::{HashMap, HashSet};
 
-use rspotify::{AuthCodeSpotify, scopes};
 use rspotify::clients::BaseClient;
 use rspotify::model::{
     ArtistId, FullTrack, Recommendations, RecommendationsAttribute, RecommendationsSeedType,
     SimplifiedTrack, TrackId,
 };
-use tracing::{info, Level};
+use rspotify::{AuthCodeSpotify, scopes};
+use tracing::{Level, info};
 
 use spotify_assistant_core::enums::validation::BatchLimits;
 use spotify_assistant_core::traits::apis::{Api, Querying};

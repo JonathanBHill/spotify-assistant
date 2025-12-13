@@ -2,9 +2,9 @@ use crate::paginator::PaginatorRunner;
 use crate::traits::apis::Api;
 use rspotify::clients::{BaseClient, OAuthClient};
 use rspotify::model::{FullPlaylist, PlaylistId, SimplifiedPlaylist};
-use rspotify::{scopes, AuthCodeSpotify};
+use rspotify::{AuthCodeSpotify, scopes};
 use std::collections::{HashMap, HashSet};
-use tracing::{event, Level};
+use tracing::{Level, event};
 
 /// The `UserPlaylists` struct is a representation of user playlists
 /// within the Spotify API integration. It enables interaction with
@@ -33,7 +33,11 @@ pub struct UserPlaylists {
 
 impl Api for UserPlaylists {
     fn select_scopes() -> HashSet<String> {
-        scopes!("playlist-read-private", "playlist-read-collaborative", "user-library-read")
+        scopes!(
+            "playlist-read-private",
+            "playlist-read-collaborative",
+            "user-library-read"
+        )
     }
 }
 
@@ -172,7 +176,11 @@ impl UserPlaylists {
                 panic!("Could not retrieve playlist");
             }
         };
-        match self.client.playlist(rr_id.clone(), None, Some(Self::market())).await {
+        match self
+            .client
+            .playlist(rr_id.clone(), None, Some(Self::market()))
+            .await
+        {
             Ok(release_radar_playlist) => release_radar_playlist,
             Err(err) => {
                 event!(Level::ERROR, "Error: {:?}", err);
@@ -235,7 +243,7 @@ impl UserPlaylists {
                 vec.into_iter().for_each(|playlist| {
                     playlists.insert(playlist.name, playlist.id);
                 });
-            },
+            }
             Err(err) => {
                 event!(Level::ERROR, "Error retrieving playlists: {:?}", err);
                 return HashMap::new();

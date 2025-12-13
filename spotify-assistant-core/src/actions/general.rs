@@ -1,7 +1,9 @@
 use crate::traits::apis::Api;
 use rspotify::clients::BaseClient;
-use rspotify::model::{AlbumId, ArtistId, FullAlbum, FullArtist, FullPlaylist, FullTrack, Market, PlaylistId, TrackId};
-use rspotify::{scopes, AuthCodeSpotify, ClientError};
+use rspotify::model::{
+    AlbumId, ArtistId, FullAlbum, FullArtist, FullPlaylist, FullTrack, Market, PlaylistId, TrackId,
+};
+use rspotify::{AuthCodeSpotify, ClientError, scopes};
 use std::pin::Pin;
 
 /// A structure representing full profiles with Spotify authorization.
@@ -92,7 +94,6 @@ impl<C> FullProfiles<C> {
     }
 }
 impl<C: FullProfilesClient> FullProfiles<C> {
-
     /// Fetches detailed information about an artist by their Spotify ID.
     ///
     /// This function takes an artist's Spotify ID as a string, validates
@@ -138,9 +139,10 @@ impl<C: FullProfilesClient> FullProfiles<C> {
                 panic!("Error: {:?}", err)
             }
         };
-        self.client.artist(artist_id).await.unwrap_or_else(|err| {
-            panic!("Error: {:?}", err)
-        })
+        self.client
+            .artist(artist_id)
+            .await
+            .unwrap_or_else(|err| panic!("Error: {:?}", err))
     }
 
     /// Retrieves detailed information about a specific album by its unique identifier.
@@ -293,7 +295,10 @@ mod tests {
     use super::*;
     use chrono::Duration as ChronoDuration;
     use futures::FutureExt;
-    use rspotify::model::{AlbumType, Copyright, CopyrightType, DatePrecision, Followers, Image, Page, PlaylistItem, PublicUser, SimplifiedAlbum, SimplifiedArtist, SimplifiedTrack, Type, UserId};
+    use rspotify::model::{
+        AlbumType, Copyright, CopyrightType, DatePrecision, Followers, Image, Page, PlaylistItem,
+        PublicUser, SimplifiedAlbum, SimplifiedArtist, SimplifiedTrack, Type, UserId,
+    };
     use std::collections::HashMap;
     use std::pin::Pin;
     use std::sync::Mutex;

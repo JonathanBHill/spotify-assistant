@@ -5,8 +5,8 @@ use rspotify::model::{
     AlbumId, ArtistId, FullAlbum, FullArtist, FullTrack, Id, SimplifiedArtist, SimplifiedTrack,
     TrackId,
 };
-use rspotify::{scopes, AuthCodeSpotify};
-use tracing::{error, info, Level};
+use rspotify::{AuthCodeSpotify, scopes};
+use tracing::{Level, error, info};
 
 use crate::traits::apis::Api;
 

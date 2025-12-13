@@ -8,6 +8,6 @@ async fn main() {
     let span = tracing::span!(Level::INFO, "main");
     let _enter = span.enter();
 
-    let modifier = Modifier::release_radar().await;
-    modifier.update_playlist().await;
+    let mut modifier = Modifier::new_rr().await;
+    modifier.run_rr().await;
 }

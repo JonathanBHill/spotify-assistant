@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use tracing::{span, Level};
+use tracing::{Level, span};
 
 use crate::utilities::filesystem::initialization::ProjectFileSystem;
 
@@ -123,26 +123,31 @@ impl ProjectFiles {
         let span = span!(Level::INFO, "FileRename.spotify_historical_data");
         let _enter = span.enter();
         let files = fs::read_dir(&self.data_directory)?;
-        let file_paths = files.into_iter().map(|file| {
-            let directory = match file {
-                Ok(dir) => { dir },
-                _ => { panic!("Error") }
-            };
-            let file_name = directory.file_name().clone();
+        let file_paths = files
+            .into_iter()
+            .map(|file| {
+                let directory = match file {
+                    Ok(dir) => dir,
+                    _ => {
+                        panic!("Error")
+                    }
+                };
+                let file_name = directory.file_name().clone();
 
-            let file = match file_name.into_string() {
-                Ok(string) => { string }
-                Err(osstring) => {
-                    let inter = osstring.to_str().ok_or("Invalid OsString").unwrap();
-                    inter.to_string()
-                }
-            };
-            let new_file = file.replace(" ", "_");
-            let old_path = Path::new(&self.data_directory).join(&file);
-            let new_path = Path::new(&self.data_directory).join(&new_file);
-            fs::rename(old_path, new_path.clone()).expect("Failed to edit file name");
-            new_path
-        }).collect::<Vec<PathBuf>>();
+                let file = match file_name.into_string() {
+                    Ok(string) => string,
+                    Err(osstring) => {
+                        let inter = osstring.to_str().ok_or("Invalid OsString").unwrap();
+                        inter.to_string()
+                    }
+                };
+                let new_file = file.replace(" ", "_");
+                let old_path = Path::new(&self.data_directory).join(&file);
+                let new_path = Path::new(&self.data_directory).join(&new_file);
+                fs::rename(old_path, new_path.clone()).expect("Failed to edit file name");
+                new_path
+            })
+            .collect::<Vec<PathBuf>>();
         Ok(file_paths)
     }
 }

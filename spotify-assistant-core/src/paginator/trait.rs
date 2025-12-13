@@ -1,8 +1,8 @@
-use futures::future::LocalBoxFuture;
 use futures::StreamExt;
+use futures::future::LocalBoxFuture;
+use rspotify::ClientResult;
 use rspotify::clients::pagination::Paginator;
 use rspotify::model::FullTrack;
-use rspotify::ClientResult;
 use tracing::Level;
 
 /// A trait that abstracts processing a paginator into a concrete collection.
@@ -12,15 +12,21 @@ use tracing::Level;
 /// in your own implementations if you want to keep going on errors instead.
 pub trait PaginatorProcessor<T> {
     /// Process all pages and return the collected items or an error.
-    fn process_all<'a>(&self, paginator: Paginator<'a, ClientResult<T>>) -> LocalBoxFuture<'a, ClientResult<Vec<T>>>
+    fn process_all<'a>(
+        &self,
+        paginator: Paginator<'a, ClientResult<T>>,
+    ) -> LocalBoxFuture<'a, ClientResult<Vec<T>>>
     where
         T: 'a;
 }
 
 impl<T> PaginatorProcessor<T> for FullTrack {
-    fn process_all<'a>(&self, paginator: Paginator<'a, ClientResult<T>>) -> LocalBoxFuture<'a, ClientResult<Vec<T>>>
+    fn process_all<'a>(
+        &self,
+        paginator: Paginator<'a, ClientResult<T>>,
+    ) -> LocalBoxFuture<'a, ClientResult<Vec<T>>>
     where
-        T: 'a
+        T: 'a,
     {
         let span = tracing::span!(Level::INFO, "Paginator");
         let _enter = span.enter();
@@ -39,9 +45,12 @@ impl<T> PaginatorProcessor<T> for FullTrack {
     }
 }
 impl<T> PaginatorProcessor<T> for () {
-    fn process_all<'a>(&self, paginator: Paginator<'a, ClientResult<T>>) -> LocalBoxFuture<'a, ClientResult<Vec<T>>>
+    fn process_all<'a>(
+        &self,
+        paginator: Paginator<'a, ClientResult<T>>,
+    ) -> LocalBoxFuture<'a, ClientResult<Vec<T>>>
     where
-        T: 'a
+        T: 'a,
     {
         let fut = async move {
             let mut paginator = paginator;

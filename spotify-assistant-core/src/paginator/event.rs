@@ -16,7 +16,13 @@ pub enum PaginatorEvent<T> {
 
 impl<T> PaginatorEvent<T> {
     /// Convenience helpers to check the variant.
-    pub fn is_item(&self) -> bool { matches!(self, Self::Item(_)) }
-    pub fn is_error(&self) -> bool { matches!(self, Self::Error(_)) }
-    pub fn is_done(&self) -> bool { matches!(self, Self::Done) }
+    pub fn is_item(&self) -> bool {
+        matches!(self, Self::Item(_))
+    }
+    pub fn is_error(&self) -> bool {
+        matches!(self, Self::Error(_))
+    }
+    pub fn is_done(&self) -> bool {
+        matches!(self, Self::Done)
+    }
 }

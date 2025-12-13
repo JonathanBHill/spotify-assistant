@@ -1,5 +1,5 @@
 use anyhow::Result;
-use spotify_assistant_core::models::filtering::{load_artists_from_json, ArtistLite};
+use spotify_assistant_core::models::filtering::{ArtistLite, load_artists_from_json};
 use std::path::PathBuf;
 
 pub fn cmd_find_artists(json_path: PathBuf) -> Result<Vec<ArtistLite>> {

@@ -475,7 +475,7 @@ pub struct Directories {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Preferences {
     length_of_recently_played: i32,
-    timeout: usize
+    timeout: usize,
 }
 
 /// The `Spotify` struct represents a configuration or data structure related to Spotify.
@@ -575,7 +575,7 @@ pub struct Utility {
 mod tests {
     use super::*;
     use crate::test_support::{
-        configuration_toml, invalid_configuration_toml, TestEnvironment, ENV_MUTEX,
+        ENV_MUTEX, TestEnvironment, configuration_toml, invalid_configuration_toml,
     };
 
     fn configuration_fixture(env: &TestEnvironment) -> Configuration {
@@ -631,6 +631,5 @@ mod tests {
         assert!(result.is_err(), "Malformed TOML should trigger a panic");
         fs::write(env.config_file("config.toml"), configuration_toml(&env))
             .expect("failed to write valid configuration fixture");
-
     }
 }
