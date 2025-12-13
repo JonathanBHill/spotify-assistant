@@ -7,8 +7,8 @@ use crate::traits::apis::Api;
 use rspotify::model::Id;
 use rspotify::model::{AlbumId, FullPlaylist, FullTrack, PlayableItem, PlaylistId, TrackId};
 use rspotify::prelude::*;
-use rspotify::{scopes, AuthCodeSpotify};
-use tracing::{error, event, Level};
+use rspotify::{AuthCodeSpotify, scopes};
+use tracing::{Level, error, event};
 
 /// The `Editor` struct is used to manage and handle Spotify playlists, serving as a utility
 /// to reference and manipulate playlists using the Spotify API.
@@ -825,7 +825,7 @@ impl Editor {
         let span = tracing::span!(Level::DEBUG, "Editor.update_playlist_from_xplorer");
         let _enter = span.enter();
         let mut xplorer = PlaylistXplr::new(self.ref_id.clone(), false).await;
-        xplorer.set_tracks_to_unique_from_expanded().await;
+        xplorer.set_tracks_to_unique_from_expanded();
         // xplorer.tracks = xplorer.unique_tracks();
         let track_ids = xplorer.playable_ids();
         self.check_if_stock_release_radar_id_was_used(track_ids.len());

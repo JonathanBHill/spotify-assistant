@@ -1,13 +1,13 @@
 use crate::enums::fs::ProjectDirectories;
 use crate::paginator::PaginatorRunner;
 use crate::traits::apis::Api;
+use rspotify::AuthCodeSpotify;
 use rspotify::model::{FullTrack, SavedTrack};
 use rspotify::prelude::{Id, OAuthClient};
-use rspotify::AuthCodeSpotify;
 use std::io::Write;
 use std::path::PathBuf;
 use std::{fs, io};
-use tracing::{event, span, Level};
+use tracing::{Level, event, span};
 
 /// Represents the structure that handles a user's liked songs.
 ///
@@ -29,6 +29,7 @@ use tracing::{event, span, Level};
 ///   to persist the user's liked song data locally for offline access or
 ///   caching purposes.
 pub struct UserLibrary {
+    #[allow(dead_code)]
     client: AuthCodeSpotify,
     saved_tracks: Vec<SavedTrack>,
     saved_tracks_path: PathBuf,
@@ -423,7 +424,7 @@ mod tests {
             &file_path,
             serde_json::to_string(&tracks).expect("serialize tracks"),
         )
-            .expect("write tracks to cache");
+        .expect("write tracks to cache");
 
         let loaded = UserLibrary::load_from_file().expect("load tracks from cache");
         assert_eq!(loaded, tracks);

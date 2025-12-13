@@ -3,7 +3,7 @@ use rspotify::prelude::OAuthClient;
 use rspotify::{AuthCodeSpotify, Config, Credentials, OAuth};
 use std::collections::HashSet;
 use std::env;
-use tracing::{Level, error, event, span, trace, trace_span};
+use tracing::{error, info, trace, trace_span};
 
 use crate::enums::fs::{ProjectDirectories, ProjectFiles};
 
@@ -160,10 +160,9 @@ pub trait Api {
             );
             let credentials = match Credentials::from_env() {
                 Some(creds) => {
-                    event!(
+                    info!(
                         target: "api_setup",
                         parent: suc_span.clone(),
-                        Level::INFO,
                         "ID and Secret credentials were successfully obtained from .env file"
                     );
                     creds
@@ -228,7 +227,7 @@ pub trait Api {
             }
             let url = spotify_client.get_authorize_url(false).unwrap();
             spotify_client.prompt_for_token(&url).await.unwrap();
-            event!(Level::TRACE, "Client was initialized");
+            trace!("Client was initialized");
             spotify_client
         }
     }

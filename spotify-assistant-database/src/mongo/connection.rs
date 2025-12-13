@@ -11,6 +11,18 @@ use crate::mongo::groups::Clusters;
 use crate::mongo::models::{ArtistRecord, RecommendedRecord};
 #[cfg(feature = "mongo")]
 use crate::mongo::traits::MongoConnection;
+#[cfg(feature = "mongo")]
+use mongodb::bson::doc;
+#[cfg(feature = "mongo")]
+use mongodb::options::{ClientOptions, ServerApi, ServerApiVersion};
+#[cfg(feature = "mongo")]
+use mongodb::{Client, Collection};
+use rspotify::model::{
+    FullArtist, FullTrack, Recommendations, RecommendationsSeedType, SimplifiedAlbum,
+};
+use rspotify::prelude::Id;
+use spotify_assistant_core::enums::fs::ProjectFiles;
+use std::collections::HashMap;
 
 #[cfg(feature = "mongo")]
 pub struct Connection {
@@ -62,8 +74,11 @@ impl Connection {
 
 #[cfg(feature = "mongo")]
 pub struct Artist {
+    #[allow(dead_code)]
     client: Client,
+    #[allow(dead_code)]
     database_name: &'static str,
+    #[allow(dead_code)]
     collection_name: &'static str,
     collection: Collection<ArtistRecord>,
 }
@@ -81,9 +96,7 @@ impl Artist {
         client_options.server_api = Some(server_api);
         let client = Client::with_options(client_options)?;
         Artist::test_connection(&client).await?;
-        let collection: Collection<ArtistRecord> = client
-            .database("spotify")
-            .collection("artists");
+        let collection: Collection<ArtistRecord> = client.database("spotify").collection("artists");
         let mongo_ob = Artist {
             client,
             database_name: "spotify",
@@ -92,7 +105,10 @@ impl Artist {
         };
         Ok(mongo_ob)
     }
-    pub async fn get_documents_by_artist_name(&self, filter: HashMap<&str, &str>) -> mongodb::error::Result<Vec<ArtistRecord>> {
+    pub async fn get_documents_by_artist_name(
+        &self,
+        filter: HashMap<&str, &str>,
+    ) -> mongodb::error::Result<Vec<ArtistRecord>> {
         let (key, value) = filter.get_key_value("artist_name").unwrap();
         let filter = doc! {key.to_string(): value.to_string()};
         let mut return_records = Vec::new();
@@ -101,7 +117,7 @@ impl Artist {
         while cursor.advance().await? {
             return_records.push(cursor.deserialize_current()?);
             // println!("{:?}", cursor.deserialize_current()?);
-        };
+        }
         Ok(return_records)
     }
     pub async fn get_all_documents(&self) -> mongodb::error::Result<Vec<ArtistRecord>> {
@@ -111,10 +127,16 @@ impl Artist {
         while cursor.advance().await? {
             return_records.push(cursor.deserialize_current()?);
             // println!("{:?}", cursor.deserialize_current()?);
-        };
+        }
         Ok(return_records)
     }
-    pub fn format_documents(&self, artists: Vec<FullArtist>, discography: Option<HashMap<&'static str, Vec<SimplifiedAlbum>>>, total_tracks: Option<usize>, followed: Option<bool>) -> Vec<ArtistRecord> {
+    pub fn format_documents(
+        &self,
+        artists: Vec<FullArtist>,
+        discography: Option<HashMap<&'static str, Vec<SimplifiedAlbum>>>,
+        total_tracks: Option<usize>,
+        followed: Option<bool>,
+    ) -> Vec<ArtistRecord> {
         let records = artists
             .iter()
             .map(|artist| {
@@ -123,7 +145,13 @@ impl Artist {
             .collect();
         records
     }
-    pub fn format_document(&self, artist: FullArtist, discography: Option<HashMap<&'static str, Vec<SimplifiedAlbum>>>, total_tracks: Option<usize>, followed: Option<bool>) -> ArtistRecord {
+    pub fn format_document(
+        &self,
+        artist: FullArtist,
+        discography: Option<HashMap<&'static str, Vec<SimplifiedAlbum>>>,
+        total_tracks: Option<usize>,
+        followed: Option<bool>,
+    ) -> ArtistRecord {
         let now = chrono::Local::now();
         let date_formatted = now.format("%m-%d-%Y").to_string();
         let time_formatted = now.format("%H:%M:%S").to_string();
@@ -175,15 +203,25 @@ impl Artist {
         //     .client
         //     .database(self.database_name)
         //     .collection(self.collection_name);
-        let delete = self.collection.delete_one(doc! {"name": artist_name}).await?;
+        let delete = self
+            .collection
+            .delete_one(doc! {"name": artist_name})
+            .await?;
         println!(
             "{:?} document was successfully removed",
             delete.deleted_count
         );
         Ok(())
     }
-    pub async fn replace_document(&self, name: String, doc: ArtistRecord) -> mongodb::error::Result<()> {
-        let replace = self.collection.replace_one(doc! {"artist_name": name}, doc.clone()).await?;
+    pub async fn replace_document(
+        &self,
+        name: String,
+        doc: ArtistRecord,
+    ) -> mongodb::error::Result<()> {
+        let replace = self
+            .collection
+            .replace_one(doc! {"artist_name": name}, doc.clone())
+            .await?;
         println!(
             "{:?} document was successfully replaced for {}",
             replace.modified_count, doc.name
@@ -198,6 +236,7 @@ pub struct Recommendation {
     client: Client,
     database_name: &'static str,
     collection_name: &'static str,
+    #[allow(dead_code)]
     collection: Collection<RecommendedRecord>,
 }
 
@@ -213,7 +252,10 @@ impl Recommendation {
         let server_api = ServerApi::builder().version(ServerApiVersion::V1).build();
         client_options.server_api = Some(server_api);
         let client = Client::with_options(client_options)?;
-        let collection = client.database("spotify").collection("recommendations").clone();
+        let collection = client
+            .database("spotify")
+            .collection("recommendations")
+            .clone();
         if Recommendation::test_connection(&client).await? {
             let mongo_ob = Recommendation {
                 client: client,
@@ -229,7 +271,11 @@ impl Recommendation {
             )))
         }
     }
-    pub async fn format_document(&self, tracks: Vec<FullTrack>, recommendations: Recommendations) -> RecommendedRecord {
+    pub async fn format_document(
+        &self,
+        tracks: Vec<FullTrack>,
+        recommendations: Recommendations,
+    ) -> RecommendedRecord {
         let now = chrono::Local::now();
         let date_formatted = now.format("%m-%d-%Y").to_string();
         let time_formatted = now.format("%H:%M:%S").to_string();
@@ -245,16 +291,14 @@ impl Recommendation {
             let new = current + 1;
             tracker.insert(key, new);
         }
-        generation_seeds
-            .iter()
-            .for_each(|seed| {
-                let key = match seed._type.clone() {
-                    RecommendationsSeedType::Artist => "artists",
-                    RecommendationsSeedType::Genre => "genres",
-                    RecommendationsSeedType::Track => "tracks",
-                };
-                add_to_tracker(&mut tracker, key);
-            });
+        generation_seeds.iter().for_each(|seed| {
+            let key = match seed._type.clone() {
+                RecommendationsSeedType::Artist => "artists",
+                RecommendationsSeedType::Genre => "genres",
+                RecommendationsSeedType::Track => "tracks",
+            };
+            add_to_tracker(&mut tracker, key);
+        });
         let name = format!(
             "{}art_{}gen_{}trk_{}",
             tracker.get("artists").unwrap(),

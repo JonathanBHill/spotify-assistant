@@ -1,13 +1,11 @@
 use crate::actions::exploration::playlist::PlaylistXplr;
 use crate::enums::pl::PlaylistType;
-use crate::models::blacklist::{Blacklist, BlacklistArtist};
-use crate::models::full_track_fingerprint::PlaylistFingerprints;
 use crate::traits::apis::Api;
-use rspotify::clients::{BaseClient, OAuthClient};
-use rspotify::model::{AlbumId, FullAlbum, Id, PlayableId, PlayableItem, PlaylistId, TrackId};
+use rspotify::clients::OAuthClient;
+use rspotify::model::{Id, PlayableId, PlaylistId};
 use rspotify::{AuthCodeSpotify, scopes};
 use std::collections::HashSet;
-use tracing::{debug, debug_span, error, event, info};
+use tracing::{debug, debug_span, error, info};
 
 #[derive(Debug, Clone)]
 pub struct Modifier {

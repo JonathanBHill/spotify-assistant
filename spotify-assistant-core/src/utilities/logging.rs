@@ -2,7 +2,6 @@ use ansi_term::{ANSIGenericString, Color};
 use std::collections::VecDeque;
 use std::io;
 use tracing::{Level, Metadata};
-use tracing_appender::rolling;
 use tracing_subscriber::filter::LevelFilter;
 use tracing_subscriber::fmt::format::Writer;
 use tracing_subscriber::fmt::time::{ChronoLocal, FormatTime};
@@ -12,7 +11,7 @@ use tracing_subscriber::registry::LookupSpan;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{EnvFilter, Layer, fmt};
 
-static LOG_GUARD: once_cell::sync::OnceCell<tracing_appender::non_blocking::WorkerGuard> =
+static _LOG_GUARD: once_cell::sync::OnceCell<tracing_appender::non_blocking::WorkerGuard> =
     once_cell::sync::OnceCell::new();
 
 pub fn init_tracing() {
@@ -50,7 +49,7 @@ pub fn init_tracing() {
         let (file_writer, guard) = tracing_appender::non_blocking(file_appender);
 
         // Store guard so async threads don't drop
-        let _ = LOG_GUARD.set(guard);
+        let _ = _LOG_GUARD.set(guard);
 
         // File: standard format is fine, DEBUG+ (controlled by EnvFilter above)
         let file_layer = fmt::layer().with_ansi(false).with_writer(file_writer);

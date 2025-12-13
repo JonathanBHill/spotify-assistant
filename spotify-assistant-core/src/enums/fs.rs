@@ -165,16 +165,20 @@ impl ProjectFiles {
             ProjectFiles::TokenCache => ProjectDirectories::Cache.path().join("token_cache"),
         }
     }
+    #[allow(dead_code)]
     fn instantiate(&self) {
         match self {
             ProjectFiles::DotEnv => {
                 let dot_env_path = self.path();
                 if !dot_env_path.exists() {
                     let mut dot_env_file = std::fs::File::create(dot_env_path).unwrap();
-                    dot_env_file.write_all(
-                        b"RSPOTIFY_CLIENT_ID=your_client_id\n\
+                    dot_env_file
+                        .write_all(
+                            b"RSPOTIFY_CLIENT_ID=your_client_id\n\
                         RSPOTIFY_CLIENT_SECRET=your_client_secret\n\
-                        RSPOTIFY_REDIRECT_URI=https://localhost:8281/&scope=user-library-read").unwrap();
+                        RSPOTIFY_REDIRECT_URI=https://localhost:8281/&scope=user-library-read",
+                        )
+                        .unwrap();
                 }
             }
             ProjectFiles::TokenCache => {
@@ -192,7 +196,7 @@ impl ProjectFiles {
 mod tests {
     use super::*;
     use crate::test_support::test_ws::ROOT;
-    use crate::test_support::{TestEnvironment, ENV_MUTEX};
+    use crate::test_support::{ENV_MUTEX, TestEnvironment};
 
     impl ProjectDirectories {
         pub(crate) fn test_path(&self) -> PathBuf {
@@ -271,7 +275,6 @@ mod tests {
         let env = unsafe { TestEnvironment::new() };
         let dot_env = ProjectFiles::DotEnv;
         let token_cache = ProjectFiles::TokenCache;
-
 
         println!("Checking if the {:?} file exists", dot_env.test_path());
         if !dot_env.test_path().exists() {

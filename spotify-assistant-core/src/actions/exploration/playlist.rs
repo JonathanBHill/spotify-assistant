@@ -12,7 +12,7 @@ use rspotify::model::{
 };
 use rspotify::{AuthCodeSpotify, scopes};
 use std::collections::{HashMap, HashSet};
-use tracing::{Level, debug, debug_span, error, event, info, info_span, trace};
+use tracing::{debug, debug_span, error, info, info_span, trace};
 
 /// `PlaylistXplr` is a struct that provides functionality for exploring and managing
 /// Spotify playlists. It contains information about a specific playlist, its tracks,
@@ -101,7 +101,7 @@ impl PlaylistXplr {
             playlist_id,
             full_playlist,
             tracks,
-            drop_duplicates: drop_duplicates,
+            drop_duplicates,
         }
     }
 
@@ -596,7 +596,7 @@ impl PlaylistXplr {
     /// - This method relies on the `self.album_ids()` method to retrieve the list of album IDs.
     /// - The `clean_duplicate_id_vector` method is used to remove duplicate IDs if the `duplicates` flag is `false`.
     pub async fn track_ids_expanded(&self) -> Vec<TrackId<'_>> {
-        let _track_ids_exp_span = debug_span!("trck-ids-xp").entered();
+        let _track_ids_exp_span = debug_span!("tr-ids-xp").entered();
 
         let mut track_ids: Vec<TrackId> = Vec::new();
         for album_chunk in self.album_ids().chunks(20) {
@@ -624,8 +624,7 @@ impl PlaylistXplr {
     }
 
     pub async fn full_tracks_expanded(&self) -> Vec<FullTrack> {
-        let span = tracing::span!(Level::INFO, "ExplorePlaylist.full_tracks_expanded");
-        let _enter = span.enter();
+        let _full_track_exp_span = info_span!("full-tr-xp").entered();
         let track_ids = self.track_ids_expanded().await;
         let mut full_tracks = Vec::new();
         for track_chunk in track_ids.chunks(50) {
@@ -639,27 +638,23 @@ impl PlaylistXplr {
         full_tracks.concat()
     }
     pub async fn set_tracks_to_expanded(&mut self) {
-        let span = tracing::span!(Level::INFO, "ExplorePlaylist.set_tracks_to_expanded");
-        let _enter = span.enter();
+        let _set_tracks_exp_span = info_span!("set-tr-xp").entered();
         let full_tracks = self.full_tracks_expanded().await;
         self.tracks = full_tracks;
     }
     pub fn set_tracks(&mut self, tracks: Vec<FullTrack>) {
-        let span = tracing::span!(Level::INFO, "ExplorePlaylist.set_tracks");
-        let _enter = span.enter();
+        let _set_tracks_span = info_span!("set-tr").entered();
         self.tracks = tracks;
     }
-    pub async fn set_tracks_to_unique_from_expanded(&mut self) {
-        let span = tracing::span!(Level::INFO, "ExplorePlaylist.set_tracks_to_unique");
-        let _enter = span.enter();
+    pub fn set_tracks_to_unique_from_expanded(&mut self) {
+        let _set_tracks_to_unique_exp_span = info_span!("set-tr-unq").entered();
         self.tracks = self.deduplicate_tracks();
     }
-    pub fn unique_tracks(&mut self) -> Vec<FullTrack> {
-        let span = tracing::span!(Level::INFO, "ExplorePlaylist.unique_tracks");
-        let _enter = span.enter();
+    pub fn unique_tracks(&self) -> Vec<FullTrack> {
+        let _uniques_span = info_span!("unq-tr").entered();
         self.deduplicate_tracks()
     }
-    fn deduplicate_tracks(&mut self) -> Vec<FullTrack> {
+    fn deduplicate_tracks(&self) -> Vec<FullTrack> {
         let mut track_dup_keys: HashSet<FullTrackFingerprint> = HashSet::new();
         let mut unique_tracks = Vec::new();
         let mut dup_counter = 0;
@@ -744,8 +739,7 @@ impl PlaylistXplr {
     ///   the containing struct, which presumably provides access to the `self.client`,
     ///   `self.track_ids()`, and `self.tracks()` methods.
     pub async fn find_liked_songs(&self) -> HashMap<&str, Vec<FullTrack>> {
-        let span = tracing::span!(Level::INFO, "ExplorePlaylist.find_liked_songs");
-        let _enter = span.enter();
+        let _find_liked_span = info_span!("liked-songs").entered();
         let mut liked = Vec::new();
         let mut not_liked = Vec::new();
         let batch_size = 50;
@@ -843,8 +837,7 @@ impl PlaylistXplr {
     /// - Ensure the `self.album_ids()` method exists and correctly provides the IDs of albums that need processing.
     /// - Verify that the client used in `self.client.albums` is configured properly, including its market and proper handling of API rate limits.
     pub async fn artists_by_album(&self) -> HashMap<String, Vec<SimplifiedArtist>> {
-        let span = tracing::span!(Level::INFO, "ExplorePlaylist.artists_by_album");
-        let _enter = span.enter();
+        let _artist_by_album_span = info_span!("alb-arts").entered();
 
         let policy = if !self.drop_duplicates {
             DuplicatePolicy::Keep
@@ -912,8 +905,7 @@ impl PlaylistXplr {
     /// Ensure that all tracks in the playlist have a valid ID before calling this function,
     /// as the presence of a `None` value for a track's ID will cause a panic.
     pub fn track_ids(&self) -> Vec<TrackId<'_>> {
-        let span = tracing::span!(Level::INFO, "ExplorePlaylist.track_ids_original");
-        let _enter = span.enter();
+        let _track_ids_span = info_span!("tr-ids").entered();
         info!(
             "Retrieving track ids from the playlist. Track count: {:?}",
             self.tracks().len()
@@ -927,7 +919,7 @@ impl PlaylistXplr {
             .collect::<Vec<TrackId>>()
     }
     pub fn track_fingerprint(&self) -> Vec<FullTrackFingerprint> {
-        let _track_fingerprint_span = tracing::span!(Level::INFO, "get-trck-fp").entered();
+        let _track_fingerprint_span = info_span!("get-tr-fp").entered();
         info!(
             track_count = ?self.tracks().len(),
             "Retrieving track fingerprints",
@@ -938,16 +930,14 @@ impl PlaylistXplr {
             .collect::<Vec<FullTrackFingerprint>>()
     }
     pub fn playable_items(&self) -> Vec<PlayableItem> {
-        let span = tracing::span!(Level::INFO, "ExplorePlaylist.playable_items");
-        let _enter = span.enter();
+        let _playable_items_span = info_span!("play-items").entered();
         self.tracks()
             .iter()
             .map(|track| PlayableItem::Track(track.to_owned()))
             .collect::<Vec<PlayableItem>>()
     }
     pub fn playable_ids(&self) -> Vec<PlayableId<'_>> {
-        let span = tracing::span!(Level::INFO, "ExplorePlaylist.playable_ids");
-        let _enter = span.enter();
+        let _playable_ids_span = info_span!("play-ids").entered();
 
         let owned_tracks = self
             .tracks

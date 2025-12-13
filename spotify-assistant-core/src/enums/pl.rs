@@ -1,11 +1,9 @@
 use std::borrow::Cow;
-use std::env;
 
-use crate::enums::fs::ProjectFiles;
 use crate::traits::file_readers::ConfigReader;
 use crate::utilities::filesystem::constants::Constants;
 use rspotify::model::PlaylistId;
-use tracing::{Level, debug, debug_span};
+use tracing::{debug, debug_span};
 
 /// Enum `PlaylistType`
 ///
