@@ -1,4 +1,4 @@
-use crate::collect_track_field;
+use crate::collect_model_field;
 use crate::enums::extractors::album::AlbumExtractor;
 use crate::utilities::general::format_duration;
 use rspotify::model::{
@@ -31,93 +31,6 @@ impl TrackExtractor {
             TrackExtractor::TrackLink(tracks) => tracks.len(),
         }
     }
-    pub fn playable_ids(&self) -> Option<Vec<PlayableId<'_>>> {
-        match self {
-            TrackExtractor::SavedTracks(tracks) => Some(
-                tracks
-                    .iter()
-                    .filter_map(|track| {
-                        track
-                            .track
-                            .id
-                            .clone()
-                            .map(|id| PlayableId::Track(id).into_static())
-                    })
-                    .collect(),
-            ),
-            TrackExtractor::FullTrack(tracks) => Some(
-                tracks
-                    .iter()
-                    .filter_map(|track| {
-                        track
-                            .id
-                            .clone()
-                            .map(|id| PlayableId::Track(id).into_static())
-                    })
-                    .collect(),
-            ),
-            TrackExtractor::SimplifiedTrack(tracks) => Some(
-                tracks
-                    .iter()
-                    .filter_map(|track| {
-                        track
-                            .id
-                            .clone()
-                            .map(|id| PlayableId::Track(id).into_static())
-                    })
-                    .collect(),
-            ),
-            TrackExtractor::TrackLink(_) => None,
-        }
-    }
-    pub fn names(&self) -> Option<Vec<String>> {
-        match self {
-            TrackExtractor::SavedTracks(tracks) => {
-                collect_track_field!(tracks, |track: &SavedTrack| track.track.name.clone())
-            }
-            TrackExtractor::FullTrack(tracks) => {
-                collect_track_field!(tracks, |track: &FullTrack| track.name.clone())
-            }
-            TrackExtractor::SimplifiedTrack(tracks) => {
-                collect_track_field!(tracks, |track: &SimplifiedTrack| track.name.clone())
-            }
-            TrackExtractor::TrackLink(_) => None,
-        }
-    }
-    pub fn ids(&self) -> Option<Vec<TrackId<'_>>> {
-        let default_id =
-            TrackId::from_id("unknown").expect("Failed to create TrackId from unknown ID");
-        match self {
-            TrackExtractor::SavedTracks(tracks) => {
-                collect_track_field!(
-                    tracks,
-                    |track: &SavedTrack| track.track.id.clone(),
-                    default_id.clone()
-                )
-            }
-            TrackExtractor::FullTrack(tracks) => {
-                collect_track_field!(
-                    tracks,
-                    |track: &FullTrack| track.id.clone(),
-                    default_id.clone()
-                )
-            }
-            TrackExtractor::SimplifiedTrack(tracks) => {
-                collect_track_field!(
-                    tracks,
-                    |track: &SimplifiedTrack| track.id.clone(),
-                    default_id.clone()
-                )
-            }
-            TrackExtractor::TrackLink(tracks) => {
-                collect_track_field!(
-                    tracks,
-                    |track: &TrackLink| track.id.clone(),
-                    default_id.clone()
-                )
-            }
-        }
-    }
     pub fn added_at(&self) -> Option<Vec<String>> {
         match self {
             TrackExtractor::SavedTracks(tracks) => Some(
@@ -133,20 +46,22 @@ impl TrackExtractor {
     pub fn available_markets(&self) -> Option<Vec<Vec<String>>> {
         match self {
             TrackExtractor::SavedTracks(tracks) => {
-                collect_track_field!(tracks, |track: &SavedTrack| track
+                collect_model_field!(map, tracks, |track: &SavedTrack| track
                     .track
                     .available_markets
                     .clone())
             }
             TrackExtractor::FullTrack(tracks) => {
-                collect_track_field!(tracks, |track: &FullTrack| track.available_markets.clone())
+                collect_model_field!(map, tracks, |track: &FullTrack| track
+                    .available_markets
+                    .clone())
             }
             TrackExtractor::SimplifiedTrack(tracks) => {
-                collect_track_field!(tracks, |track: &SimplifiedTrack| {
-                    match track.available_markets.clone() {
-                        Some(markets) => markets.clone(),
-                        None => vec![String::new()],
-                    }
+                collect_model_field!(map, tracks, |track: &SimplifiedTrack| {
+                    track
+                        .available_markets
+                        .clone()
+                        .unwrap_or_else(|| vec![String::new()])
                 })
             }
             TrackExtractor::TrackLink(_) => None,
@@ -155,7 +70,7 @@ impl TrackExtractor {
     pub fn disc_numbers(&self) -> Option<Vec<u32>> {
         match self {
             TrackExtractor::SavedTracks(tracks) => {
-                collect_track_field!(tracks, |track: &SavedTrack| track
+                collect_model_field!(map, tracks, |track: &SavedTrack| track
                     .track
                     .disc_number
                     .to_string()
@@ -163,14 +78,14 @@ impl TrackExtractor {
                     .unwrap_or(0))
             }
             TrackExtractor::FullTrack(tracks) => {
-                collect_track_field!(tracks, |track: &FullTrack| track
+                collect_model_field!(map, tracks, |track: &FullTrack| track
                     .disc_number
                     .to_string()
                     .parse::<u32>()
                     .unwrap_or(0))
             }
             TrackExtractor::SimplifiedTrack(tracks) => {
-                collect_track_field!(tracks, |track: &SimplifiedTrack| track
+                collect_model_field!(map, tracks, |track: &SimplifiedTrack| track
                     .disc_number
                     .to_string()
                     .parse::<u32>()
@@ -182,15 +97,17 @@ impl TrackExtractor {
     pub fn durations(&self) -> Option<Vec<String>> {
         match self {
             TrackExtractor::SavedTracks(tracks) => {
-                collect_track_field!(tracks, |track: &SavedTrack| format_duration(
+                collect_model_field!(map, tracks, |track: &SavedTrack| format_duration(
                     track.track.duration
                 ))
             }
             TrackExtractor::FullTrack(tracks) => {
-                collect_track_field!(tracks, |track: &FullTrack| format_duration(track.duration))
+                collect_model_field!(map, tracks, |track: &FullTrack| format_duration(
+                    track.duration
+                ))
             }
             TrackExtractor::SimplifiedTrack(tracks) => {
-                collect_track_field!(tracks, |track: &SimplifiedTrack| format_duration(
+                collect_model_field!(map, tracks, |track: &SimplifiedTrack| format_duration(
                     track.duration
                 ))
             }
@@ -200,13 +117,13 @@ impl TrackExtractor {
     pub fn explicit(&self) -> Option<Vec<bool>> {
         match self {
             TrackExtractor::SavedTracks(tracks) => {
-                collect_track_field!(tracks, |track: &SavedTrack| track.track.explicit)
+                collect_model_field!(map, tracks, |track: &SavedTrack| track.track.explicit)
             }
             TrackExtractor::FullTrack(tracks) => {
-                collect_track_field!(tracks, |track: &FullTrack| track.explicit)
+                collect_model_field!(map, tracks, |track: &FullTrack| track.explicit)
             }
             TrackExtractor::SimplifiedTrack(tracks) => {
-                collect_track_field!(tracks, |track: &SimplifiedTrack| track.explicit)
+                collect_model_field!(map, tracks, |track: &SimplifiedTrack| track.explicit)
             }
             TrackExtractor::TrackLink(_) => None,
         }
@@ -215,13 +132,13 @@ impl TrackExtractor {
     pub fn external_ids(&self) -> Option<Vec<HashMap<String, String>>> {
         match self {
             TrackExtractor::SavedTracks(tracks) => {
-                collect_track_field!(tracks, |track: &SavedTrack| track
+                collect_model_field!(map, tracks, |track: &SavedTrack| track
                     .track
                     .external_ids
                     .clone())
             }
             TrackExtractor::FullTrack(tracks) => {
-                collect_track_field!(tracks, |track: &FullTrack| track.external_ids.clone())
+                collect_model_field!(map, tracks, |track: &FullTrack| track.external_ids.clone())
             }
             TrackExtractor::SimplifiedTrack(_) | TrackExtractor::TrackLink(_) => None,
         }
@@ -229,28 +146,28 @@ impl TrackExtractor {
     pub fn external_urls(&self) -> Option<Vec<HashMap<String, String>>> {
         match self {
             TrackExtractor::SavedTracks(tracks) => {
-                collect_track_field!(tracks, |track: &SavedTrack| track
+                collect_model_field!(map, tracks, |track: &SavedTrack| track
                     .track
                     .external_urls
                     .clone())
             }
             TrackExtractor::FullTrack(tracks) => {
-                collect_track_field!(tracks, |track: &FullTrack| track.external_urls.clone())
+                collect_model_field!(map, tracks, |track: &FullTrack| track.external_urls.clone())
             }
             TrackExtractor::SimplifiedTrack(tracks) => {
-                collect_track_field!(tracks, |track: &SimplifiedTrack| track
+                collect_model_field!(map, tracks, |track: &SimplifiedTrack| track
                     .external_urls
                     .clone())
             }
             TrackExtractor::TrackLink(tracks) => {
-                collect_track_field!(tracks, |track: &TrackLink| track.external_urls.clone())
+                collect_model_field!(map, tracks, |track: &TrackLink| track.external_urls.clone())
             }
         }
     }
     pub fn hrefs(&self) -> Option<Vec<String>> {
         match self {
             TrackExtractor::SavedTracks(tracks) => {
-                collect_track_field!(tracks, |track: &SavedTrack| {
+                collect_model_field!(map, tracks, |track: &SavedTrack| {
                     track
                         .track
                         .href
@@ -259,7 +176,7 @@ impl TrackExtractor {
                 })
             }
             TrackExtractor::FullTrack(tracks) => {
-                collect_track_field!(tracks, |track: &FullTrack| {
+                collect_model_field!(map, tracks, |track: &FullTrack| {
                     track
                         .href
                         .clone()
@@ -267,7 +184,7 @@ impl TrackExtractor {
                 })
             }
             TrackExtractor::SimplifiedTrack(tracks) => {
-                collect_track_field!(tracks, |track: &SimplifiedTrack| {
+                collect_model_field!(map, tracks, |track: &SimplifiedTrack| {
                     track
                         .href
                         .clone()
@@ -275,129 +192,143 @@ impl TrackExtractor {
                 })
             }
             TrackExtractor::TrackLink(tracks) => {
-                collect_track_field!(tracks, |track: &TrackLink| { track.href.clone() })
+                collect_model_field!(map, tracks, |track: &TrackLink| { track.href.clone() })
             }
         }
     }
+
+    pub fn ids(&self) -> Option<Vec<TrackId<'_>>> {
+        let default_id =
+            TrackId::from_id("unknown").expect("Failed to create TrackId from unknown ID");
+        match self {
+            TrackExtractor::SavedTracks(tracks) => {
+                collect_model_field!(
+                    map,
+                    tracks,
+                    |track: &SavedTrack| track.track.id.clone(),
+                    default_id.clone()
+                )
+            }
+            TrackExtractor::FullTrack(tracks) => {
+                collect_model_field!(
+                    map,
+                    tracks,
+                    |track: &FullTrack| track.id.clone(),
+                    default_id.clone()
+                )
+            }
+            TrackExtractor::SimplifiedTrack(tracks) => {
+                collect_model_field!(
+                    map,
+                    tracks,
+                    |track: &SimplifiedTrack| track.id.clone(),
+                    default_id.clone()
+                )
+            }
+            TrackExtractor::TrackLink(tracks) => {
+                collect_model_field!(
+                    map,
+                    tracks,
+                    |track: &TrackLink| track.id.clone(),
+                    default_id.clone()
+                )
+            }
+        }
+    }
+
     pub fn is_local(&self) -> Option<Vec<bool>> {
         match self {
             TrackExtractor::SavedTracks(tracks) => {
-                collect_track_field!(tracks, |track: &SavedTrack| track.track.is_local)
+                collect_model_field!(map, tracks, |track: &SavedTrack| track.track.is_local)
             }
             TrackExtractor::FullTrack(tracks) => {
-                collect_track_field!(tracks, |track: &FullTrack| track.is_local)
+                collect_model_field!(map, tracks, |track: &FullTrack| track.is_local)
             }
             TrackExtractor::SimplifiedTrack(tracks) => {
-                collect_track_field!(tracks, |track: &SimplifiedTrack| track.is_local)
+                collect_model_field!(map, tracks, |track: &SimplifiedTrack| track.is_local)
             }
             TrackExtractor::TrackLink(_) => None,
         }
     }
+
     pub fn is_playable(&self) -> Option<Vec<bool>> {
         match self {
             TrackExtractor::SavedTracks(tracks) => {
-                collect_track_field!(tracks, |track: &SavedTrack| {
+                collect_model_field!(map, tracks, |track: &SavedTrack| {
                     track.track.is_playable.unwrap_or(false)
                 })
             }
             TrackExtractor::FullTrack(tracks) => {
-                collect_track_field!(tracks, |track: &FullTrack| {
+                collect_model_field!(map, tracks, |track: &FullTrack| {
                     track.is_playable.unwrap_or(false)
                 })
             }
             TrackExtractor::SimplifiedTrack(tracks) => {
-                collect_track_field!(tracks, |track: &SimplifiedTrack| {
+                collect_model_field!(map, tracks, |track: &SimplifiedTrack| {
                     track.is_playable.unwrap_or(false)
                 })
             }
             TrackExtractor::TrackLink(_) => None,
         }
     }
+
     pub fn linked_from(&self) -> Option<Vec<TrackLink>> {
         match self {
             TrackExtractor::SavedTracks(tracks) => {
-                let collected: Vec<TrackLink> = tracks
-                    .iter()
-                    .filter_map(|track: &SavedTrack| track.track.linked_from.clone())
-                    .collect(); // Vec<TrackLink>
-
-                if collected.is_empty() {
-                    None
-                } else {
-                    Some(collected)
-                }
+                collect_model_field!(filter_map, tracks, |track: &SavedTrack| {
+                    track.track.linked_from.clone()
+                })
             }
             TrackExtractor::FullTrack(tracks) => {
-                let collected: Vec<TrackLink> = tracks
-                    .iter()
-                    .filter_map(|track: &FullTrack| track.linked_from.clone())
-                    .collect(); // Vec<TrackLink>
-
-                if collected.is_empty() {
-                    None
-                } else {
-                    Some(collected)
-                }
+                collect_model_field!(filter_map, tracks, |track: &FullTrack| {
+                    track.linked_from.clone()
+                })
             }
             TrackExtractor::SimplifiedTrack(tracks) => {
-                let collected: Vec<TrackLink> = tracks
-                    .iter()
-                    .filter_map(|track: &SimplifiedTrack| track.linked_from.clone())
-                    .collect(); // Vec<TrackLink>
-
-                if collected.is_empty() {
-                    None
-                } else {
-                    Some(collected)
-                }
+                collect_model_field!(filter_map, tracks, |track: &SimplifiedTrack| {
+                    track.linked_from.clone()
+                })
             }
             TrackExtractor::TrackLink(_) => None,
         }
     }
+
+    pub fn names(&self) -> Option<Vec<String>> {
+        match self {
+            TrackExtractor::SavedTracks(tracks) => {
+                collect_model_field!(map, tracks, |track: &SavedTrack| track.track.name.clone())
+            }
+            TrackExtractor::FullTrack(tracks) => {
+                collect_model_field!(map, tracks, |track: &FullTrack| track.name.clone())
+            }
+            TrackExtractor::SimplifiedTrack(tracks) => {
+                collect_model_field!(map, tracks, |track: &SimplifiedTrack| track.name.clone())
+            }
+            TrackExtractor::TrackLink(_) => None,
+        }
+    }
+
     pub fn numbers(&self) -> Option<Vec<u32>> {
         match self {
             TrackExtractor::SavedTracks(tracks) => {
-                collect_track_field!(tracks, |track: &SavedTrack| track.track.track_number)
+                collect_model_field!(map, tracks, |track: &SavedTrack| track.track.track_number)
             }
             TrackExtractor::FullTrack(tracks) => {
-                collect_track_field!(tracks, |track: &FullTrack| track.track_number)
+                collect_model_field!(map, tracks, |track: &FullTrack| track.track_number)
             }
             TrackExtractor::SimplifiedTrack(tracks) => {
-                collect_track_field!(tracks, |track: &SimplifiedTrack| track.track_number)
+                collect_model_field!(map, tracks, |track: &SimplifiedTrack| track.track_number)
             }
             TrackExtractor::TrackLink(_) => None,
         }
     }
-    pub fn uris(&self) -> Option<Vec<String>> {
-        match self {
-            TrackExtractor::SavedTracks(tracks) => {
-                collect_track_field!(tracks, |track: &SavedTrack| {
-                    match track.clone().track.linked_from {
-                        Some(linked_from) => linked_from.uri,
-                        None => "spotify:track:unknown".to_string(),
-                    }
-                })
-            }
-            TrackExtractor::FullTrack(tracks) => {
-                collect_track_field!(tracks, |track: &FullTrack| {
-                    match track.clone().linked_from {
-                        Some(linked_from) => linked_from.uri,
-                        None => "spotify:track:unknown".into(),
-                    }
-                })
-            }
-            TrackExtractor::SimplifiedTrack(tracks) => {
-                collect_track_field!(tracks, |track: &SimplifiedTrack| {
-                    match track.clone().linked_from {
-                        Some(linked_from) => linked_from.uri,
-                        None => "spotify:track:unknown".into(),
-                    }
-                })
-            }
-            TrackExtractor::TrackLink(tracks) => {
-                collect_track_field!(tracks, |track: &TrackLink| track.uri.clone())
-            }
-        }
+
+    pub fn playable_ids(&self) -> Option<Vec<PlayableId<'_>>> {
+        self.ids()
+            .unwrap()
+            .into_iter()
+            .map(|id| Some(PlayableId::Track(id).into_static()))
+            .collect()
     }
 
     fn restrictions_to_string_helper(restrictions: &Option<Restriction>) -> String {
@@ -415,17 +346,17 @@ impl TrackExtractor {
     pub fn restrictions(&self) -> Option<Vec<String>> {
         match self {
             TrackExtractor::SavedTracks(tracks) => {
-                collect_track_field!(tracks, |track: &SavedTrack| {
+                collect_model_field!(map, tracks, |track: &SavedTrack| {
                     Self::restrictions_to_string_helper(&track.track.restrictions)
                 })
             }
             TrackExtractor::FullTrack(tracks) => {
-                collect_track_field!(tracks, |track: &FullTrack| {
+                collect_model_field!(map, tracks, |track: &FullTrack| {
                     Self::restrictions_to_string_helper(&track.restrictions)
                 })
             }
             TrackExtractor::SimplifiedTrack(tracks) => {
-                collect_track_field!(tracks, |track: &SimplifiedTrack| {
+                collect_model_field!(map, tracks, |track: &SimplifiedTrack| {
                     Self::restrictions_to_string_helper(&track.restrictions)
                 })
             }
@@ -436,44 +367,81 @@ impl TrackExtractor {
     pub fn popularity(&self) -> Option<Vec<u32>> {
         match self {
             TrackExtractor::SavedTracks(tracks) => {
-                collect_track_field!(tracks, |track: &SavedTrack| track.track.popularity)
+                collect_model_field!(map, tracks, |track: &SavedTrack| track.track.popularity)
             }
             TrackExtractor::FullTrack(tracks) => {
-                collect_track_field!(tracks, |track: &FullTrack| track.popularity)
+                collect_model_field!(map, tracks, |track: &FullTrack| track.popularity)
             }
-            TrackExtractor::SimplifiedTrack(_) => None,
-            TrackExtractor::TrackLink(_) => None,
+            TrackExtractor::SimplifiedTrack(_) | TrackExtractor::TrackLink(_) => None,
         }
     }
 
     pub fn preview_urls(&self) -> Option<Vec<String>> {
+        const UNKNOWN: &str = "unknown";
         match self {
             TrackExtractor::SavedTracks(tracks) => {
-                collect_track_field!(tracks, |track: &SavedTrack| {
-                    track
-                        .track
-                        .preview_url
-                        .clone()
-                        .unwrap_or_else(|| String::from("unknown"))
-                })
+                collect_model_field!(
+                    map,
+                    tracks,
+                    |track: &SavedTrack| { track.track.preview_url.clone() },
+                    UNKNOWN.to_string()
+                )
             }
             TrackExtractor::FullTrack(tracks) => {
-                collect_track_field!(tracks, |track: &FullTrack| {
-                    track
-                        .preview_url
-                        .clone()
-                        .unwrap_or_else(|| String::from("unknown"))
-                })
+                collect_model_field!(
+                    map,
+                    tracks,
+                    |track: &FullTrack| { track.preview_url.clone() },
+                    UNKNOWN.to_string()
+                )
             }
             TrackExtractor::SimplifiedTrack(tracks) => {
-                collect_track_field!(tracks, |track: &SimplifiedTrack| {
-                    track
-                        .preview_url
-                        .clone()
-                        .unwrap_or_else(|| String::from("unknown"))
-                })
+                collect_model_field!(
+                    map,
+                    tracks,
+                    |track: &SimplifiedTrack| { track.preview_url.clone() },
+                    UNKNOWN.to_string()
+                )
             }
             TrackExtractor::TrackLink(_) => None,
+        }
+    }
+
+    pub fn uris(&self) -> Option<Vec<String>> {
+        const UNKNOWN_URI: &str = "spotify:track:unknown";
+
+        match self {
+            TrackExtractor::SavedTracks(tracks) => {
+                collect_model_field!(
+                    map,
+                    tracks,
+                    |track: &SavedTrack| {
+                        track.track.linked_from.as_ref().map(|uri| uri.uri.clone())
+                    },
+                    UNKNOWN_URI.to_string()
+                )
+            }
+            TrackExtractor::FullTrack(tracks) => {
+                collect_model_field!(
+                    map,
+                    tracks,
+                    |track: &FullTrack| { track.linked_from.as_ref().map(|uri| uri.uri.clone()) },
+                    UNKNOWN_URI.to_string()
+                )
+            }
+            TrackExtractor::SimplifiedTrack(tracks) => {
+                collect_model_field!(
+                    map,
+                    tracks,
+                    |track: &SimplifiedTrack| {
+                        track.linked_from.as_ref().map(|uri| uri.uri.clone())
+                    },
+                    UNKNOWN_URI.to_string()
+                )
+            }
+            TrackExtractor::TrackLink(tracks) => {
+                collect_model_field!(map, tracks, |track: &TrackLink| track.uri.clone())
+            }
         }
     }
 
@@ -481,7 +449,7 @@ impl TrackExtractor {
     fn albums_extractor(&self) -> Option<AlbumExtractor> {
         match self {
             TrackExtractor::SavedTracks(tracks) => {
-                let albums = collect_track_field!(tracks, |track: &SavedTrack| {
+                let albums = collect_model_field!(map, tracks, |track: &SavedTrack| {
                     track.track.album.clone()
                 })
                 .unwrap();
@@ -489,12 +457,12 @@ impl TrackExtractor {
             }
             TrackExtractor::FullTrack(tracks) => {
                 let albums =
-                    collect_track_field!(tracks, |track: &FullTrack| { track.album.clone() })
+                    collect_model_field!(map, tracks, |track: &FullTrack| { track.album.clone() })
                         .unwrap();
                 Some(AlbumExtractor::SimplifiedAlbums(albums))
             }
             TrackExtractor::SimplifiedTrack(tracks) => {
-                let albums = collect_track_field!(tracks, |track: &SimplifiedTrack| {
+                let albums = collect_model_field!(map, tracks, |track: &SimplifiedTrack| {
                     track.album.clone().unwrap_or_default()
                 })
                 .unwrap();
@@ -527,7 +495,7 @@ impl TrackExtractor {
     pub fn album_artist_hrefs(&self) -> Option<Vec<Vec<String>>> {
         match self {
             TrackExtractor::SavedTracks(tracks) => {
-                collect_track_field!(tracks, |track: &SavedTrack| {
+                collect_model_field!(map, tracks, |track: &SavedTrack| {
                     track
                         .track
                         .album
@@ -543,7 +511,7 @@ impl TrackExtractor {
                 })
             }
             TrackExtractor::FullTrack(tracks) => {
-                collect_track_field!(tracks, |track: &FullTrack| {
+                collect_model_field!(map, tracks, |track: &FullTrack| {
                     track
                         .album
                         .artists
@@ -558,7 +526,7 @@ impl TrackExtractor {
                 })
             }
             TrackExtractor::SimplifiedTrack(tracks) => {
-                collect_track_field!(tracks, |track: &SimplifiedTrack| {
+                collect_model_field!(map, tracks, |track: &SimplifiedTrack| {
                     match track.clone().album {
                         Some(album) => album
                             .artists
@@ -580,7 +548,7 @@ impl TrackExtractor {
     pub fn album_artist_names(&self) -> Option<Vec<Vec<String>>> {
         match self {
             TrackExtractor::SavedTracks(tracks) => {
-                collect_track_field!(tracks, |track: &SavedTrack| {
+                collect_model_field!(map, tracks, |track: &SavedTrack| {
                     track
                         .track
                         .album
@@ -591,7 +559,7 @@ impl TrackExtractor {
                 })
             }
             TrackExtractor::FullTrack(tracks) => {
-                collect_track_field!(tracks, |track: &FullTrack| {
+                collect_model_field!(map, tracks, |track: &FullTrack| {
                     track
                         .album
                         .artists
@@ -601,7 +569,7 @@ impl TrackExtractor {
                 })
             }
             TrackExtractor::SimplifiedTrack(tracks) => {
-                collect_track_field!(tracks, |track: &SimplifiedTrack| {
+                collect_model_field!(map, tracks, |track: &SimplifiedTrack| {
                     match track.album.clone() {
                         Some(album) => album
                             .artists
@@ -620,7 +588,7 @@ impl TrackExtractor {
             ArtistId::from_id("unknown").expect("Failed to create ArtistId from unknown ID");
         match self {
             TrackExtractor::SavedTracks(tracks) => {
-                collect_track_field!(tracks, |track: &SavedTrack| {
+                collect_model_field!(map, tracks, |track: &SavedTrack| {
                     track
                         .track
                         .album
@@ -634,7 +602,7 @@ impl TrackExtractor {
                 })
             }
             TrackExtractor::FullTrack(tracks) => {
-                collect_track_field!(tracks, |track: &FullTrack| {
+                collect_model_field!(map, tracks, |track: &FullTrack| {
                     track
                         .album
                         .artists
@@ -647,7 +615,7 @@ impl TrackExtractor {
                 })
             }
             TrackExtractor::SimplifiedTrack(tracks) => {
-                collect_track_field!(tracks, |track: &SimplifiedTrack| {
+                collect_model_field!(map, tracks, |track: &SimplifiedTrack| {
                     match track.clone().album {
                         Some(album) => album
                             .artists
@@ -734,19 +702,48 @@ impl TrackExtractor {
             None
         }
     }
-    //End albums
+    // End albums
 
-    //Region artists
+    // Region artists
+    // fn artists_extractor(&self) -> Option<ArtistExtractor> {
+    //     match self {
+    //         TrackExtractor::SavedTracks(tracks) => {
+    //             let artists = collect_model_field!(map, tracks, |track: &SavedTrack| {
+    //                 track.track.artists.clone()
+    //             }).collect()
+    //             .unwrap();
+    //             Some(ArtistExtractor::SimplifiedArtists(artists))
+    //         }
+    //         TrackExtractor::FullTrack(tracks) => {
+    //             let artists = collect_model_field!(map, tracks, |track: &FullTrack| {
+    //                 track.artists.clone()
+    //             }).collect().unwrap();
+    //             Some(ArtistExtractor::SimplifiedArtists(artists))
+    //         }
+    //         TrackExtractor::SimplifiedTrack(tracks) => {
+    //             let artists = collect_model_field!(map, tracks, |track: &SimplifiedTrack| {
+    //                 track.artists.clone()
+    //             }).clone().unwrap();
+    //             Some(ArtistExtractor::SimplifiedArtists(artists))
+    //         }
+    //         TrackExtractor::TrackLink(_) => None,
+    //     }
+    // }
     pub fn artists(&self) -> Option<Vec<Vec<SimplifiedArtist>>> {
         match self {
             TrackExtractor::SavedTracks(tracks) => {
-                collect_track_field!(tracks, |track: &SavedTrack| track.track.artists.to_vec())
+                collect_model_field!(map, tracks, |track: &SavedTrack| track
+                    .track
+                    .artists
+                    .to_vec())
             }
             TrackExtractor::FullTrack(tracks) => {
-                collect_track_field!(tracks, |track: &FullTrack| track.artists.to_vec())
+                collect_model_field!(map, tracks, |track: &FullTrack| track.artists.to_vec())
             }
             TrackExtractor::SimplifiedTrack(tracks) => {
-                collect_track_field!(tracks, |track: &SimplifiedTrack| track.artists.to_vec())
+                collect_model_field!(map, tracks, |track: &SimplifiedTrack| track
+                    .artists
+                    .to_vec())
             }
             TrackExtractor::TrackLink(_) => None,
         }
@@ -754,7 +751,7 @@ impl TrackExtractor {
     pub fn artist_ids(&self) -> Option<Vec<Vec<ArtistId<'_>>>> {
         match self {
             TrackExtractor::SavedTracks(tracks) => {
-                collect_track_field!(tracks, |track: &SavedTrack| {
+                collect_model_field!(map, tracks, |track: &SavedTrack| {
                     track
                         .track
                         .artists
@@ -768,7 +765,7 @@ impl TrackExtractor {
                 })
             }
             TrackExtractor::FullTrack(tracks) => {
-                collect_track_field!(tracks, |track: &FullTrack| {
+                collect_model_field!(map, tracks, |track: &FullTrack| {
                     track
                         .artists
                         .iter()
@@ -781,7 +778,7 @@ impl TrackExtractor {
                 })
             }
             TrackExtractor::SimplifiedTrack(tracks) => {
-                collect_track_field!(tracks, |track: &SimplifiedTrack| {
+                collect_model_field!(map, tracks, |track: &SimplifiedTrack| {
                     track
                         .artists
                         .iter()
@@ -799,7 +796,7 @@ impl TrackExtractor {
     pub fn artist_names(&self) -> Option<Vec<Vec<String>>> {
         match self {
             TrackExtractor::SavedTracks(tracks) => {
-                collect_track_field!(tracks, |track: &SavedTrack| {
+                collect_model_field!(map, tracks, |track: &SavedTrack| {
                     track
                         .track
                         .artists
@@ -809,7 +806,7 @@ impl TrackExtractor {
                 })
             }
             TrackExtractor::FullTrack(tracks) => {
-                collect_track_field!(tracks, |track: &FullTrack| {
+                collect_model_field!(map, tracks, |track: &FullTrack| {
                     track
                         .artists
                         .iter()
@@ -818,7 +815,7 @@ impl TrackExtractor {
                 })
             }
             TrackExtractor::SimplifiedTrack(tracks) => {
-                collect_track_field!(tracks, |track: &SimplifiedTrack| {
+                collect_model_field!(map, tracks, |track: &SimplifiedTrack| {
                     track
                         .artists
                         .iter()
@@ -832,7 +829,7 @@ impl TrackExtractor {
     pub fn artist_hrefs(&self) -> Option<Vec<Vec<String>>> {
         match self {
             TrackExtractor::SavedTracks(tracks) => {
-                collect_track_field!(tracks, |track: &SavedTrack| {
+                collect_model_field!(map, tracks, |track: &SavedTrack| {
                     track
                         .track
                         .artists
@@ -847,7 +844,7 @@ impl TrackExtractor {
                 })
             }
             TrackExtractor::FullTrack(tracks) => {
-                collect_track_field!(tracks, |track: &FullTrack| {
+                collect_model_field!(map, tracks, |track: &FullTrack| {
                     track
                         .artists
                         .iter()
@@ -861,7 +858,7 @@ impl TrackExtractor {
                 })
             }
             TrackExtractor::SimplifiedTrack(tracks) => {
-                collect_track_field!(tracks, |track: &SimplifiedTrack| {
+                collect_model_field!(map, tracks, |track: &SimplifiedTrack| {
                     track
                         .artists
                         .iter()
