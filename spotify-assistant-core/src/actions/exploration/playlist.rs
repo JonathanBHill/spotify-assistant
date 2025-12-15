@@ -1,5 +1,5 @@
 use crate::enums::duplication::DuplicatePolicy;
-use crate::enums::extractors::track::TrackExtractor;
+use crate::enums::extractors::track::TracksExtractor;
 use crate::extractors::artist::{artists_entry_for_album, artists_for_album};
 use crate::models::blacklist::{Blacklist, BlacklistArtist};
 use crate::models::full_track_fingerprint::FullTrackFingerprint;
@@ -44,7 +44,7 @@ pub struct PlaylistXplr {
     pub playlist_id: PlaylistId<'static>,
     pub full_playlist: FullPlaylist,
     pub tracks: Vec<FullTrack>,
-    pub track_parser: TrackExtractor,
+    pub tracks_extractor: TracksExtractor,
     drop_duplicates: bool,
 }
 
@@ -98,13 +98,13 @@ impl PlaylistXplr {
         let client = Self::set_up_client(false, Some(Self::select_scopes())).await;
         let full_playlist = Self::instantiate_playlist(&client, playlist_id.clone()).await;
         let tracks = Self::instantiate_playlist_tracks(&client, playlist_id.clone()).await;
-        let collector = TrackExtractor::FullTracks(tracks.clone());
+        let collector = TracksExtractor::FullTracks(tracks.clone());
         PlaylistXplr {
             client,
             playlist_id,
             full_playlist,
             tracks,
-            track_parser: collector,
+            tracks_extractor: collector,
             drop_duplicates,
         }
     }

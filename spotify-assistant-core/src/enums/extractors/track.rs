@@ -1,178 +1,217 @@
 use crate::collect_model_field;
-use crate::enums::extractors::album::AlbumExtractor;
-use crate::enums::extractors::artist::ArtistExtractor;
+use crate::enums::extractors::album::AlbumsExtractor;
+use crate::enums::extractors::artist::ArtistsExtractor;
 use crate::enums::extractors::helper::ExtractorHelper;
+use crate::errors::SpotifyAssistantError;
+use crate::errors::enums::EnumError::NotAvailableForVariant;
 use crate::utilities::general::format_duration;
 use rspotify::model::{
-    FullTrack, PlayableId, Restriction, RestrictionReason, SavedTrack, SimplifiedArtist,
-    SimplifiedTrack, TrackId, TrackLink,
+    FullTrack, PlayableId, SavedTrack, SimplifiedTrack, TrackId, TrackLink, Type,
 };
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
-pub enum TrackExtractor {
+pub enum TracksExtractor {
     SavedTracks(Vec<SavedTrack>),
     FullTracks(Vec<FullTrack>),
     SimplifiedTracks(Vec<SimplifiedTrack>),
     TrackLinks(Vec<TrackLink>),
 }
 
-impl ExtractorHelper for TrackExtractor {
+impl ExtractorHelper for TracksExtractor {
     fn is_empty(&self) -> bool {
         match self {
-            TrackExtractor::SavedTracks(tracks) => tracks.is_empty(),
-            TrackExtractor::FullTracks(tracks) => tracks.is_empty(),
-            TrackExtractor::SimplifiedTracks(tracks) => tracks.is_empty(),
-            TrackExtractor::TrackLinks(tracks) => tracks.is_empty(),
+            TracksExtractor::SavedTracks(tracks) => tracks.is_empty(),
+            TracksExtractor::FullTracks(tracks) => tracks.is_empty(),
+            TracksExtractor::SimplifiedTracks(tracks) => tracks.is_empty(),
+            TracksExtractor::TrackLinks(tracks) => tracks.is_empty(),
         }
     }
     fn len(&self) -> usize {
         match self {
-            TrackExtractor::SavedTracks(tracks) => tracks.len(),
-            TrackExtractor::FullTracks(tracks) => tracks.len(),
-            TrackExtractor::SimplifiedTracks(tracks) => tracks.len(),
-            TrackExtractor::TrackLinks(tracks) => tracks.len(),
+            TracksExtractor::SavedTracks(tracks) => tracks.len(),
+            TracksExtractor::FullTracks(tracks) => tracks.len(),
+            TracksExtractor::SimplifiedTracks(tracks) => tracks.len(),
+            TracksExtractor::TrackLinks(tracks) => tracks.len(),
         }
     }
 }
-impl TrackExtractor {
-    pub fn added_at(&self) -> Option<Vec<String>> {
+impl TracksExtractor {
+    pub fn added_at(&self) -> Result<Vec<String>, SpotifyAssistantError> {
         match self {
-            TrackExtractor::SavedTracks(tracks) => Some(
-                tracks
-                    .iter()
-                    .map(|track| track.added_at.to_rfc3339())
-                    .collect(),
-            ),
-            _ => None,
+            TracksExtractor::SavedTracks(tracks) => {
+                Ok(tracks.iter().map(|track| track.added_at.to_rfc3339()).collect())
+            },
+            _ => Err(NotAvailableForVariant {
+                action: "return added_at information",
+                variant_label: "[TracksExtractor::FullTracks, TracksExtractor::SimplifiedTracks, TracksExtractor::TrackLinks] variants"
+            }.into()),
         }
     }
 
-    pub fn available_markets(&self) -> Option<Vec<Vec<String>>> {
-        match self {
-            TrackExtractor::SavedTracks(tracks) => {
-                collect_model_field!(map, tracks, |track: &SavedTrack| track
+    pub fn available_markets(&self) -> Result<Vec<Vec<String>>, SpotifyAssistantError> {
+        let markets = match self {
+            TracksExtractor::SavedTracks(tracks) => {
+                collect_model_field!(umap, tracks, |track: &SavedTrack| track
                     .track
                     .available_markets
                     .clone())
             }
-            TrackExtractor::FullTracks(tracks) => {
-                collect_model_field!(map, tracks, |track: &FullTrack| track
+            TracksExtractor::FullTracks(tracks) => {
+                collect_model_field!(umap, tracks, |track: &FullTrack| track
                     .available_markets
                     .clone())
             }
-            TrackExtractor::SimplifiedTracks(tracks) => {
+            TracksExtractor::SimplifiedTracks(tracks) => {
                 collect_model_field!(
-                    map,
+                    umap,
                     tracks,
                     |track: &SimplifiedTrack| { track.available_markets.clone() },
                     vec![String::new()]
                 )
             }
-            TrackExtractor::TrackLinks(_) => None,
-        }
+            TracksExtractor::TrackLinks(_) => {
+                return Err(NotAvailableForVariant {
+                    action: "return added_at information",
+                    variant_label: "TracksExtractor::TrackLinks variant",
+                }
+                .into());
+            }
+        };
+        Ok(markets)
     }
-    pub fn disc_numbers(&self) -> Option<Vec<u32>> {
-        match self {
-            TrackExtractor::SavedTracks(tracks) => {
-                collect_model_field!(map, tracks, |track: &SavedTrack| track
+    pub fn disc_numbers(&self) -> Result<Vec<u32>, SpotifyAssistantError> {
+        let disk_nums = match self {
+            TracksExtractor::SavedTracks(tracks) => {
+                collect_model_field!(umap, tracks, |track: &SavedTrack| track
                     .track
                     .disc_number
                     .to_string()
                     .parse::<u32>()
                     .unwrap_or(0))
             }
-            TrackExtractor::FullTracks(tracks) => {
-                collect_model_field!(map, tracks, |track: &FullTrack| track
+            TracksExtractor::FullTracks(tracks) => {
+                collect_model_field!(umap, tracks, |track: &FullTrack| track
                     .disc_number
                     .to_string()
                     .parse::<u32>()
                     .unwrap_or(0))
             }
-            TrackExtractor::SimplifiedTracks(tracks) => {
-                collect_model_field!(map, tracks, |track: &SimplifiedTrack| track
+            TracksExtractor::SimplifiedTracks(tracks) => {
+                collect_model_field!(umap, tracks, |track: &SimplifiedTrack| track
                     .disc_number
                     .to_string()
                     .parse::<u32>()
                     .unwrap_or(0))
             }
-            TrackExtractor::TrackLinks(_) => None,
-        }
+            TracksExtractor::TrackLinks(_) => {
+                return Err(NotAvailableForVariant {
+                    action: "return added_at information",
+                    variant_label: "TracksExtractor::TrackLinks variant",
+                }
+                .into());
+            }
+        };
+        Ok(disk_nums)
     }
-    pub fn durations(&self) -> Option<Vec<String>> {
-        match self {
-            TrackExtractor::SavedTracks(tracks) => {
-                collect_model_field!(map, tracks, |track: &SavedTrack| format_duration(
+    pub fn durations(&self) -> Result<Vec<String>, SpotifyAssistantError> {
+        let durations = match self {
+            TracksExtractor::SavedTracks(tracks) => {
+                collect_model_field!(umap, tracks, |track: &SavedTrack| format_duration(
                     track.track.duration
                 ))
             }
-            TrackExtractor::FullTracks(tracks) => {
-                collect_model_field!(map, tracks, |track: &FullTrack| format_duration(
+            TracksExtractor::FullTracks(tracks) => {
+                collect_model_field!(umap, tracks, |track: &FullTrack| format_duration(
                     track.duration
                 ))
             }
-            TrackExtractor::SimplifiedTracks(tracks) => {
-                collect_model_field!(map, tracks, |track: &SimplifiedTrack| format_duration(
+            TracksExtractor::SimplifiedTracks(tracks) => {
+                collect_model_field!(umap, tracks, |track: &SimplifiedTrack| format_duration(
                     track.duration
                 ))
             }
-            TrackExtractor::TrackLinks(_) => None,
-        }
+            TracksExtractor::TrackLinks(_) => {
+                return Err(NotAvailableForVariant {
+                    action: "return added_at information",
+                    variant_label: "TracksExtractor::TrackLinks variant",
+                }
+                .into());
+            }
+        };
+        Ok(durations)
     }
-    pub fn explicit(&self) -> Option<Vec<bool>> {
-        match self {
-            TrackExtractor::SavedTracks(tracks) => {
-                collect_model_field!(map, tracks, |track: &SavedTrack| track.track.explicit)
+    pub fn explicit(&self) -> Result<Vec<bool>, SpotifyAssistantError> {
+        let explicits = match self {
+            TracksExtractor::SavedTracks(tracks) => {
+                collect_model_field!(umap, tracks, |track: &SavedTrack| track.track.explicit)
             }
-            TrackExtractor::FullTracks(tracks) => {
-                collect_model_field!(map, tracks, |track: &FullTrack| track.explicit)
+            TracksExtractor::FullTracks(tracks) => {
+                collect_model_field!(umap, tracks, |track: &FullTrack| track.explicit)
             }
-            TrackExtractor::SimplifiedTracks(tracks) => {
-                collect_model_field!(map, tracks, |track: &SimplifiedTrack| track.explicit)
+            TracksExtractor::SimplifiedTracks(tracks) => {
+                collect_model_field!(umap, tracks, |track: &SimplifiedTrack| track.explicit)
             }
-            TrackExtractor::TrackLinks(_) => None,
-        }
+            TracksExtractor::TrackLinks(_) => {
+                return Err(NotAvailableForVariant {
+                    action: "return added_at information",
+                    variant_label: "TracksExtractor::TrackLinks variant",
+                }
+                .into());
+            }
+        };
+        Ok(explicits)
     }
 
-    pub fn external_ids(&self) -> Option<Vec<HashMap<String, String>>> {
-        match self {
-            TrackExtractor::SavedTracks(tracks) => {
-                collect_model_field!(map, tracks, |track: &SavedTrack| track
+    pub fn external_ids(&self) -> Result<Vec<HashMap<String, String>>, SpotifyAssistantError> {
+        let external_ids = match self {
+            TracksExtractor::SavedTracks(tracks) => {
+                collect_model_field!(umap, tracks, |track: &SavedTrack| track
                     .track
                     .external_ids
                     .clone())
             }
-            TrackExtractor::FullTracks(tracks) => {
-                collect_model_field!(map, tracks, |track: &FullTrack| track.external_ids.clone())
+            TracksExtractor::FullTracks(tracks) => {
+                collect_model_field!(umap, tracks, |track: &FullTrack| track.external_ids.clone())
             }
-            TrackExtractor::SimplifiedTracks(_) | TrackExtractor::TrackLinks(_) => None,
-        }
+            TracksExtractor::SimplifiedTracks(_) | TracksExtractor::TrackLinks(_) => {
+                return Err(NotAvailableForVariant {
+                    action: "return added_at information",
+                    variant_label: "[TracksExtractor::SimplifiedTracks, TracksExtractor::TrackLinks] variants"
+                }.into())
+            },
+        };
+        Ok(external_ids)
     }
-    pub fn external_urls(&self) -> Option<Vec<HashMap<String, String>>> {
+    pub fn external_urls(&self) -> Vec<HashMap<String, String>> {
         match self {
-            TrackExtractor::SavedTracks(tracks) => {
-                collect_model_field!(map, tracks, |track: &SavedTrack| track
+            TracksExtractor::SavedTracks(tracks) => {
+                collect_model_field!(umap, tracks, |track: &SavedTrack| track
                     .track
                     .external_urls
                     .clone())
             }
-            TrackExtractor::FullTracks(tracks) => {
-                collect_model_field!(map, tracks, |track: &FullTrack| track.external_urls.clone())
-            }
-            TrackExtractor::SimplifiedTracks(tracks) => {
-                collect_model_field!(map, tracks, |track: &SimplifiedTrack| track
+            TracksExtractor::FullTracks(tracks) => {
+                collect_model_field!(umap, tracks, |track: &FullTrack| track
                     .external_urls
                     .clone())
             }
-            TrackExtractor::TrackLinks(tracks) => {
-                collect_model_field!(map, tracks, |track: &TrackLink| track.external_urls.clone())
+            TracksExtractor::SimplifiedTracks(tracks) => {
+                collect_model_field!(umap, tracks, |track: &SimplifiedTrack| track
+                    .external_urls
+                    .clone())
+            }
+            TracksExtractor::TrackLinks(tracks) => {
+                collect_model_field!(umap, tracks, |track: &TrackLink| track
+                    .external_urls
+                    .clone())
             }
         }
     }
-    pub fn hrefs(&self) -> Option<Vec<String>> {
+    pub fn hrefs(&self) -> Vec<String> {
         match self {
-            TrackExtractor::SavedTracks(tracks) => {
-                collect_model_field!(map, tracks, |track: &SavedTrack| {
+            TracksExtractor::SavedTracks(tracks) => {
+                collect_model_field!(umap, tracks, |track: &SavedTrack| {
                     track
                         .track
                         .href
@@ -180,59 +219,59 @@ impl TrackExtractor {
                         .unwrap_or_else(|| String::from("unknown"))
                 })
             }
-            TrackExtractor::FullTracks(tracks) => {
-                collect_model_field!(map, tracks, |track: &FullTrack| {
+            TracksExtractor::FullTracks(tracks) => {
+                collect_model_field!(umap, tracks, |track: &FullTrack| {
                     track
                         .href
                         .clone()
                         .unwrap_or_else(|| String::from("unknown"))
                 })
             }
-            TrackExtractor::SimplifiedTracks(tracks) => {
-                collect_model_field!(map, tracks, |track: &SimplifiedTrack| {
+            TracksExtractor::SimplifiedTracks(tracks) => {
+                collect_model_field!(umap, tracks, |track: &SimplifiedTrack| {
                     track
                         .href
                         .clone()
                         .unwrap_or_else(|| String::from("unknown"))
                 })
             }
-            TrackExtractor::TrackLinks(tracks) => {
-                collect_model_field!(map, tracks, |track: &TrackLink| { track.href.clone() })
+            TracksExtractor::TrackLinks(tracks) => {
+                collect_model_field!(umap, tracks, |track: &TrackLink| { track.href.clone() })
             }
         }
     }
 
-    pub fn ids(&self) -> Option<Vec<TrackId<'_>>> {
+    pub fn ids(&self) -> Vec<TrackId<'_>> {
         let default_id =
             TrackId::from_id("unknown").expect("Failed to create TrackId from unknown ID");
         match self {
-            TrackExtractor::SavedTracks(tracks) => {
+            TracksExtractor::SavedTracks(tracks) => {
                 collect_model_field!(
-                    map,
+                    umap,
                     tracks,
                     |track: &SavedTrack| track.track.id.clone(),
                     default_id.clone()
                 )
             }
-            TrackExtractor::FullTracks(tracks) => {
+            TracksExtractor::FullTracks(tracks) => {
                 collect_model_field!(
-                    map,
+                    umap,
                     tracks,
                     |track: &FullTrack| track.id.clone(),
                     default_id.clone()
                 )
             }
-            TrackExtractor::SimplifiedTracks(tracks) => {
+            TracksExtractor::SimplifiedTracks(tracks) => {
                 collect_model_field!(
-                    map,
+                    umap,
                     tracks,
                     |track: &SimplifiedTrack| track.id.clone(),
                     default_id.clone()
                 )
             }
-            TrackExtractor::TrackLinks(tracks) => {
+            TracksExtractor::TrackLinks(tracks) => {
                 collect_model_field!(
-                    map,
+                    umap,
                     tracks,
                     |track: &TrackLink| track.id.clone(),
                     default_id.clone()
@@ -241,184 +280,234 @@ impl TrackExtractor {
         }
     }
 
-    pub fn is_local(&self) -> Option<Vec<bool>> {
-        match self {
-            TrackExtractor::SavedTracks(tracks) => {
-                collect_model_field!(map, tracks, |track: &SavedTrack| track.track.is_local)
+    pub fn is_local(&self) -> Result<Vec<bool>, SpotifyAssistantError> {
+        let is_local = match self {
+            TracksExtractor::SavedTracks(tracks) => {
+                collect_model_field!(umap, tracks, |track: &SavedTrack| track.track.is_local)
             }
-            TrackExtractor::FullTracks(tracks) => {
-                collect_model_field!(map, tracks, |track: &FullTrack| track.is_local)
+            TracksExtractor::FullTracks(tracks) => {
+                collect_model_field!(umap, tracks, |track: &FullTrack| track.is_local)
             }
-            TrackExtractor::SimplifiedTracks(tracks) => {
-                collect_model_field!(map, tracks, |track: &SimplifiedTrack| track.is_local)
+            TracksExtractor::SimplifiedTracks(tracks) => {
+                collect_model_field!(umap, tracks, |track: &SimplifiedTrack| track.is_local)
             }
-            TrackExtractor::TrackLinks(_) => None,
-        }
+            TracksExtractor::TrackLinks(_) => {
+                return Err(NotAvailableForVariant {
+                    action: "return added_at information",
+                    variant_label: "TracksExtractor::TrackLinks variant",
+                }
+                .into());
+            }
+        };
+        Ok(is_local)
     }
 
-    pub fn is_playable(&self) -> Option<Vec<bool>> {
-        match self {
-            TrackExtractor::SavedTracks(tracks) => {
-                collect_model_field!(map, tracks, |track: &SavedTrack| {
+    pub fn is_playable(&self) -> Result<Vec<bool>, SpotifyAssistantError> {
+        let is_playable = match self {
+            TracksExtractor::SavedTracks(tracks) => {
+                collect_model_field!(umap, tracks, |track: &SavedTrack| {
                     track.track.is_playable.unwrap_or(false)
                 })
             }
-            TrackExtractor::FullTracks(tracks) => {
-                collect_model_field!(map, tracks, |track: &FullTrack| {
+            TracksExtractor::FullTracks(tracks) => {
+                collect_model_field!(umap, tracks, |track: &FullTrack| {
                     track.is_playable.unwrap_or(false)
                 })
             }
-            TrackExtractor::SimplifiedTracks(tracks) => {
-                collect_model_field!(map, tracks, |track: &SimplifiedTrack| {
+            TracksExtractor::SimplifiedTracks(tracks) => {
+                collect_model_field!(umap, tracks, |track: &SimplifiedTrack| {
                     track.is_playable.unwrap_or(false)
                 })
             }
-            TrackExtractor::TrackLinks(_) => None,
-        }
+            TracksExtractor::TrackLinks(_) => {
+                return Err(NotAvailableForVariant {
+                    action: "return added_at information",
+                    variant_label: "TracksExtractor::TrackLinks variant",
+                }
+                .into());
+            }
+        };
+        Ok(is_playable)
     }
 
-    pub fn linked_from(&self) -> Option<Vec<TrackLink>> {
-        match self {
-            TrackExtractor::SavedTracks(tracks) => {
-                collect_model_field!(filter_map, tracks, |track: &SavedTrack| {
-                    track.track.linked_from.clone()
+    pub fn linked_from(&self) -> Result<Vec<TrackLink>, SpotifyAssistantError> {
+        let default_link = TrackLink {
+            external_urls: HashMap::default(),
+            id: Option::from(
+                TrackId::from_uri("unknown").expect("Failed to creaet TrackId from unknown ID"),
+            ),
+            uri: String::default(),
+            href: String::default(),
+            r#type: Type::Track,
+        };
+        let linked_from = match self {
+            TracksExtractor::SavedTracks(tracks) => {
+                collect_model_field!(umap, tracks, |track: &SavedTrack| {
+                    track
+                        .track
+                        .linked_from
+                        .clone()
+                        .unwrap_or(default_link.clone())
                 })
             }
-            TrackExtractor::FullTracks(tracks) => {
-                collect_model_field!(filter_map, tracks, |track: &FullTrack| {
-                    track.linked_from.clone()
+            TracksExtractor::FullTracks(tracks) => {
+                collect_model_field!(umap, tracks, |track: &FullTrack| {
+                    track.linked_from.clone().unwrap_or(default_link.clone())
                 })
             }
-            TrackExtractor::SimplifiedTracks(tracks) => {
-                collect_model_field!(filter_map, tracks, |track: &SimplifiedTrack| {
-                    track.linked_from.clone()
+            TracksExtractor::SimplifiedTracks(tracks) => {
+                collect_model_field!(umap, tracks, |track: &SimplifiedTrack| {
+                    track.linked_from.clone().unwrap_or(default_link.clone())
                 })
             }
-            TrackExtractor::TrackLinks(_) => None,
-        }
+            TracksExtractor::TrackLinks(_) => {
+                return Err(NotAvailableForVariant {
+                    action: "return added_at information",
+                    variant_label: "TracksExtractor::TrackLinks variant",
+                }
+                .into());
+            }
+        };
+        Ok(linked_from)
     }
 
-    pub fn names(&self) -> Option<Vec<String>> {
-        match self {
-            TrackExtractor::SavedTracks(tracks) => {
-                collect_model_field!(map, tracks, |track: &SavedTrack| track.track.name.clone())
+    pub fn names(&self) -> Result<Vec<String>, SpotifyAssistantError> {
+        let names = match self {
+            TracksExtractor::SavedTracks(tracks) => {
+                collect_model_field!(umap, tracks, |track: &SavedTrack| track.track.name.clone())
             }
-            TrackExtractor::FullTracks(tracks) => {
-                collect_model_field!(map, tracks, |track: &FullTrack| track.name.clone())
+            TracksExtractor::FullTracks(tracks) => {
+                collect_model_field!(umap, tracks, |track: &FullTrack| track.name.clone())
             }
-            TrackExtractor::SimplifiedTracks(tracks) => {
-                collect_model_field!(map, tracks, |track: &SimplifiedTrack| track.name.clone())
+            TracksExtractor::SimplifiedTracks(tracks) => {
+                collect_model_field!(umap, tracks, |track: &SimplifiedTrack| track.name.clone())
             }
-            TrackExtractor::TrackLinks(_) => None,
-        }
+            TracksExtractor::TrackLinks(_) => {
+                return Err(NotAvailableForVariant {
+                    action: "return added_at information",
+                    variant_label: "TracksExtractor::TrackLinks variant",
+                }
+                .into());
+            }
+        };
+        Ok(names)
     }
 
-    pub fn numbers(&self) -> Option<Vec<u32>> {
-        match self {
-            TrackExtractor::SavedTracks(tracks) => {
-                collect_model_field!(map, tracks, |track: &SavedTrack| track.track.track_number)
+    pub fn track_numbers(&self) -> Result<Vec<u32>, SpotifyAssistantError> {
+        let track_numbers = match self {
+            TracksExtractor::SavedTracks(tracks) => {
+                collect_model_field!(umap, tracks, |track: &SavedTrack| track.track.track_number)
             }
-            TrackExtractor::FullTracks(tracks) => {
-                collect_model_field!(map, tracks, |track: &FullTrack| track.track_number)
+            TracksExtractor::FullTracks(tracks) => {
+                collect_model_field!(umap, tracks, |track: &FullTrack| track.track_number)
             }
-            TrackExtractor::SimplifiedTracks(tracks) => {
-                collect_model_field!(map, tracks, |track: &SimplifiedTrack| track.track_number)
+            TracksExtractor::SimplifiedTracks(tracks) => {
+                collect_model_field!(umap, tracks, |track: &SimplifiedTrack| track.track_number)
             }
-            TrackExtractor::TrackLinks(_) => None,
-        }
+            TracksExtractor::TrackLinks(_) => {
+                return Err(NotAvailableForVariant {
+                    action: "return added_at information",
+                    variant_label: "TracksExtractor::TrackLinks variant",
+                }
+                .into());
+            }
+        };
+        Ok(track_numbers)
     }
 
-    pub fn playable_ids(&self) -> Option<Vec<PlayableId<'_>>> {
+    pub fn playable_ids(&self) -> Vec<PlayableId<'_>> {
         self.ids()
-            .unwrap()
             .into_iter()
-            .map(|id| Some(PlayableId::Track(id).into_static()))
+            .map(|id| PlayableId::Track(id).into_static())
             .collect()
     }
 
-    fn restrictions_to_string_helper(restrictions: &Option<Restriction>) -> String {
-        let restriction = match restrictions {
-            Some(restriction) => restriction,
-            None => return String::from("none"),
+    pub fn restrictions(&self) -> Result<Vec<String>, SpotifyAssistantError> {
+        let restrictions = match self {
+            TracksExtractor::SavedTracks(tracks) => {
+                collect_model_field!(umap, tracks, |track: &SavedTrack| {
+                    Self::restrict_reason_as_string(&track.track.restrictions)
+                })
+            }
+            TracksExtractor::FullTracks(tracks) => {
+                collect_model_field!(umap, tracks, |track: &FullTrack| {
+                    Self::restrict_reason_as_string(&track.restrictions)
+                })
+            }
+            TracksExtractor::SimplifiedTracks(tracks) => {
+                collect_model_field!(umap, tracks, |track: &SimplifiedTrack| {
+                    Self::restrict_reason_as_string(&track.restrictions)
+                })
+            }
+            TracksExtractor::TrackLinks(_) => {
+                return Err(NotAvailableForVariant {
+                    action: "return added_at information",
+                    variant_label: "TracksExtractor::TrackLinks variant",
+                }
+                .into());
+            }
         };
-        match restriction.reason {
-            RestrictionReason::Market => String::from("market"),
-            RestrictionReason::Product => String::from("product"),
-            RestrictionReason::Explicit => String::from("explicit"),
-        }
+        Ok(restrictions)
     }
 
-    pub fn restrictions(&self) -> Option<Vec<String>> {
-        match self {
-            TrackExtractor::SavedTracks(tracks) => {
-                collect_model_field!(map, tracks, |track: &SavedTrack| {
-                    Self::restrictions_to_string_helper(&track.track.restrictions)
-                })
+    pub fn popularity(&self) -> Result<Vec<u32>, SpotifyAssistantError> {
+        let popularity = match self {
+            TracksExtractor::SavedTracks(tracks) => {
+                collect_model_field!(umap, tracks, |track: &SavedTrack| track.track.popularity)
             }
-            TrackExtractor::FullTracks(tracks) => {
-                collect_model_field!(map, tracks, |track: &FullTrack| {
-                    Self::restrictions_to_string_helper(&track.restrictions)
-                })
+            TracksExtractor::FullTracks(tracks) => {
+                collect_model_field!(umap, tracks, |track: &FullTrack| track.popularity)
             }
-            TrackExtractor::SimplifiedTracks(tracks) => {
-                collect_model_field!(map, tracks, |track: &SimplifiedTrack| {
-                    Self::restrictions_to_string_helper(&track.restrictions)
-                })
-            }
-            TrackExtractor::TrackLinks(_) => None,
-        }
+            TracksExtractor::SimplifiedTracks(_) | TracksExtractor::TrackLinks(_) => {
+                return Err(NotAvailableForVariant {
+                    action: "return added_at information",
+                    variant_label: "[TracksExtractor::SimplifiedTracks, TracksExtractor::TrackLinks] variants"
+                }.into())
+            },
+        };
+        Ok(popularity)
     }
 
-    pub fn popularity(&self) -> Option<Vec<u32>> {
-        match self {
-            TrackExtractor::SavedTracks(tracks) => {
-                collect_model_field!(map, tracks, |track: &SavedTrack| track.track.popularity)
-            }
-            TrackExtractor::FullTracks(tracks) => {
-                collect_model_field!(map, tracks, |track: &FullTrack| track.popularity)
-            }
-            TrackExtractor::SimplifiedTracks(_) | TrackExtractor::TrackLinks(_) => None,
-        }
-    }
-
-    pub fn preview_urls(&self) -> Option<Vec<String>> {
+    pub fn preview_urls(&self) -> Result<Vec<String>, SpotifyAssistantError> {
         const UNKNOWN: &str = "unknown";
-        match self {
-            TrackExtractor::SavedTracks(tracks) => {
-                collect_model_field!(
-                    map,
-                    tracks,
-                    |track: &SavedTrack| { track.track.preview_url.clone() },
-                    UNKNOWN.to_string()
-                )
+        let preview_urls = match self {
+            TracksExtractor::SavedTracks(tracks) => {
+                collect_model_field!(umap, tracks, |track: &SavedTrack| {
+                    track
+                        .track
+                        .preview_url
+                        .clone()
+                        .unwrap_or(UNKNOWN.to_string())
+                })
             }
-            TrackExtractor::FullTracks(tracks) => {
-                collect_model_field!(
-                    map,
-                    tracks,
-                    |track: &FullTrack| { track.preview_url.clone() },
-                    UNKNOWN.to_string()
-                )
+            TracksExtractor::FullTracks(tracks) => {
+                collect_model_field!(umap, tracks, |track: &FullTrack| {
+                    track.preview_url.clone().unwrap_or(UNKNOWN.to_string())
+                })
             }
-            TrackExtractor::SimplifiedTracks(tracks) => {
-                collect_model_field!(
-                    map,
-                    tracks,
-                    |track: &SimplifiedTrack| { track.preview_url.clone() },
-                    UNKNOWN.to_string()
-                )
+            TracksExtractor::SimplifiedTracks(tracks) => {
+                collect_model_field!(umap, tracks, |track: &SimplifiedTrack| {
+                    track.preview_url.clone().unwrap_or(UNKNOWN.to_string())
+                })
             }
-            TrackExtractor::TrackLinks(_) => None,
-        }
+            TracksExtractor::TrackLinks(_) => {
+                return Err(NotAvailableForVariant {
+                    action: "return added_at information",
+                    variant_label: "TracksExtractor::TrackLinks variant",
+                }
+                .into());
+            }
+        };
+        Ok(preview_urls)
     }
 
-    pub fn uris(&self) -> Option<Vec<String>> {
+    pub fn uris(&self) -> Vec<String> {
         const UNKNOWN_URI: &str = "spotify:track:unknown";
 
         match self {
-            TrackExtractor::SavedTracks(tracks) => {
+            TracksExtractor::SavedTracks(tracks) => {
                 collect_model_field!(
-                    map,
+                    umap,
                     tracks,
                     |track: &SavedTrack| {
                         track
@@ -430,9 +519,9 @@ impl TrackExtractor {
                     UNKNOWN_URI.to_string()
                 )
             }
-            TrackExtractor::FullTracks(tracks) => {
+            TracksExtractor::FullTracks(tracks) => {
                 collect_model_field!(
-                    map,
+                    umap,
                     tracks,
                     |track: &FullTrack| {
                         track
@@ -443,9 +532,9 @@ impl TrackExtractor {
                     UNKNOWN_URI.to_string()
                 )
             }
-            TrackExtractor::SimplifiedTracks(tracks) => {
+            TracksExtractor::SimplifiedTracks(tracks) => {
                 collect_model_field!(
-                    map,
+                    umap,
                     tracks,
                     |track: &SimplifiedTrack| {
                         track
@@ -456,72 +545,75 @@ impl TrackExtractor {
                     UNKNOWN_URI.to_string()
                 )
             }
-            TrackExtractor::TrackLinks(tracks) => {
-                collect_model_field!(map, tracks, |track_link: &TrackLink| track_link.uri.clone())
+            TracksExtractor::TrackLinks(tracks) => {
+                collect_model_field!(umap, tracks, |track_link: &TrackLink| track_link
+                    .uri
+                    .clone())
             }
         }
     }
 
-    pub fn albums(&self) -> Option<AlbumExtractor> {
-        match self {
-            TrackExtractor::SavedTracks(tracks) => {
-                let albums = collect_model_field!(map, tracks, |track: &SavedTrack| {
+    pub fn albums(&self) -> Result<AlbumsExtractor, SpotifyAssistantError> {
+        let albums = match self {
+            TracksExtractor::SavedTracks(tracks) => {
+                collect_model_field!(umap, tracks, |track: &SavedTrack| {
                     track.track.album.clone()
                 })
-                .unwrap();
-                Some(AlbumExtractor::SimplifiedAlbums(albums))
             }
-            TrackExtractor::FullTracks(tracks) => {
-                let albums =
-                    collect_model_field!(map, tracks, |track: &FullTrack| { track.album.clone() })
-                        .unwrap();
-                Some(AlbumExtractor::SimplifiedAlbums(albums))
+            TracksExtractor::FullTracks(tracks) => {
+                collect_model_field!(umap, tracks, |track: &FullTrack| { track.album.clone() })
             }
-            TrackExtractor::SimplifiedTracks(tracks) => {
-                let albums = collect_model_field!(map, tracks, |track: &SimplifiedTrack| {
+            TracksExtractor::SimplifiedTracks(tracks) => {
+                collect_model_field!(umap, tracks, |track: &SimplifiedTrack| {
                     track.album.clone().unwrap_or_default()
                 })
-                .unwrap();
-                Some(AlbumExtractor::SimplifiedAlbums(albums))
             }
-            TrackExtractor::TrackLinks(_) => None,
-        }
+            TracksExtractor::TrackLinks(_) => {
+                return Err(NotAvailableForVariant {
+                    action: "return an albums extractor",
+                    variant_label: "TracksExtractor::TrackLinks",
+                }
+                .into());
+            }
+        };
+        Ok(AlbumsExtractor::SimplifiedAlbums(albums.clone()))
     }
-    pub fn album_artists(&self) -> Option<ArtistExtractor> {
-        if let Some(album_extractor) = self.albums() {
-            album_extractor.artists()
-        } else {
-            None
+
+    pub fn album_artists(&self) -> Result<Vec<ArtistsExtractor>, SpotifyAssistantError> {
+        match self.albums() {
+            Ok(albums) => Ok(albums.artists()),
+            Err(err) => Err(err),
         }
     }
 
-    pub fn artists(&self) -> Option<ArtistExtractor> {
-        match self {
-            TrackExtractor::SavedTracks(tracks) => {
-                let artists: Vec<Vec<SimplifiedArtist>> =
-                    collect_model_field!(map, tracks, |track: &SavedTrack| {
-                        track.track.artists.clone()
-                    })
-                    .unwrap();
-                Some(ArtistExtractor::SimplifiedArtists(artists))
+    pub fn artists(&self) -> Result<Vec<ArtistsExtractor>, SpotifyAssistantError> {
+        let artists = match self {
+            TracksExtractor::SavedTracks(tracks) => {
+                collect_model_field!(umap, tracks, |track: &SavedTrack| {
+                    let artists = track.track.artists.clone();
+                    ArtistsExtractor::SimplifiedArtists(artists)
+                })
             }
-            TrackExtractor::FullTracks(tracks) => {
-                let artists: Vec<Vec<SimplifiedArtist>> =
-                    collect_model_field!(map, tracks, |track: &FullTrack| {
-                        track.artists.clone()
-                    })
-                    .unwrap();
-                Some(ArtistExtractor::SimplifiedArtists(artists))
+            TracksExtractor::FullTracks(tracks) => {
+                collect_model_field!(umap, tracks, |track: &FullTrack| {
+                    let artists = track.artists.clone();
+                    ArtistsExtractor::SimplifiedArtists(artists)
+                })
             }
-            TrackExtractor::SimplifiedTracks(tracks) => {
-                let artists: Vec<Vec<SimplifiedArtist>> =
-                    collect_model_field!(map, tracks, |track: &SimplifiedTrack| {
-                        track.artists.clone()
-                    })
-                    .unwrap();
-                Some(ArtistExtractor::SimplifiedArtists(artists))
+            TracksExtractor::SimplifiedTracks(tracks) => {
+                collect_model_field!(umap, tracks, |track: &SimplifiedTrack| {
+                    let artists = track.artists.clone();
+                    ArtistsExtractor::SimplifiedArtists(artists)
+                })
             }
-            TrackExtractor::TrackLinks(_) => None,
-        }
+            TracksExtractor::TrackLinks(_) => {
+                return Err(NotAvailableForVariant {
+                    action: "return an artists extractor",
+                    variant_label: "TrackLinks",
+                }
+                .into());
+            }
+        };
+        Ok(artists)
     }
 }

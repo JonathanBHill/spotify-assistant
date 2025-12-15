@@ -15,6 +15,28 @@ macro_rules! collect_model_field {
     }};
 
     // -------------------------
+    // map + Option<T> -> T (default)
+    // -------------------------
+    (umap, $items:expr, $field_fn:expr, $default:expr) => {{
+        let collected: Vec<_> = $items
+            .iter()
+            .map(|item| match ($field_fn)(item).clone() {
+                Some(v) => v,
+                None => $default,
+            })
+            .collect();
+        collected
+    }};
+
+    // -------------------------
+    // map + direct (non-Option) field
+    // -------------------------
+    (umap, $items:expr, $field_fn:expr) => {{
+        let collected: Vec<_> = $items.iter().map(|item| ($field_fn)(item)).collect();
+        collected
+    }};
+
+    // -------------------------
     // map + direct (non-Option) field
     // -------------------------
     (map, $items:expr, $field_fn:expr) => {{

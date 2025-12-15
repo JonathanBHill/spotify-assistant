@@ -1,294 +1,204 @@
 use crate::collect_model_field;
 use crate::enums::extractors::helper::ExtractorHelper;
-use rspotify::model::{ArtistId, CursorBasedPage, FullArtist, Image, SimplifiedArtist};
+use crate::errors::SpotifyAssistantError;
+use crate::errors::enums::EnumError::NotAvailableForVariant;
+use rspotify::model::{ArtistId, FullArtist, Image, SimplifiedArtist};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
-pub enum ArtistExtractor {
-    FullArtists(Vec<Vec<FullArtist>>),
-    PageFullArtists(Vec<CursorBasedPage<FullArtist>>),
-    SimplifiedArtists(Vec<Vec<SimplifiedArtist>>),
+pub enum ArtistsExtractor {
+    FullArtists(Vec<FullArtist>),
+    SimplifiedArtists(Vec<SimplifiedArtist>),
 }
 
-impl ExtractorHelper for ArtistExtractor {
+impl ExtractorHelper for ArtistsExtractor {
     fn is_empty(&self) -> bool {
         match self {
-            ArtistExtractor::FullArtists(artists) => artists.is_empty(),
-            ArtistExtractor::PageFullArtists(artists) => artists.is_empty(),
-            ArtistExtractor::SimplifiedArtists(artists) => artists.is_empty(),
+            ArtistsExtractor::FullArtists(artists) => artists.is_empty(),
+            ArtistsExtractor::SimplifiedArtists(artists) => artists.is_empty(),
         }
     }
 
     fn len(&self) -> usize {
         match self {
-            ArtistExtractor::FullArtists(artists) => artists.len(),
-            ArtistExtractor::PageFullArtists(artists) => artists.len(),
-            ArtistExtractor::SimplifiedArtists(artists) => artists.len(),
+            ArtistsExtractor::FullArtists(artists) => artists.len(),
+            ArtistsExtractor::SimplifiedArtists(artists) => artists.len(),
         }
     }
 }
-impl ArtistExtractor {
-    pub fn full(&self) -> Option<Vec<Vec<SimplifiedArtist>>> {
+impl ArtistsExtractor {
+    pub fn full(&self) -> Result<Vec<SimplifiedArtist>, SpotifyAssistantError> {
         match self {
-            ArtistExtractor::SimplifiedArtists(artists_vec) => Some(artists_vec.clone()),
-            _ => None,
+            ArtistsExtractor::SimplifiedArtists(artists_vec) => Ok(artists_vec.clone()),
+            ArtistsExtractor::FullArtists(_) => Err(NotAvailableForVariant {
+                action: "return the artists associated with the spotify object",
+                variant_label: "ArtistsExtractor::FullArtists",
+            }
+            .into()),
         }
     }
 
-    pub fn external_urls(&self) -> Option<Vec<Vec<HashMap<String, String>>>> {
-        match self {
-            ArtistExtractor::FullArtists(artists_vec) => {
-                collect_model_field!(map, artists_vec, |artists: &Vec<FullArtist>| {
-                    artists
-                        .iter()
-                        .map(|artist| artist.external_urls.clone())
-                        .collect::<Vec<HashMap<String, String>>>()
+    pub fn external_urls(&self) -> Result<Vec<HashMap<String, String>>, SpotifyAssistantError> {
+        let urls = match self {
+            ArtistsExtractor::FullArtists(artists_vec) => {
+                collect_model_field!(umap, artists_vec, |artist: &FullArtist| {
+                    artist.external_urls.clone()
                 })
             }
-            ArtistExtractor::PageFullArtists(artists_vec) => {
-                collect_model_field!(map, artists_vec, |artists: &CursorBasedPage<FullArtist>| {
-                    artists
-                        .items
-                        .iter()
-                        .map(|artist| artist.external_urls.clone())
-                        .collect::<Vec<HashMap<String, String>>>()
+            ArtistsExtractor::SimplifiedArtists(artists_vec) => {
+                collect_model_field!(umap, artists_vec, |artist: &SimplifiedArtist| {
+                    artist.external_urls.clone()
                 })
             }
-            ArtistExtractor::SimplifiedArtists(artists_vec) => {
-                collect_model_field!(map, artists_vec, |artists: &Vec<SimplifiedArtist>| {
-                    artists
-                        .iter()
-                        .map(|artist| artist.external_urls.clone())
-                        .collect::<Vec<HashMap<String, String>>>()
-                })
-            }
-        }
+        };
+        Ok(urls)
     }
 
-    pub fn followers(&self) -> Option<Vec<Vec<u32>>> {
-        match self {
-            ArtistExtractor::FullArtists(artists_vec) => {
-                collect_model_field!(map, artists_vec, |artists: &Vec<FullArtist>| {
-                    artists
-                        .iter()
-                        .map(|artist| artist.followers.total)
-                        .collect::<Vec<u32>>()
+    pub fn followers(&self) -> Result<Vec<u32>, SpotifyAssistantError> {
+        let followers = match self {
+            ArtistsExtractor::FullArtists(artists_vec) => {
+                collect_model_field!(umap, artists_vec, |artist: &FullArtist| {
+                    artist.followers.total
                 })
             }
-            ArtistExtractor::PageFullArtists(artists_vec) => {
-                collect_model_field!(map, artists_vec, |artists: &CursorBasedPage<FullArtist>| {
-                    artists
-                        .items
-                        .iter()
-                        .map(|artist| artist.followers.total)
-                        .collect::<Vec<u32>>()
-                })
+            ArtistsExtractor::SimplifiedArtists(_) => {
+                return Err(NotAvailableForVariant {
+                    action: "return the follower count for the artists",
+                    variant_label: "ArtistsExtractor::SimplifiedArtists variant",
+                }
+                .into());
             }
-            ArtistExtractor::SimplifiedArtists(_) => None,
-        }
+        };
+        Ok(followers)
     }
 
-    pub fn genres(&self) -> Option<Vec<Vec<Vec<String>>>> {
-        match self {
-            ArtistExtractor::FullArtists(artists_vec) => {
-                collect_model_field!(map, artists_vec, |artists: &Vec<FullArtist>| {
-                    artists
-                        .iter()
-                        .map(|artist| artist.genres.clone())
-                        .collect::<Vec<Vec<String>>>()
+    pub fn genres(&self) -> Result<Vec<Vec<String>>, SpotifyAssistantError> {
+        let genres = match self {
+            ArtistsExtractor::FullArtists(artists_vec) => {
+                collect_model_field!(umap, artists_vec, |artist: &FullArtist| {
+                    artist.genres.clone()
                 })
             }
-            ArtistExtractor::PageFullArtists(artists_vec) => {
-                collect_model_field!(map, artists_vec, |artists: &CursorBasedPage<FullArtist>| {
-                    artists
-                        .items
-                        .iter()
-                        .map(|artist| artist.genres.clone())
-                        .collect::<Vec<Vec<String>>>()
-                })
+            ArtistsExtractor::SimplifiedArtists(_) => {
+                return Err(NotAvailableForVariant {
+                    action: "return the genres for the artists",
+                    variant_label: "ArtistsExtractor::SimplifiedArtists variant",
+                }
+                .into());
             }
-            ArtistExtractor::SimplifiedArtists(_) => None,
-        }
+        };
+        Ok(genres)
     }
 
-    pub fn hrefs(&self) -> Option<Vec<Vec<String>>> {
+    pub fn hrefs(&self) -> Vec<String> {
         match self {
-            ArtistExtractor::FullArtists(artists_vec) => {
-                collect_model_field!(map, artists_vec, |artists: &Vec<FullArtist>| {
-                    artists
-                        .iter()
-                        .map(|artist| artist.href.clone())
-                        .collect::<Vec<String>>()
+            ArtistsExtractor::FullArtists(artists_vec) => {
+                collect_model_field!(umap, artists_vec, |artist: &FullArtist| {
+                    artist.href.clone()
                 })
             }
-            ArtistExtractor::PageFullArtists(artists_vec) => {
-                collect_model_field!(map, artists_vec, |artists: &CursorBasedPage<FullArtist>| {
-                    artists
-                        .items
-                        .iter()
-                        .map(|artist| artist.href.clone())
-                        .collect::<Vec<String>>()
-                })
-            }
-            ArtistExtractor::SimplifiedArtists(artists_vec) => {
-                collect_model_field!(map, artists_vec, |artists: &Vec<SimplifiedArtist>| {
-                    artists
-                        .iter()
-                        .map(|artist| artist.href.clone().unwrap_or_else(|| String::from("none")))
-                        .collect::<Vec<String>>()
+            ArtistsExtractor::SimplifiedArtists(artists_vec) => {
+                collect_model_field!(umap, artists_vec, |artist: &SimplifiedArtist| {
+                    artist.href.clone().unwrap_or_else(|| String::from("none"))
                 })
             }
         }
     }
 
-    pub fn ids(&self) -> Option<Vec<Vec<ArtistId<'_>>>> {
+    pub fn ids(&self) -> Vec<ArtistId<'_>> {
         match self {
-            ArtistExtractor::FullArtists(artists_vec) => {
-                collect_model_field!(map, artists_vec, |artists: &Vec<FullArtist>| {
-                    artists
-                        .iter()
-                        .map(|artist| artist.id.clone())
-                        .collect::<Vec<ArtistId<'_>>>()
+            ArtistsExtractor::FullArtists(artists_vec) => {
+                collect_model_field!(umap, artists_vec, |artist: &FullArtist| {
+                    artist.id.clone()
                 })
             }
-            ArtistExtractor::PageFullArtists(artists_vec) => {
-                collect_model_field!(map, artists_vec, |artists: &CursorBasedPage<FullArtist>| {
-                    artists
-                        .items
-                        .iter()
-                        .map(|artist| artist.id.clone())
-                        .collect::<Vec<ArtistId<'_>>>()
-                })
-            }
-            ArtistExtractor::SimplifiedArtists(artists_vec) => {
-                collect_model_field!(map, artists_vec, |artists: &Vec<SimplifiedArtist>| {
-                    artists
-                        .iter()
-                        .map(|artist: &SimplifiedArtist| {
-                            artist.id.clone().unwrap_or_else(|| {
-                                ArtistId::from_id("unknown")
-                                    .expect("Failed to create ArtistId from unknown ID")
-                            })
-                        })
-                        .collect::<Vec<ArtistId<'_>>>()
-                })
-            }
-        }
-    }
-
-    pub fn images(&self) -> Option<Vec<Vec<Vec<Image>>>> {
-        match self {
-            ArtistExtractor::FullArtists(artists_vec) => {
-                collect_model_field!(map, artists_vec, |artists: &Vec<FullArtist>| {
-                    artists
-                        .iter()
-                        .map(|artist| artist.images.clone())
-                        .collect::<Vec<Vec<Image>>>()
-                })
-            }
-            ArtistExtractor::PageFullArtists(artists_vec) => {
-                collect_model_field!(map, artists_vec, |artists: &CursorBasedPage<FullArtist>| {
-                    artists
-                        .items
-                        .iter()
-                        .map(|artist| artist.images.clone())
-                        .collect::<Vec<Vec<Image>>>()
-                })
-            }
-            ArtistExtractor::SimplifiedArtists(_) => None,
-        }
-    }
-
-    pub fn images_urls(&self) -> Option<Vec<Vec<Vec<String>>>> {
-        match self.images() {
-            Some(all_images) => Some(
-                all_images
-                    .iter()
-                    .map(|unit_images| {
-                        unit_images
-                            .iter()
-                            .map(|artist_images| {
-                                artist_images
-                                    .iter()
-                                    .map(|image| image.url.clone())
-                                    .collect::<Vec<String>>()
-                            })
-                            .collect()
+            ArtistsExtractor::SimplifiedArtists(artists_vec) => {
+                collect_model_field!(umap, artists_vec, |artist: &SimplifiedArtist| {
+                    artist.id.clone().unwrap_or_else(|| {
+                        ArtistId::from_id("unknown")
+                            .expect("Failed to create ArtistId from unknown ID")
                     })
-                    .collect(),
-            ),
-            None => None,
-        }
-    }
-
-    pub fn images_dimensions(&self) -> Option<Vec<Vec<Vec<(u32, u32)>>>> {
-        match self.images() {
-            Some(all_images) => Some(
-                all_images
-                    .iter()
-                    .map(|unit_images| {
-                        unit_images
-                            .iter()
-                            .map(|artist_images| {
-                                artist_images
-                                    .iter()
-                                    .map(|image| {
-                                        (image.width.unwrap_or(64), image.height.unwrap_or(64))
-                                    })
-                                    .collect::<Vec<(u32, u32)>>()
-                            })
-                            .collect()
-                    })
-                    .collect(),
-            ),
-            None => None,
-        }
-    }
-
-    pub fn names(&self) -> Option<Vec<Vec<String>>> {
-        match self {
-            ArtistExtractor::FullArtists(artists_vec) => {
-                collect_model_field!(map, artists_vec, |artists: &Vec<FullArtist>| artists
-                    .iter()
-                    .map(|artist| artist.name.clone())
-                    .collect::<Vec<String>>())
-            }
-            ArtistExtractor::PageFullArtists(artists_vec) => {
-                collect_model_field!(map, artists_vec, |artists: &CursorBasedPage<FullArtist>| {
-                    artists
-                        .items
-                        .iter()
-                        .map(|artist| artist.name.clone())
-                        .collect::<Vec<String>>()
                 })
             }
-            ArtistExtractor::SimplifiedArtists(artists_vec) => {
-                collect_model_field!(map, artists_vec, |artists: &Vec<SimplifiedArtist>| artists
-                    .iter()
-                    .map(|artist| artist.name.clone())
-                    .collect::<Vec<String>>())
+        }
+    }
+    //
+    pub fn images(&self) -> Result<Vec<Image>, SpotifyAssistantError> {
+        let images = match self {
+            ArtistsExtractor::FullArtists(artists_vec) => {
+                collect_model_field!(umap, artists_vec, |artist: &FullArtist| {
+                    artist
+                        .images
+                        .first()
+                        .cloned()
+                        .unwrap_or_else(|| Image::default())
+                })
+                .into_iter()
+                .collect()
+            }
+            ArtistsExtractor::SimplifiedArtists(_) => {
+                return Err(NotAvailableForVariant {
+                    action: "return the popularity of the spotify object",
+                    variant_label: "ArtistsExtractor::SimplifiedArtists variant",
+                }
+                .into());
+            }
+        };
+        Ok(images)
+    }
+
+    pub fn images_urls(&self) -> Result<Vec<String>, SpotifyAssistantError> {
+        let urls = match self.images() {
+            Ok(images) => images
+                .iter()
+                .map(|image: &Image| image.url.clone())
+                .collect(),
+            Err(err) => return Err(err),
+        };
+        Ok(urls)
+    }
+
+    pub fn images_dimensions(&self) -> Result<Vec<(u32, u32)>, SpotifyAssistantError> {
+        let dimensions = match self.images() {
+            Ok(images) => images
+                .iter()
+                .map(|image: &Image| (image.width.unwrap_or(64), image.height.unwrap_or(64)))
+                .collect(),
+            Err(err) => return Err(err),
+        };
+        Ok(dimensions)
+    }
+    //
+    pub fn names(&self) -> Vec<String> {
+        match self {
+            ArtistsExtractor::FullArtists(artists_vec) => {
+                collect_model_field!(umap, artists_vec, |artist: &FullArtist| {
+                    artist.name.clone()
+                })
+            }
+            ArtistsExtractor::SimplifiedArtists(artists_vec) => {
+                collect_model_field!(umap, artists_vec, |artist: &SimplifiedArtist| {
+                    artist.name.clone()
+                })
             }
         }
     }
 
-    pub fn popularity(&self) -> Option<Vec<Vec<u32>>> {
-        match self {
-            ArtistExtractor::FullArtists(artists_vec) => {
-                collect_model_field!(map, artists_vec, |artists: &Vec<FullArtist>| artists
-                    .iter()
-                    .map(|artist| artist.popularity)
-                    .collect::<Vec<u32>>())
-            }
-            ArtistExtractor::PageFullArtists(artists_vec) => {
-                collect_model_field!(map, artists_vec, |artists: &CursorBasedPage<FullArtist>| {
-                    artists
-                        .items
-                        .iter()
-                        .map(|artist| artist.popularity)
-                        .collect::<Vec<u32>>()
+    pub fn popularity(&self) -> Result<Vec<u32>, SpotifyAssistantError> {
+        let popularity = match self {
+            ArtistsExtractor::FullArtists(artists_vec) => {
+                collect_model_field!(umap, artists_vec, |artist: &FullArtist| {
+                    artist.popularity
                 })
             }
-            ArtistExtractor::SimplifiedArtists(_) => None,
-        }
+            ArtistsExtractor::SimplifiedArtists(_) => {
+                return Err(NotAvailableForVariant {
+                    action: "return the popularity of the spotify object",
+                    variant_label: "ArtistsExtractor::SimplifiedArtists variant",
+                }
+                .into());
+            }
+        };
+        Ok(popularity)
     }
 }
