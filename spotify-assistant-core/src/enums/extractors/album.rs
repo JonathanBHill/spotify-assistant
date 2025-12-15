@@ -1,7 +1,9 @@
 use crate::collect_model_field;
+use crate::enums::extractors::artist::ArtistExtractor;
 use crate::enums::extractors::helper::ExtractorHelper;
+use crate::enums::extractors::track::TrackExtractor;
 use rspotify::model::{
-    AlbumId, FullAlbum, Image, Page, SavedAlbum, SimplifiedAlbum, SimplifiedArtist, SimplifiedTrack,
+    AlbumId, FullAlbum, Image, Page, SavedAlbum, SimplifiedAlbum, SimplifiedTrack,
 };
 
 #[derive(Debug, Clone)]
@@ -32,27 +34,36 @@ impl ExtractorHelper for AlbumExtractor {
     }
 }
 impl AlbumExtractor {
-    pub fn artists(&self) -> Option<Vec<Vec<SimplifiedArtist>>> {
+    pub fn artists(&self) -> Option<ArtistExtractor> {
         match self {
-            AlbumExtractor::SavedAlbums(albums) => {
-                collect_model_field!(map, albums, |album: &SavedAlbum| album
-                    .album
-                    .artists
-                    .clone())
-            }
-            AlbumExtractor::FullAlbums(albums) => {
-                collect_model_field!(map, albums, |album: &FullAlbum| album.artists.clone())
-            }
-            AlbumExtractor::SimplifiedAlbums(albums) => {
-                collect_model_field!(map, albums, |album: &SimplifiedAlbum| album.artists.clone())
-            }
-            AlbumExtractor::PageSimplifiedAlbums(page) => {
-                collect_model_field!(map, page.items, |album: &SimplifiedAlbum| album
-                    .artists
-                    .clone())
-            }
+            AlbumExtractor::SavedAlbums(albums) => Some(ArtistExtractor::SimplifiedArtists(
+                albums
+                    .iter()
+                    .map(|album| album.album.artists.clone())
+                    .collect(),
+            )),
+            AlbumExtractor::FullAlbums(albums) => Some(ArtistExtractor::SimplifiedArtists(
+                albums.iter().map(|album| album.artists.clone()).collect(),
+            )),
+            AlbumExtractor::SimplifiedAlbums(albums) => Some(ArtistExtractor::SimplifiedArtists(
+                albums.iter().map(|album| album.artists.clone()).collect(),
+            )),
+            AlbumExtractor::PageSimplifiedAlbums(page) => Some(ArtistExtractor::SimplifiedArtists(
+                page.items
+                    .iter()
+                    .map(|album| album.artists.clone())
+                    .collect(),
+            )),
         }
     }
+
+    // pub fn artists_by_album(&self) -> Option<Vec<Vec<SimplifiedArtist>>> {
+    //     if let Some(artists_extractor) = self.artists() {
+    //         artists_extractor.full()
+    //     } else {
+    //         None
+    //     }
+    // }
 
     pub fn available_markets(&self) -> Option<Vec<Vec<String>>> {
         match self {
@@ -279,7 +290,7 @@ impl AlbumExtractor {
         }
     }
 
-    pub fn reelease_date_precision(&self) -> Option<Vec<String>> {
+    pub fn release_date_precision(&self) -> Option<Vec<String>> {
         match self {
             AlbumExtractor::SavedAlbums(albums) => {
                 collect_model_field!(map, albums, |album: &SavedAlbum| {
@@ -326,7 +337,36 @@ impl AlbumExtractor {
         }
     }
 
-    pub fn tracks(&self) -> Option<Vec<Page<SimplifiedTrack>>> {
+    pub fn tracks(&self) -> Option<TrackExtractor> {
+        match self {
+            AlbumExtractor::SavedAlbums(albums) => {
+                // let albums = albums.iter().map(|album| album.album).collect::<Vec<FullAlbum>>();
+                // let albums_tracks = collect_model_field!(map, albums, |album: &FullAlbum| { album.tracks.clone().items }).unwrap();
+                let tracks = collect_model_field!(map, albums, |album: &SavedAlbum| {
+                    album.album.tracks.clone().items
+                })
+                .unwrap()
+                .iter()
+                .flatten()
+                .cloned()
+                .collect();
+                Some(TrackExtractor::SimplifiedTracks(tracks))
+            }
+            AlbumExtractor::FullAlbums(albums) => {
+                let tracks = collect_model_field!(map, albums, |album: &FullAlbum| {
+                    album.tracks.clone().items
+                })
+                .unwrap()
+                .iter()
+                .flatten()
+                .cloned()
+                .collect();
+                Some(TrackExtractor::SimplifiedTracks(tracks))
+            }
+            AlbumExtractor::SimplifiedAlbums(_) | AlbumExtractor::PageSimplifiedAlbums(_) => None,
+        }
+    }
+    pub fn list_tracks(&self) -> Option<Vec<Page<SimplifiedTrack>>> {
         match self {
             AlbumExtractor::SavedAlbums(albums) => {
                 collect_model_field!(map, albums, |album: &SavedAlbum| {

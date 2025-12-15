@@ -98,7 +98,7 @@ impl PlaylistXplr {
         let client = Self::set_up_client(false, Some(Self::select_scopes())).await;
         let full_playlist = Self::instantiate_playlist(&client, playlist_id.clone()).await;
         let tracks = Self::instantiate_playlist_tracks(&client, playlist_id.clone()).await;
-        let collector = TrackExtractor::FullTrack(tracks.clone());
+        let collector = TrackExtractor::FullTracks(tracks.clone());
         PlaylistXplr {
             client,
             playlist_id,
