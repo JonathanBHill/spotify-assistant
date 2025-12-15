@@ -1,5 +1,6 @@
 use crate::collect_model_field;
 use crate::enums::extractors::album::AlbumExtractor;
+use crate::enums::extractors::helper::ExtractorHelper;
 use crate::utilities::general::format_duration;
 use rspotify::model::{
     AlbumId, ArtistId, FullTrack, Image, PlayableId, Restriction, RestrictionReason, SavedTrack,
@@ -14,8 +15,9 @@ pub enum TrackExtractor {
     SimplifiedTrack(Vec<SimplifiedTrack>),
     TrackLink(Vec<TrackLink>),
 }
-impl TrackExtractor {
-    pub fn is_empty(&self) -> bool {
+
+impl ExtractorHelper for TrackExtractor {
+    fn is_empty(&self) -> bool {
         match self {
             TrackExtractor::SavedTracks(tracks) => tracks.is_empty(),
             TrackExtractor::FullTrack(tracks) => tracks.is_empty(),
@@ -23,7 +25,7 @@ impl TrackExtractor {
             TrackExtractor::TrackLink(tracks) => tracks.is_empty(),
         }
     }
-    pub fn len(&self) -> usize {
+    fn len(&self) -> usize {
         match self {
             TrackExtractor::SavedTracks(tracks) => tracks.len(),
             TrackExtractor::FullTrack(tracks) => tracks.len(),
@@ -31,6 +33,8 @@ impl TrackExtractor {
             TrackExtractor::TrackLink(tracks) => tracks.len(),
         }
     }
+}
+impl TrackExtractor {
     pub fn added_at(&self) -> Option<Vec<String>> {
         match self {
             TrackExtractor::SavedTracks(tracks) => Some(
@@ -57,12 +61,12 @@ impl TrackExtractor {
                     .clone())
             }
             TrackExtractor::SimplifiedTrack(tracks) => {
-                collect_model_field!(map, tracks, |track: &SimplifiedTrack| {
-                    track
-                        .available_markets
-                        .clone()
-                        .unwrap_or_else(|| vec![String::new()])
-                })
+                collect_model_field!(
+                    map,
+                    tracks,
+                    |track: &SimplifiedTrack| { track.available_markets.clone() },
+                    vec![String::new()]
+                )
             }
             TrackExtractor::TrackLink(_) => None,
         }
@@ -416,7 +420,11 @@ impl TrackExtractor {
                     map,
                     tracks,
                     |track: &SavedTrack| {
-                        track.track.linked_from.as_ref().map(|uri| uri.uri.clone())
+                        track
+                            .track
+                            .linked_from
+                            .as_ref()
+                            .map(|track_link| track_link.uri.clone())
                     },
                     UNKNOWN_URI.to_string()
                 )
@@ -425,7 +433,12 @@ impl TrackExtractor {
                 collect_model_field!(
                     map,
                     tracks,
-                    |track: &FullTrack| { track.linked_from.as_ref().map(|uri| uri.uri.clone()) },
+                    |track: &FullTrack| {
+                        track
+                            .linked_from
+                            .as_ref()
+                            .map(|track_link| track_link.uri.clone())
+                    },
                     UNKNOWN_URI.to_string()
                 )
             }
@@ -434,13 +447,16 @@ impl TrackExtractor {
                     map,
                     tracks,
                     |track: &SimplifiedTrack| {
-                        track.linked_from.as_ref().map(|uri| uri.uri.clone())
+                        track
+                            .linked_from
+                            .as_ref()
+                            .map(|track_link| track_link.uri.clone())
                     },
                     UNKNOWN_URI.to_string()
                 )
             }
             TrackExtractor::TrackLink(tracks) => {
-                collect_model_field!(map, tracks, |track: &TrackLink| track.uri.clone())
+                collect_model_field!(map, tracks, |track_link: &TrackLink| track_link.uri.clone())
             }
         }
     }
