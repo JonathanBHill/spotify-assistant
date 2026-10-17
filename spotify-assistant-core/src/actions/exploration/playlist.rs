@@ -274,10 +274,13 @@ impl PlaylistXplr {
     /// - The method iterates over all tracks and applies a mapping operation, which may impact performance
     ///   on large collections. The cloning operation may also introduce additional overhead when working with a large number of albums.
     pub fn albums(&self) -> Vec<SimplifiedAlbum> {
-        self.tracks()
-            .iter()
-            .map(|track| track.album.clone())
-            .collect::<Vec<SimplifiedAlbum>>()
+        match self.tracks_extractor.albums() {
+            Ok(albums) => albums.simple_albums(),
+            Err(err) => {
+                error!("Could not extract albums: {:?}", err);
+                Vec::new()
+            }
+        }
     }
 
     /// Retrieves a list of all the artists from the tracks in the playlist.
@@ -314,15 +317,29 @@ impl PlaylistXplr {
         let pl_name = self.full_playlist.name.clone();
         info!("Retrieving artists from the '{pl_name}' playlists");
 
-        let mut artists_vec = Vec::new();
-        self.tracks().iter().for_each(|track| {
-            debug!("Track: {:?}", track.clone().name);
-            track.artists.iter().for_each(|artist| {
-                debug!("\tArtist: {:?}", artist.clone().name);
-                artists_vec.push(artist.clone());
-            });
-        });
-        artists_vec
+        match self.tracks_extractor.artists() {
+            Ok(artists) => {
+                let tracks_artists_vec = artists
+                    .iter()
+                    .flat_map(|xtractor| xtractor.simple_artists().into_iter().collect::<Vec<_>>())
+                    .collect();
+                PlaylistXplr::dedup_by_key(tracks_artists_vec, |artist| artist.id.clone())
+            }
+            Err(err) => {
+                error!("Could not extract artists: {:?}", err);
+                return Vec::new();
+            }
+        }
+
+        // let mut artists_vec = Vec::new();
+        // self.tracks().iter().for_each(|track| {
+        //     debug!("Track: {:?}", track.clone().name);
+        //     track.artists.iter().for_each(|artist| {
+        //         debug!("\tArtist: {:?}", artist.clone().name);
+        //         artists_vec.push(artist.clone());
+        //     });
+        // });
+        // artists_vec
     }
 
     /// Generates a mapping of track names to their corresponding artists for the playlist.

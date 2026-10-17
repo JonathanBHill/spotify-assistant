@@ -219,7 +219,7 @@ impl DataFrameLoader {
             Scalar::from(target),
             self.df.height(),
         )
-            .into_column();
+        .into_column();
         let mask = year.equal(&scalar)?;
         let filtered_df = self.df.filter(&mask)?;
         println!(

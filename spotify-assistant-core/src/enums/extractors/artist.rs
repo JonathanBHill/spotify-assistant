@@ -2,6 +2,7 @@ use crate::collect_model_field;
 use crate::enums::extractors::helper::ExtractorHelper;
 use crate::errors::SpotifyAssistantError;
 use crate::errors::enums::EnumError::NotAvailableForVariant;
+use crate::utilities::cast_album::ToSimplifiedArtist;
 use rspotify::model::{ArtistId, FullArtist, Image, SimplifiedArtist};
 use std::collections::HashMap;
 
@@ -27,14 +28,13 @@ impl ExtractorHelper for ArtistsExtractor {
     }
 }
 impl ArtistsExtractor {
-    pub fn full(&self) -> Result<Vec<SimplifiedArtist>, SpotifyAssistantError> {
+    pub fn simple_artists(&self) -> Vec<SimplifiedArtist> {
         match self {
-            ArtistsExtractor::SimplifiedArtists(artists_vec) => Ok(artists_vec.clone()),
-            ArtistsExtractor::FullArtists(_) => Err(NotAvailableForVariant {
-                action: "return the artists associated with the spotify object",
-                variant_label: "ArtistsExtractor::FullArtists",
-            }
-            .into()),
+            ArtistsExtractor::SimplifiedArtists(artists_vec) => artists_vec.clone(),
+            ArtistsExtractor::FullArtists(artists_vec) => artists_vec
+                .iter()
+                .map(|artist| artist.to_simplified_artist())
+                .collect(),
         }
     }
 

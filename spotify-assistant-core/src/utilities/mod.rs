@@ -1,3 +1,4 @@
+pub mod cast_album;
 pub mod datetime;
 pub mod filesystem;
 pub mod general;

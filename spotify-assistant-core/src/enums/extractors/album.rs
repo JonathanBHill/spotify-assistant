@@ -4,6 +4,7 @@ use crate::enums::extractors::helper::ExtractorHelper;
 use crate::enums::extractors::track::TracksExtractor;
 use crate::errors::SpotifyAssistantError;
 use crate::errors::enums::EnumError::NotAvailableForVariant;
+use crate::utilities::cast_album::ToSimplifiedAlbum;
 use rspotify::model::{AlbumId, FullAlbum, Image, SavedAlbum, SimplifiedAlbum};
 
 #[derive(Debug, Clone)]
@@ -31,6 +32,22 @@ impl ExtractorHelper for AlbumsExtractor {
     }
 }
 impl AlbumsExtractor {
+    pub fn simple_albums(&self) -> Vec<SimplifiedAlbum> {
+        match self {
+            AlbumsExtractor::SavedAlbums(albums) => albums
+                .iter()
+                .map(|saved_album| {
+                    let full_album = saved_album.album.clone();
+                    full_album.to_simplified_album()
+                })
+                .collect(),
+            AlbumsExtractor::FullAlbums(albums) => albums
+                .iter()
+                .map(|full_album| full_album.to_simplified_album())
+                .collect(),
+            AlbumsExtractor::SimplifiedAlbums(albums) => albums.clone(),
+        }
+    }
     pub fn artists(&self) -> Vec<ArtistsExtractor> {
         let artists_vec = match self {
             AlbumsExtractor::SavedAlbums(albums) => {

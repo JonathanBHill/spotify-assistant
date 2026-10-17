@@ -19,3 +19,4 @@ bacon.toml
 .env.remove
 logs
 .bacon-locations
+/.env
