@@ -193,6 +193,23 @@ mod tests {
         fs::write(env.config_file("blacklist.toml"), invalid_blacklist_toml())
             .expect("failed to write malformed blacklist fixture");
 
+        let expected_path = env.config_file("blacklist.toml");
+        let actual_path = Blacklist::blacklist_file_path();
+
+        assert_eq!(
+            actual_path, expected_path,
+            "Blacklist::default() is reading a different file"
+        );
+
+        let contents = fs::read_to_string(&actual_path).unwrap();
+
+        assert_eq!(contents, invalid_blacklist_toml());
+
+        assert!(
+            toml::from_str::<Blacklist>(&contents).is_err(),
+            "The invalid TOML fixture unexpectedly parsed successfully"
+        );
+
         let result = std::panic::catch_unwind(Blacklist::default);
         println!("{:?}", env.config_file("blacklist.toml"));
         assert!(

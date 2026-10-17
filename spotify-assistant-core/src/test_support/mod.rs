@@ -1,4 +1,3 @@
-use crate::test_support::test_ws::ROOT;
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
 use std::env;
@@ -93,12 +92,12 @@ impl TestEnvironment {
     pub unsafe fn new() -> Self {
         let temp_dir = TempDir::new().expect("failed to create temporary test directory");
 
-        let home = ROOT.join("home");
-        let config_base = ROOT.join("home/.config");
-        let data_base = ROOT.join("home/.local/share");
-        let cache_base = ROOT.join("home/.cache");
-        let state_base = ROOT.join("home/.local/state");
-        let preference_base = ROOT.join("home/.config");
+        let home = temp_dir.path().join("home");
+        let config_base = home.join(".config");
+        let data_base = home.join(".local/share");
+        let cache_base = home.join(".cache");
+        let state_base = home.join(".local/state");
+        let preference_base = home.join(".config");
 
         for path in [
             &home,
@@ -264,20 +263,35 @@ log_level = "info"
     )
 }
 
-pub fn env(env: &TestEnvironment) -> String {
+pub fn env(_env: &TestEnvironment) -> String {
     r#"RELEASE_RADAR_ID="37i9dQZEVXbdINACbjb1qu"
 MY_RELEASE_RADAR_ID="46mIugmIiN2HYVwAwlaBAr"
     "#
     .to_string()
 }
-pub fn constants_toml(env: &TestEnvironment) -> String {
-    r#"title="constants"
+pub fn constants_toml(_env: &TestEnvironment) -> String {
+    r#"
+[[ids.playlists]]
+name = "stock_release_radar"
+id = "3WuaniG4xcoEXAH3ZBmbqX"
 
-        [[ids.playlists]]
-    name="stock_release_radar"
-    id="3WuaniG4xcoEXAH3ZBmbqX"
-    "#
+[[ids.playlists]]
+name = "custom_release_radar"
+id = "46mIugmIiN2HYVwAwlaBAr"
+
+[[ids.playlists]]
+name = "lagging_release_radar"
+id = "AAAAAAAAAAAAAAAAAAAAAA"
+"#
     .to_string()
+}
+
+pub fn with_test_environment<R>(test: impl FnOnce(&TestEnvironment) -> R) -> R {
+    let _guard = ENV_MUTEX.lock().unwrap_or_else(|err| err.into_inner());
+
+    let env = unsafe { TestEnvironment::new() };
+
+    test(&env)
 }
 
 /// Generates malformed configuration TOML suitable for failure tests.

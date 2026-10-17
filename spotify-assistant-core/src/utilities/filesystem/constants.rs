@@ -65,18 +65,19 @@ struct ConstPlaylist {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_support::{TestEnvironment, constants_toml};
-
-    fn constants_fixture(env: &TestEnvironment) -> Constants {
-        let toml = constants_toml(env);
-        toml::from_str(&toml).expect("fixture configuration should deserialize")
-    }
+    use crate::test_support::{constants_toml, with_test_environment};
 
     #[test]
-    fn test_init() {
-        let env = unsafe { TestEnvironment::new() };
-        let constant = constants_fixture(&env);
-        // let consts = Constants::new();
-        println!("{:?}", constant);
+    fn constants_load_from_test_environment() {
+        with_test_environment(|env| {
+            fs::write(env.config_file("constants.toml"), constants_toml(env))
+                .expect("failed to write test constants");
+
+            let constants = Constants::new();
+
+            assert_eq!(constants.playlist_id("stock"), "3WuaniG4xcoEXAH3ZBmbqX");
+
+            assert_eq!(constants.playlist_id("custom"), "46mIugmIiN2HYVwAwlaBAr");
+        });
     }
 }

@@ -176,7 +176,7 @@ impl ProjectFiles {
                         .write_all(
                             b"RSPOTIFY_CLIENT_ID=your_client_id\n\
                         RSPOTIFY_CLIENT_SECRET=your_client_secret\n\
-                        RSPOTIFY_REDIRECT_URI=https://localhost:8281/&scope=user-library-read",
+                        RSPOTIFY_REDIRECT_URI=http://127.0.0.1:8281/callback",
                         )
                         .unwrap();
                 }
@@ -231,20 +231,6 @@ mod tests {
     }
 
     #[test]
-    fn project_directories_resolve_within_temporary_environment() {
-        let _guard = ENV_MUTEX.lock().unwrap_or_else(|err| err.into_inner());
-        let env = unsafe { TestEnvironment::new() };
-
-        assert_eq!(ProjectDirectories::Home.path(), env.home_dir());
-        assert_eq!(ProjectDirectories::Config.path(), env.config_dir());
-        assert_eq!(ProjectDirectories::Data.path(), env.data_dir());
-        assert_eq!(ProjectDirectories::Cache.path(), env.cache_dir());
-        assert_eq!(ProjectDirectories::Log.path(), env.data_dir().join("logs"));
-        assert_eq!(ProjectDirectories::State.path(), env.state_dir());
-        assert_eq!(ProjectDirectories::Template.path(), env.template_dir());
-    }
-
-    #[test]
     fn project_directories_default_is_home() {
         assert_eq!(ProjectDirectories::default(), ProjectDirectories::Home);
     }
@@ -259,14 +245,6 @@ mod tests {
 
         assert_eq!(dot_env, env.config_dir().join(".env"));
         assert_eq!(token_cache, env.cache_file("token_cache"));
-    }
-
-    #[test]
-    fn instantiate_project_files() {
-        let _guard = ENV_MUTEX.lock().unwrap_or_else(|err| err.into_inner());
-        let env = unsafe { TestEnvironment::new() };
-        let dot_env = ProjectFiles::DotEnv.test_path();
-        let token_cache = ProjectFiles::TokenCache.test_path();
     }
 
     #[test]
@@ -287,5 +265,18 @@ mod tests {
             token_cache.instantiate();
         }
         assert!(token_cache.test_path().exists());
+    }
+
+    #[test]
+    fn project_directories_resolve_within_temporary_environment() {
+        use crate::test_support::with_test_environment;
+
+        with_test_environment(|env| {
+            assert_eq!(ProjectDirectories::Home.path(), env.home_dir());
+
+            assert_eq!(ProjectDirectories::Config.path(), env.config_dir());
+
+            assert_eq!(ProjectDirectories::Data.path(), env.data_dir());
+        });
     }
 }

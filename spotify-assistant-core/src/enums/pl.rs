@@ -102,19 +102,28 @@ impl PlaylistType {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_support::{ENV_MUTEX, TestEnvironment, constants_toml};
     use rspotify::model::Id;
+    use std::fs;
 
     #[test]
     fn test_get_id() {
-        let stock_rr = PlaylistType::StockRR;
-        let my_rr = PlaylistType::MyRR;
-        let stock_id = stock_rr.get_id();
-        let my_id = my_rr.get_id();
+        let _guard = ENV_MUTEX.lock().unwrap_or_else(|err| err.into_inner());
+        let env = unsafe { TestEnvironment::new() };
+
+        fs::write(env.config_file("constants.toml"), constants_toml(&env))
+            .expect("failed to write test constants");
 
         assert_eq!(
-            stock_id.id().to_string(),
-            "3WuaniG4xcoEXAH3ZBmbqX".to_string()
+            PlaylistType::StockRR.get_id().id(),
+            "3WuaniG4xcoEXAH3ZBmbqX"
         );
-        assert_eq!(my_id.id().to_string(), "46mIugmIiN2HYVwAwlaBAr".to_string());
+
+        assert_eq!(PlaylistType::MyRR.get_id().id(), "46mIugmIiN2HYVwAwlaBAr");
+
+        assert_eq!(
+            PlaylistType::MyLaggingRR.get_id().id(),
+            "AAAAAAAAAAAAAAAAAAAAAA"
+        );
     }
 }

@@ -585,6 +585,7 @@ mod tests {
 
     #[test]
     fn configuration_serializes_and_deserializes_round_trip() {
+        let _guard = ENV_MUTEX.lock().unwrap_or_else(|err| err.into_inner());
         let env = unsafe { TestEnvironment::new() };
         let configuration = configuration_fixture(&env);
 

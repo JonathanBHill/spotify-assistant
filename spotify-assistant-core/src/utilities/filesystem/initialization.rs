@@ -547,26 +547,15 @@ mod tests {
     }
     #[test]
     fn test_initialize_directory() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let test_dir = temp_dir.path().join("test_dir");
+
         let init = ProjectFileSystem::default();
-        let dir = init.home_directory.test_path();
-        let test_dir = dir.clone().join("test_dir");
-        match init.initialize_directory(&test_dir.clone()) {
-            Ok(was_created) => {
-                assert!(was_created);
-            }
-            Err(e) => {
-                assert_eq!(e.kind(), ErrorKind::AlreadyExists);
-            }
-        };
+
+        assert_eq!(init.initialize_directory(&test_dir).unwrap(), true);
+
         assert!(test_dir.exists());
-        match init.initialize_directory(&test_dir.clone()) {
-            Ok(was_created) => {
-                assert!(!was_created);
-            }
-            Err(e) => {
-                assert_eq!(e.kind(), ErrorKind::AlreadyExists);
-            }
-        };
-        fs::remove_dir(test_dir).unwrap();
+
+        assert_eq!(init.initialize_directory(&test_dir).unwrap(), false);
     }
 }

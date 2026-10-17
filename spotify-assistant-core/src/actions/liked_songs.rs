@@ -269,7 +269,6 @@ impl UserLibrary {
 mod tests {
     use super::*;
     use crate::test_support::offline::OfflineObjects;
-    use std::sync::{Mutex, OnceLock};
     use tempfile::tempdir;
 
     fn sample_saved_track(label: &str) -> SavedTrack {
@@ -278,11 +277,6 @@ mod tests {
 
     fn sample_tracks() -> Vec<SavedTrack> {
         OfflineObjects::sample_saved_tracks()
-    }
-
-    fn env_mutex() -> &'static Mutex<()> {
-        static ENV_MUTEX: OnceLock<Mutex<()>> = OnceLock::new();
-        ENV_MUTEX.get_or_init(|| Mutex::new(()))
     }
 
     #[test]
@@ -377,58 +371,23 @@ mod tests {
         assert_eq!(parsed_tracks, tracks);
     }
 
-    struct EnvVarGuard {
-        key: &'static str,
-        original: Option<String>,
-    }
-
-    impl EnvVarGuard {
-        unsafe fn set(key: &'static str, value: &str) -> Self {
-            unsafe {
-                let original = std::env::var(key).ok();
-                std::env::set_var(key, value);
-                Self { key, original }
-            }
-        }
-    }
-
-    impl Drop for EnvVarGuard {
-        fn drop(&mut self) {
-            if let Some(ref value) = self.original {
-                unsafe {
-                    std::env::set_var(self.key, value);
-                }
-            } else {
-                unsafe {
-                    std::env::remove_var(self.key);
-                }
-            }
-        }
-    }
-
     #[test]
     fn load_from_file_reads_tracks_from_cache() {
-        let _guard = env_mutex().lock().expect("lock environment mutex");
-        let temp_dir = tempdir().expect("temporary directory");
-        let env_guard = unsafe {
-            EnvVarGuard::set(
-                "XDG_DATA_HOME",
-                temp_dir.path().to_str().expect("utf-8 path"),
+        use crate::test_support::with_test_environment;
+
+        with_test_environment(|env| {
+            let file_path = env.data_dir().join("liked_songs.json");
+            let tracks = sample_tracks();
+
+            fs::write(
+                &file_path,
+                serde_json::to_string(&tracks).expect("serialize saved tracks"),
             )
-        };
-        let data_dir = ProjectDirectories::Data.path();
-        fs::create_dir_all(&data_dir).expect("create data directory");
-        let file_path = data_dir.join("liked_songs.json");
-        let tracks = sample_tracks();
-        fs::write(
-            &file_path,
-            serde_json::to_string(&tracks).expect("serialize tracks"),
-        )
-        .expect("write tracks to cache");
+            .expect("write saved tracks fixture");
 
-        let loaded = UserLibrary::load_from_file().expect("load tracks from cache");
-        assert_eq!(loaded, tracks);
+            let loaded = UserLibrary::load_from_file().expect("load tracks from cache");
 
-        drop(env_guard);
+            assert_eq!(loaded, tracks);
+        });
     }
 }
