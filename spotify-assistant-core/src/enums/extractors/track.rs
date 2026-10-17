@@ -49,37 +49,6 @@ impl TracksExtractor {
         }
     }
 
-    pub fn available_markets(&self) -> Result<Vec<Vec<String>>, SpotifyAssistantError> {
-        let markets = match self {
-            TracksExtractor::SavedTracks(tracks) => {
-                collect_model_field!(umap, tracks, |track: &SavedTrack| track
-                    .track
-                    .available_markets
-                    .clone())
-            }
-            TracksExtractor::FullTracks(tracks) => {
-                collect_model_field!(umap, tracks, |track: &FullTrack| track
-                    .available_markets
-                    .clone())
-            }
-            TracksExtractor::SimplifiedTracks(tracks) => {
-                collect_model_field!(
-                    umap,
-                    tracks,
-                    |track: &SimplifiedTrack| { track.available_markets.clone() },
-                    vec![String::new()]
-                )
-            }
-            TracksExtractor::TrackLinks(_) => {
-                return Err(NotAvailableForVariant {
-                    action: "return added_at information",
-                    variant_label: "TracksExtractor::TrackLinks variant",
-                }
-                .into());
-            }
-        };
-        Ok(markets)
-    }
     pub fn disc_numbers(&self) -> Result<Vec<u32>, SpotifyAssistantError> {
         let disk_nums = match self {
             TracksExtractor::SavedTracks(tracks) => {

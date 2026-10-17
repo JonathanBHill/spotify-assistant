@@ -75,7 +75,6 @@ impl OfflineObjects {
                 "id": artist_id,
                 "name": artist_name,
             }],
-            "available_markets": [],
             "external_urls": {"spotify": "https://example.com/album"},
             "href": format!("https://api.spotify.com/v1/albums/{id}"),
             "id": id,
@@ -102,7 +101,6 @@ impl OfflineObjects {
                 "id": artist_id,
                 "name": artist_name,
             }],
-            "available_markets": [],
             "disc_number": 1,
             "duration_ms": 120000,
             "explicit": false,
@@ -130,7 +128,6 @@ impl OfflineObjects {
         serde_json::from_value(json!({
             "album_type": "album",
             "total_tracks": tracks.len(),
-            "available_markets": [],
             "external_urls": {"spotify": "https://example.com/album"},
             "href": format!("https://api.spotify.com/v1/albums/{}", album_id.id()),
             "id": album_id.id(),
@@ -248,7 +245,6 @@ impl OfflineObjects {
                         "id": artist_id,
                         "name": "Example Artist"
                     }],
-                    "available_markets": [],
                     "external_urls": {"spotify": "https://example.com/album"},
                     "href": album_href,
                     "id": album_id,
@@ -264,7 +260,6 @@ impl OfflineObjects {
                     "id": artist_id,
                     "name": "Example Artist"
                 }],
-                "available_markets": [],
                 "disc_number": 1,
                 "duration_ms": 180000,
                 "explicit": false,

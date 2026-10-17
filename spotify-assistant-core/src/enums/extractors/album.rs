@@ -71,51 +71,6 @@ impl AlbumsExtractor {
             .collect()
     }
 
-    // pub fn artists_by_album(&self) -> Option<Vec<Vec<SimplifiedArtist>>> {
-    //     if let Some(artists_extractor) = self.artists() {
-    //         artists_extractor.full()
-    //     } else {
-    //         None
-    //     }
-    // }
-
-    pub fn available_markets(&self) -> Vec<Vec<String>> {
-        match self {
-            AlbumsExtractor::SavedAlbums(albums) => {
-                collect_model_field!(
-                    umap,
-                    albums,
-                    |album: &SavedAlbum| {
-                        album
-                            .album
-                            .available_markets
-                            .as_ref()
-                            .map(|markets| markets.clone())
-                    },
-                    vec![String::new()]
-                )
-            }
-            AlbumsExtractor::FullAlbums(albums) => {
-                collect_model_field!(
-                    umap,
-                    albums,
-                    |album: &FullAlbum| {
-                        album
-                            .available_markets
-                            .as_ref()
-                            .map(|markets| markets.clone())
-                    },
-                    vec![String::new()]
-                )
-            }
-            AlbumsExtractor::SimplifiedAlbums(albums) => {
-                collect_model_field!(umap, albums, |album: &SimplifiedAlbum| album
-                    .available_markets
-                    .clone())
-            }
-        }
-    }
-
     pub fn groups(&self) -> Result<Vec<String>, SpotifyAssistantError> {
         match self {
             AlbumsExtractor::SavedAlbums(_) | AlbumsExtractor::FullAlbums(_) => return Err(NotAvailableForVariant {

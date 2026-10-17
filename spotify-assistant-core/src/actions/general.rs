@@ -545,6 +545,15 @@ mod tests {
                 previous: None,
                 total: 1,
             },
+            items: Page {
+                href: "https://example.com/playlist/tracks".to_string(),
+                items: vec![PlaylistItem::default()],
+                limit: 1,
+                next: None,
+                offset: 0,
+                previous: None,
+                total: 1,
+            },
         }
     }
 
