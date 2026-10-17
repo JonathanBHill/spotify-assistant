@@ -8,4 +8,4 @@ description = "Contains the spotify assistant utility's data analytics logic for
 tracing.workspace = true
 spotify-assistant-core.workspace = true
 
-polars = { version = "0.51.0", features = ["lazy", "fmt", "temporal", "json", "polars-plan", "strings", "polars-io", "parquet", "cum_agg"] }
+polars = { version = "0.55.2", features = ["lazy", "fmt", "temporal", "json", "strings", "polars-io", "parquet", "cum_agg"] }
