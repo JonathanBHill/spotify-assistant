@@ -1,4 +1,6 @@
-use rspotify::model::{AlbumType, DatePrecision, FullAlbum, FullArtist, SimplifiedAlbum, SimplifiedArtist};
+use rspotify::model::{
+    AlbumType, DatePrecision, FullAlbum, FullArtist, SimplifiedAlbum, SimplifiedArtist,
+};
 
 pub trait ToSimplifiedAlbum {
     fn to_simplified_album(&self) -> SimplifiedAlbum;

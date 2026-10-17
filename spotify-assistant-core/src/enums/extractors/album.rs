@@ -71,24 +71,6 @@ impl AlbumsExtractor {
             .collect()
     }
 
-    pub fn groups(&self) -> Result<Vec<String>, SpotifyAssistantError> {
-        match self {
-            AlbumsExtractor::SavedAlbums(_) | AlbumsExtractor::FullAlbums(_) => return Err(NotAvailableForVariant {
-                action: "return the album group for the spotify object",
-                variant_label: "[AlbumsExtractor::SavedAlbums, AlbumsExtractor::FullAlbums] variants",
-            }.into()),
-            AlbumsExtractor::SimplifiedAlbums(albums) => {
-                let groups = collect_model_field!(
-                    umap,
-                    albums,
-                    |album: &SimplifiedAlbum| album.album_group.clone(),
-                    String::from("none")
-                );
-                Ok(groups)
-            }
-        }
-    }
-
     pub fn hrefs(&self) -> Vec<String> {
         match self {
             AlbumsExtractor::SavedAlbums(albums) => {
@@ -301,5 +283,42 @@ impl AlbumsExtractor {
                 )
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::test_support::offline::OfflineObjects;
+
+    #[test]
+    fn types_extracts_album_types() {
+        let artist_id = "CCCCCCCCCCCCCCCCCCCCCC";
+
+        let albums = vec![
+            OfflineObjects::album_simplified(
+                "AAAAAAAAAAAAAAAAAAAAAA",
+                "Example Album",
+                "album",
+                "2024-01-01",
+                artist_id,
+                "Example Artist",
+            ),
+            OfflineObjects::album_simplified(
+                "BBBBBBBBBBBBBBBBBBBBBB",
+                "Example Single",
+                "single",
+                "2024-02-01",
+                artist_id,
+                "Example Artist",
+            ),
+        ];
+
+        let extractor = AlbumsExtractor::SimplifiedAlbums(albums);
+
+        assert_eq!(
+            extractor.types(),
+            vec!["album".to_string(), "single".to_string()]
+        );
     }
 }

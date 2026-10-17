@@ -67,7 +67,6 @@ impl OfflineObjects {
         artist_name: &str,
     ) -> SimplifiedAlbum {
         serde_json::from_value(json!({
-            "album_group": null,
             "album_type": album_type,
             "artists": [{
                 "external_urls": {"spotify": "https://example.com/artist"},
@@ -237,7 +236,6 @@ impl OfflineObjects {
             "added_at": "2024-01-01T00:00:00Z",
             "track": {
                 "album": {
-                    "album_group": null,
                     "album_type": "album",
                     "artists": [{
                         "external_urls": {"spotify": "https://example.com/artist"},
