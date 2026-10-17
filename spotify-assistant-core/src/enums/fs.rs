@@ -248,23 +248,29 @@ mod tests {
     }
 
     #[test]
-    fn do_project_files_resolve_within_temporary_environment() {
-        let _guard = ENV_MUTEX.lock().unwrap_or_else(|err| err.into_inner());
-        let env = unsafe { TestEnvironment::new() };
-        let dot_env = ProjectFiles::DotEnv;
-        let token_cache = ProjectFiles::TokenCache;
+    fn project_files_are_instantiated_in_test_environment() {
+        use crate::test_support::with_test_environment;
 
-        println!("Checking if the {:?} file exists", dot_env.test_path());
-        if !dot_env.test_path().exists() {
-            dot_env.instantiate();
-        }
-        assert!(dot_env.test_path().exists());
+        with_test_environment(|env| {
+            let dotenv = ProjectFiles::DotEnv.path();
+            let token = ProjectFiles::TokenCache.path();
 
-        println!("Checking if the {:?} file exists", token_cache.test_path());
-        if !token_cache.test_path().exists() {
-            token_cache.instantiate();
-        }
-        assert!(token_cache.test_path().exists());
+            assert_eq!(dotenv, env.config_file(".env"));
+            assert_eq!(token, env.cache_file("token_cache"));
+
+            assert!(!dotenv.exists());
+            assert!(!token.exists());
+
+            ProjectFiles::DotEnv.instantiate();
+            ProjectFiles::TokenCache.instantiate();
+
+            assert!(dotenv.is_file());
+            assert!(token.is_file());
+
+            let contents = std::fs::read_to_string(dotenv).unwrap();
+
+            assert!(contents.contains("RSPOTIFY_REDIRECT_URI=http://127.0.0.1:8281/callback"));
+        });
     }
 
     #[test]

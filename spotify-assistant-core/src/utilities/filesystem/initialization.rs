@@ -504,9 +504,6 @@ impl ProjectFileSystem {
 
 #[cfg(test)]
 mod tests {
-    use std::fs;
-    use std::io::ErrorKind;
-
     use super::*;
 
     #[test]
@@ -521,30 +518,31 @@ mod tests {
 
     #[test]
     fn test_new() {
-        let init = ProjectFileSystem::new();
-        assert_eq!(
-            init.home_directory.test_path(),
-            ProjectDirectories::Home.test_path()
-        );
+        use crate::test_support::with_test_environment;
+
+        with_test_environment(|env| {
+            let init = ProjectFileSystem::new();
+
+            assert_eq!(init.home_directory.path(), env.home_dir());
+            assert_eq!(init.config_directory.path(), env.config_dir());
+        });
     }
+
     #[test]
     fn test_create_file() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let file = temp_dir.path().join("test_file");
+
         let init = ProjectFileSystem::default();
-        let file = init.home_directory.test_path().join("test_file");
-        println!("Preparing to write to file, {:?}", file);
-        match init.create_file(file.clone()) {
-            Ok(_) => {
-                assert!(file.exists());
-            }
-            Err(e) => {
-                println!("Could not create the file because it already exists");
-                assert_eq!(e.kind(), ErrorKind::AlreadyExists);
-            }
-        };
-        println!("Removing the file, {:?}", file);
-        fs::remove_file(file.clone()).unwrap();
+
         assert!(!file.exists());
+
+        init.create_file(file.clone())
+            .expect("file creation should succeed");
+
+        assert!(file.is_file());
     }
+
     #[test]
     fn test_initialize_directory() {
         let temp_dir = tempfile::tempdir().unwrap();
